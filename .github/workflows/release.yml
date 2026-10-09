@@ -1,0 +1,50 @@
+name: release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # A restored module cache keeps the version a commit had before it was tagged.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # Built outside the checkout: an untracked file there would stamp the version +dirty.
+      - name: build
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: go build -trimpath -ldflags="-s -w -H=windowsgui" -o "$RUNNER_TEMP/dist/normprichel.exe" ./cmd/normprichel
+
+      - name: size
+        run: |
+          size=$(stat -c %s "$RUNNER_TEMP/dist/normprichel.exe")
+          echo "normprichel.exe: $size bytes"
+          test "$size" -le $((10 * 1024 * 1024))
+
+      - name: sums
+        working-directory: ${{ runner.temp }}/dist
+        run: sha256sum normprichel.exe > SHA256SUMS
+
+      - name: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/dist/normprichel.exe" "$RUNNER_TEMP/dist/SHA256SUMS" --draft --generate-notes --title "$GITHUB_REF_NAME"

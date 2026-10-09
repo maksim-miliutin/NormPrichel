@@ -12,7 +12,10 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 )
 
-var white = crosshair.RGB{R: 255, G: 255, B: 255}
+var (
+	white = crosshair.RGB{R: 255, G: 255, B: 255}
+	black = crosshair.RGB{}
+)
 
 type reference struct {
 	name  string
@@ -171,6 +174,41 @@ var references = []reference{
 			".+++++++.",
 		},
 	},
+	{
+		name:  "outline frames a dot on every side and corner",
+		style: crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
+		want: []string{
+			"ooo",
+			"o#o",
+			"ooo",
+		},
+	},
+	{
+		name:  "outlines of the arms meet across a narrow gap",
+		style: crosshair.Style{Shape: crosshair.Cross, Color: white, Opacity: 100, Length: 2, Thickness: 1, Gap: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
+		want: []string{
+			"..ooo..",
+			"..o#o..",
+			"ooo#ooo",
+			"o##o##o",
+			"ooo#ooo",
+			"..o#o..",
+			"..ooo..",
+		},
+	},
+	{
+		name:  "outlined tee keeps the frame of the outlined cross",
+		style: crosshair.Style{Shape: crosshair.Tee, Color: white, Opacity: 100, Length: 2, Thickness: 1, Gap: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
+		want: []string{
+			".......",
+			".......",
+			"ooooooo",
+			"o##o##o",
+			"ooo#ooo",
+			"..o#o..",
+			"..ooo..",
+		},
+	},
 }
 
 func TestShapesMatchHandDrawnReferences(t *testing.T) {
@@ -198,7 +236,8 @@ func TestRingPixelsFollowTheAnnulus(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if bad := strayPixels(img, annulus{inner: max(0, 2*radius-thickness), outer: 2*radius + thickness}); bad != "" {
+			fill := band{ring: annulus{inner: max(0, 2*radius-thickness), outer: 2*radius + thickness}, colour: color.RGBA{R: 255, G: 255, B: 255, A: 255}}
+			if bad := strayPixels(img, fill); bad != "" {
 				t.Errorf("radius %d thickness %d: %s", radius, thickness, bad)
 			}
 		}
@@ -289,23 +328,38 @@ type annulus struct {
 	inner, outer int
 }
 
-// strayPixels names the first pixel that lies wholly inside the band yet is not opaque, or
-// wholly outside it yet holds any ink. Everything counts in half pixels, so it stays exact.
-func strayPixels(img *image.RGBA, ring annulus) string {
+type band struct {
+	ring   annulus
+	colour color.RGBA
+}
+
+// strayPixels names the first pixel that lies wholly inside a band yet differs from its colour,
+// or wholly outside every band yet holds ink. Everything counts in half pixels, so it stays exact.
+func strayPixels(img *image.RGBA, bands ...band) string {
 	centre := img.Bounds().Dx()
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
-			near, far := reach(2*x-centre, 2*y-centre)
-			alpha := img.RGBAAt(x, y).A
-			inside := near >= ring.inner*ring.inner && far <= ring.outer*ring.outer
-			outside := near > ring.outer*ring.outer || far < ring.inner*ring.inner
-			if inside && alpha != 255 || outside && alpha != 0 {
-				return fmt.Sprintf("pixel %d,%d has alpha %d", x, y, alpha)
+			want, decided := expected(bands, 2*x-centre, 2*y-centre)
+			if got := img.RGBAAt(x, y); decided && got != want {
+				return fmt.Sprintf("pixel %d,%d is %v, want %v", x, y, got, want)
 			}
 		}
 	}
 
 	return ""
+}
+
+func expected(bands []band, x, y int) (color.RGBA, bool) {
+	near, far := reach(x, y)
+	clear := true
+	for _, b := range bands {
+		if near >= b.ring.inner*b.ring.inner && far <= b.ring.outer*b.ring.outer {
+			return b.colour, true
+		}
+		clear = clear && (near > b.ring.outer*b.ring.outer || far < b.ring.inner*b.ring.inner)
+	}
+
+	return color.RGBA{}, clear
 }
 
 // reach gives the squared distances from the centre to the nearest and farthest points of
@@ -404,6 +458,43 @@ func TestOpacityScalesColourAndAlphaAlike(t *testing.T) {
 	}
 }
 
+func TestOutlineTakesItsOwnColourAndTheSharedOpacity(t *testing.T) {
+	outline := crosshair.Outline{Width: 1, Color: crosshair.RGB{R: 10, G: 20, B: 30}}
+	img, err := crosshair.Draw(crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 50, DotSize: 1, Outline: outline})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := img.RGBAAt(0, 0), (color.RGBA{R: 5, G: 10, B: 15, A: 128}); got != want {
+		t.Errorf("outline corner %v, want %v", got, want)
+	}
+	if got, want := img.RGBAAt(1, 1), (color.RGBA{R: 128, G: 128, B: 128, A: 128}); got != want {
+		t.Errorf("fill %v, want %v", got, want)
+	}
+}
+
+func TestRingOutlineHugsBothEdges(t *testing.T) {
+	for _, radius := range []int{3, 10, 64} {
+		for _, thickness := range []int{1, 2, 8} {
+			for _, width := range []int{1, 4} {
+				style := crosshair.Style{Shape: crosshair.Circle, Color: white, Opacity: 100, Radius: radius, Thickness: thickness, Outline: crosshair.Outline{Width: width, Color: black}}
+				img, err := crosshair.Draw(style)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				inner, outer := max(0, 2*radius-thickness), 2*radius+thickness
+				fill := band{ring: annulus{inner: inner, outer: outer}, colour: color.RGBA{R: 255, G: 255, B: 255, A: 255}}
+				inside := band{ring: annulus{inner: max(0, inner-2*width), outer: inner}, colour: color.RGBA{A: 255}}
+				outside := band{ring: annulus{inner: outer, outer: outer + 2*width}, colour: color.RGBA{A: 255}}
+				if bad := strayPixels(img, fill, inside, outside); bad != "" {
+					t.Errorf("%+v: %s", style, bad)
+				}
+			}
+		}
+	}
+}
+
 func TestOutOfRangeValuesDrawAsTheNearestLimit(t *testing.T) {
 	style := crosshair.Style{Shape: crosshair.Cross, Color: white, Opacity: 0, Length: 1000, Thickness: 99, Gap: -5}
 	img, err := crosshair.Draw(style)
@@ -435,6 +526,14 @@ func TestOutOfRangeValuesDrawAsTheNearestLimit(t *testing.T) {
 	}
 	if got := tiny.Bounds(); got != image.Rect(0, 0, 1, 1) {
 		t.Errorf("dot of size 0 drew %v, want the one pixel floor", got)
+	}
+
+	framed, err := crosshair.Draw(crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 10, Color: black}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := framed.Bounds(); got != image.Rect(0, 0, 9, 9) {
+		t.Errorf("outline of width 10 drew %v, want the 4 pixel ceiling around one pixel", got)
 	}
 }
 
@@ -480,7 +579,7 @@ func TestArmsClearOfEachOtherHoldLengthTimesThicknessPixels(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if got, want := opaque(img), count*style.Length*style.Thickness; got != want {
+			if got, want := filled(img), count*style.Length*style.Thickness; got != want {
 				t.Errorf("%+v holds %d pixels, want %d", style, got, want)
 			}
 		}
@@ -488,10 +587,10 @@ func TestArmsClearOfEachOtherHoldLengthTimesThicknessPixels(t *testing.T) {
 }
 
 func styles(shape crosshair.Shape) []crosshair.Style {
-	const thicknesses, gaps, lengths, dots = 6, 4, 5, 4
+	const thicknesses, gaps, lengths, dots, widths = 6, 4, 5, 4, 3
 
 	var out []crosshair.Style
-	for i := 0; i < thicknesses*gaps*lengths*dots; i++ {
+	for i := 0; i < thicknesses*gaps*lengths*dots*widths; i++ {
 		out = append(out, crosshair.Style{
 			Shape:     shape,
 			Color:     white,
@@ -500,6 +599,7 @@ func styles(shape crosshair.Shape) []crosshair.Style {
 			Gap:       i / thicknesses % gaps,
 			Length:    1 + i/(thicknesses*gaps)%lengths,
 			DotSize:   1 + i/(thicknesses*gaps*lengths)%dots,
+			Outline:   crosshair.Outline{Width: i / (thicknesses * gaps * lengths * dots) % widths, Color: black},
 		})
 	}
 
@@ -525,6 +625,8 @@ func glyph(c color.RGBA) byte {
 		return '.'
 	case c == color.RGBA{R: 255, G: 255, B: 255, A: 255}:
 		return '#'
+	case c == color.RGBA{A: 255}:
+		return 'o'
 	case c.R == c.A && c.G == c.A && c.B == c.A:
 		return '+'
 	}
@@ -560,10 +662,10 @@ func same(a, b *image.RGBA) bool {
 	return a.Bounds() == b.Bounds() && string(a.Pix) == string(b.Pix)
 }
 
-func opaque(img *image.RGBA) int {
+func filled(img *image.RGBA) int {
 	count := 0
-	for i := 3; i < len(img.Pix); i += 4 {
-		if img.Pix[i] != 0 {
+	for i := 0; i < len(img.Pix); i += 4 {
+		if img.Pix[i] == 255 && img.Pix[i+3] == 255 {
 			count++
 		}
 	}

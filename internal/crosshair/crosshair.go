@@ -32,6 +32,12 @@ type Style struct {
 	Gap       int
 	Radius    int
 	DotSize   int
+	Outline   Outline
+}
+
+type Outline struct {
+	Width int // zero turns the outline off
+	Color RGB
 }
 
 var ErrUnknownShape = errors.New("crosshair: unknown shape")
@@ -59,6 +65,7 @@ var (
 	gapLimit       = limit{min: 0, max: 32}
 	radiusLimit    = limit{min: 2, max: 64}
 	dotLimit       = limit{min: 1, max: 16}
+	outlineLimit   = limit{min: 0, max: 4}
 )
 
 // Each pixel is sampled on a samples by samples grid, counted in steps of 1/(2*samples) of a
@@ -79,18 +86,24 @@ func Shapes() []Shape {
 func Draw(s Style) (*image.RGBA, error) {
 	s = s.clamped()
 
-	ps, err := partsOf(s)
+	fill, err := partsOf(s)
 	if err != nil {
 		return nil, err
 	}
 
-	reach := ps.reach()
-	size := 2*reach + ps.parity
+	edge := parts{parity: fill.parity}
+	if s.Outline.Width > 0 {
+		edge = fill.grown(s.Outline.Width)
+	}
+
+	reach := max(fill.reach(), edge.reach())
+	size := 2*reach + fill.parity
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
-			img.SetRGBA(x, y, paint(s.Color, s.Opacity, ps.coverage(x-reach, y-reach)))
+			dx, dy := x-reach, y-reach
+			img.SetRGBA(x, y, s.paint(layered(fill.coverage(dx, dy), edge.coverage(dx, dy))))
 		}
 	}
 
@@ -104,6 +117,7 @@ func (s Style) clamped() Style {
 	s.Gap = gapLimit.clamp(s.Gap)
 	s.Radius = radiusLimit.clamp(s.Radius)
 	s.DotSize = dotLimit.clamp(s.DotSize)
+	s.Outline.Width = outlineLimit.clamp(s.Outline.Width)
 
 	return s
 }
@@ -178,6 +192,24 @@ func centred(n, parity int) span {
 	return span{lo: lo, hi: lo + n - 1}
 }
 
+func (ps parts) grown(width int) parts {
+	rects := make([]rect, len(ps.rects))
+	for i, r := range ps.rects {
+		rects[i] = rect{x: r.x.widened(width), y: r.y.widened(width)}
+	}
+
+	rings := make([]ring, len(ps.rings))
+	for i, r := range ps.rings {
+		rings[i] = ring{inner: max(0, r.inner-2*width), outer: r.outer + 2*width}
+	}
+
+	return parts{parity: ps.parity, rects: rects, rings: rings}
+}
+
+func (s span) widened(width int) span {
+	return span{lo: s.lo - width, hi: s.hi + width}
+}
+
 func (ps parts) reach() int {
 	reach := 0
 	for _, r := range ps.rects {
@@ -231,17 +263,26 @@ func (ps parts) inRing(squared int) bool {
 	return false
 }
 
-func paint(c RGB, opacity, cover int) color.RGBA {
+// The fill lies over the outline; both weights count in full*full parts of a pixel.
+type weights struct {
+	fill, edge int
+}
+
+func layered(fill, edge int) weights {
+	return weights{fill: fill * full, edge: edge * (full - fill)}
+}
+
+func (s Style) paint(w weights) color.RGBA {
 	return color.RGBA{
-		R: shade(c.R, opacity, cover),
-		G: shade(c.G, opacity, cover),
-		B: shade(c.B, opacity, cover),
-		A: shade(255, opacity, cover),
+		R: s.mix(s.Color.R, s.Outline.Color.R, w),
+		G: s.mix(s.Color.G, s.Outline.Color.G, w),
+		B: s.mix(s.Color.B, s.Outline.Color.B, w),
+		A: s.mix(255, 255, w),
 	}
 }
 
-func shade(v uint8, percent, cover int) uint8 {
-	return uint8(roundedRatio(int(v)*percent*cover, 100*full))
+func (s Style) mix(fill, edge uint8, w weights) uint8 {
+	return uint8(roundedRatio((int(fill)*w.fill+int(edge)*w.edge)*s.Opacity, 100*full*full))
 }
 
 func roundedRatio(num, den int) int {

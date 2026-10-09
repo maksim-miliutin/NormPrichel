@@ -1,6 +1,7 @@
 package crosshair
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"image"
@@ -24,23 +25,26 @@ type RGB struct {
 }
 
 type Style struct {
-	Shape     Shape
-	Color     RGB
-	Opacity   int // percent
-	Length    int
-	Thickness int
-	Gap       int
-	Radius    int
-	DotSize   int
-	Outline   Outline
+	Shape     Shape   `json:"shape"`
+	Color     RGB     `json:"color"`
+	Opacity   int     `json:"opacity"` // percent
+	Length    int     `json:"length"`
+	Thickness int     `json:"thickness"`
+	Gap       int     `json:"gap"`
+	Radius    int     `json:"radius"`
+	DotSize   int     `json:"dot"`
+	Outline   Outline `json:"outline"`
 }
 
 type Outline struct {
-	Width int // zero turns the outline off
-	Color RGB
+	Width int `json:"width"` // zero turns the outline off
+	Color RGB `json:"color"`
 }
 
-var ErrUnknownShape = errors.New("crosshair: unknown shape")
+var (
+	ErrUnknownShape = errors.New("crosshair: unknown shape")
+	ErrBadColour    = errors.New("crosshair: a colour is written as #RRGGBB")
+)
 
 var shapes = []struct {
 	shape Shape
@@ -73,6 +77,39 @@ var (
 const samples = 16
 
 const full = samples * samples
+
+func Default() Style {
+	return Style{
+		Shape:     CrossDot,
+		Color:     RGB{R: 0x00, G: 0xFF, B: 0x66},
+		Opacity:   100,
+		Length:    8,
+		Thickness: 2,
+		Gap:       3,
+		Radius:    10,
+		DotSize:   2,
+		Outline:   Outline{Width: 1, Color: RGB{}},
+	}
+}
+
+func (c RGB) MarshalText() ([]byte, error) {
+	return fmt.Appendf(nil, "#%02X%02X%02X", c.R, c.G, c.B), nil
+}
+
+func (c *RGB) UnmarshalText(text []byte) error {
+	if len(text) != 7 || text[0] != '#' {
+		return fmt.Errorf("%w: %q", ErrBadColour, text)
+	}
+
+	channels, err := hex.DecodeString(string(text[1:]))
+	if err != nil {
+		return fmt.Errorf("%w: %q: %w", ErrBadColour, text, err)
+	}
+
+	*c = RGB{R: channels[0], G: channels[1], B: channels[2]}
+
+	return nil
+}
 
 func Shapes() []Shape {
 	names := make([]Shape, len(shapes))

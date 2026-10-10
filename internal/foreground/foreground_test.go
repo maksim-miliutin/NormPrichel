@@ -99,6 +99,48 @@ func TestNothingShows(t *testing.T) {
 	}
 }
 
+func TestTheGameInFrontIsFoundWhileTheCrosshairIsHidden(t *testing.T) {
+	hidden := listed()
+	hidden.Visible = false
+	d := &desktop{window: foreground.Window{Handle: 10, Process: 42, Client: client}, processes: processes}
+	watcher := foreground.NewWatcher(d, own)
+
+	if _, ok, err := watcher.Target(hidden); err != nil || ok {
+		t.Errorf("target: got %v, %v; want no crosshair while it is hidden", ok, err)
+	}
+
+	front, ok, err := watcher.Front(hidden)
+	if err != nil || !ok || front.Game.Name != "STALZONE" || front.Client != client {
+		t.Errorf("front: got %+v, %v, %v; want the STALZONE profile over %v", front, ok, err, client)
+	}
+}
+
+func TestNoGameIsInFront(t *testing.T) {
+	cases := []struct {
+		when   string
+		window foreground.Window
+	}{
+		{when: "while Windows is between two windows", window: foreground.Window{}},
+		{when: "over a window of this very program", window: foreground.Window{Handle: 11, Process: own}},
+		{when: "while the game is minimised", window: foreground.Window{Handle: 10, Process: 42, Minimized: true}},
+		{when: "over a game switched off for now", window: foreground.Window{Handle: 12, Process: 43}},
+		{when: "over a program off the list", window: foreground.Window{Handle: 13, Process: 44}},
+		{when: "over a window whose process has exited", window: foreground.Window{Handle: 14, Process: 99}},
+	}
+
+	for _, c := range cases {
+		d := &desktop{window: c.window, processes: processes}
+
+		front, ok, err := foreground.NewWatcher(d, own).Front(listed())
+		if err != nil {
+			t.Fatalf("%s: %v", c.when, err)
+		}
+		if ok {
+			t.Errorf("%s: got %+v, want nothing", c.when, front)
+		}
+	}
+}
+
 func TestSwitchingWindowsTakesNoSnapshot(t *testing.T) {
 	d := &desktop{window: foreground.Window{Handle: 10, Process: 42}, processes: processes}
 	watcher := foreground.NewWatcher(d, own)

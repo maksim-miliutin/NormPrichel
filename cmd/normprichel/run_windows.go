@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
+	"github.com/maksim-miliutin/NormPrichel/internal/live"
 	"github.com/maksim-miliutin/NormPrichel/internal/overlay"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
@@ -20,6 +21,8 @@ func run() error {
 	store := profiles.Store{Disk: profiles.OS{}, Dir: dir}
 	settings, err := store.Load()
 	report(err)
+	state := live.New(settings, store, reporter(os.Stderr))
+	defer state.Close()
 
 	window := &overlay.Window{}
 	watcher := foreground.NewWatcher(foreground.System{}, uint32(os.Getpid()))
@@ -32,5 +35,5 @@ func run() error {
 		window.Stop()
 	}()
 
-	return window.Run(func() { report(controller.Refresh(settings)) })
+	return window.Run(func() { report(controller.Refresh(state.Current())) })
 }

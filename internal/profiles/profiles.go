@@ -130,7 +130,7 @@ func (s Settings) Game(exe string) (Game, bool) {
 
 func (g *Game) UnmarshalJSON(text []byte) error {
 	type plain Game
-	decoded := plain{Enabled: true, Crosshair: defaultCrosshair()}
+	decoded := plain{Enabled: true, Crosshair: DefaultCrosshair()}
 	if err := json.Unmarshal(text, &decoded); err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (g *Game) UnmarshalJSON(text []byte) error {
 // Saved embeds Crosshair, so a decoder on Crosshair would be promoted and swallow Name.
 func (s *Saved) UnmarshalJSON(text []byte) error {
 	type plain Saved
-	decoded := plain{Crosshair: defaultCrosshair()}
+	decoded := plain{Crosshair: DefaultCrosshair()}
 	if err := json.Unmarshal(text, &decoded); err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (s *Saved) UnmarshalJSON(text []byte) error {
 	return nil
 }
 
-func defaultCrosshair() Crosshair {
+func DefaultCrosshair() Crosshair {
 	return Crosshair{Style: crosshair.Default(), Scale: 100}
 }
 

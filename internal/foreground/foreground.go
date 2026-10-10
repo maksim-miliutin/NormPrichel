@@ -42,8 +42,18 @@ func NewWatcher(desktop Desktop, own uint32) *Watcher {
 }
 
 func (w *Watcher) Target(settings profiles.Settings) (Target, bool, error) {
+	if !settings.Visible {
+		return Target{}, false, nil
+	}
+
+	return w.Front(settings)
+}
+
+// Front finds the game in front even while the crosshair is hidden: the hotkeys still answer
+// there, or the one that shows the crosshair again could never be pressed.
+func (w *Watcher) Front(settings profiles.Settings) (Target, bool, error) {
 	window := w.desktop.Foreground()
-	if window.Handle == 0 || window.Process == w.own || window.Minimized || !settings.Visible {
+	if window.Handle == 0 || window.Process == w.own || window.Minimized {
 		return Target{}, false, nil
 	}
 

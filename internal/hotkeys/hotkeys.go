@@ -26,32 +26,49 @@ const (
 
 type Binding struct {
 	Action    int
+	Field     string // the hotkeys field of the settings file it comes from
 	Modifiers uint32
 	Key       uint32 // a Windows virtual-key code
 	Repeat    bool   // a held key keeps acting
 	Text      string
 }
 
+type field struct {
+	name   string
+	access func(h *profiles.Hotkeys) *string
+	arrows bool
+}
+
+// The nudge fields hold modifiers alone, and each of them binds the four arrows.
+var (
+	toggleField = field{name: "toggle", access: func(h *profiles.Hotkeys) *string { return &h.Toggle }}
+	nudgeField  = field{name: "nudge", access: func(h *profiles.Hotkeys) *string { return &h.Nudge }, arrows: true}
+	farField    = field{name: "nudgeFar", access: func(h *profiles.Hotkeys) *string { return &h.NudgeFar }, arrows: true}
+	centreField = field{name: "center", access: func(h *profiles.Hotkeys) *string { return &h.Center }}
+	nextField   = field{name: "next", access: func(h *profiles.Hotkeys) *string { return &h.Next }}
+
+	fields = []field{toggleField, nudgeField, farField, centreField, nextField}
+)
+
 type action struct {
 	name  string
-	field func(h *profiles.Hotkeys) *string
+	field field
 	arrow string
 	apply func(s profiles.Settings, exe string) (profiles.Settings, error)
 }
 
-// The nudge fields hold modifiers alone, and each of them binds the four arrows.
 var actions = []action{
-	{name: "toggle", field: toggleKey, apply: toggled},
-	{name: "nudge left", field: nudgeKeys, arrow: "Left", apply: nudged(-1, 0)},
-	{name: "nudge right", field: nudgeKeys, arrow: "Right", apply: nudged(1, 0)},
-	{name: "nudge up", field: nudgeKeys, arrow: "Up", apply: nudged(0, -1)},
-	{name: "nudge down", field: nudgeKeys, arrow: "Down", apply: nudged(0, 1)},
-	{name: "far nudge left", field: farKeys, arrow: "Left", apply: nudged(-10, 0)},
-	{name: "far nudge right", field: farKeys, arrow: "Right", apply: nudged(10, 0)},
-	{name: "far nudge up", field: farKeys, arrow: "Up", apply: nudged(0, -10)},
-	{name: "far nudge down", field: farKeys, arrow: "Down", apply: nudged(0, 10)},
-	{name: "centre", field: centreKey, apply: centred},
-	{name: "next crosshair", field: nextKey, apply: cycled},
+	{name: "toggle", field: toggleField, apply: toggled},
+	{name: "nudge left", field: nudgeField, arrow: "Left", apply: nudged(-1, 0)},
+	{name: "nudge right", field: nudgeField, arrow: "Right", apply: nudged(1, 0)},
+	{name: "nudge up", field: nudgeField, arrow: "Up", apply: nudged(0, -1)},
+	{name: "nudge down", field: nudgeField, arrow: "Down", apply: nudged(0, 1)},
+	{name: "far nudge left", field: farField, arrow: "Left", apply: nudged(-10, 0)},
+	{name: "far nudge right", field: farField, arrow: "Right", apply: nudged(10, 0)},
+	{name: "far nudge up", field: farField, arrow: "Up", apply: nudged(0, -10)},
+	{name: "far nudge down", field: farField, arrow: "Down", apply: nudged(0, 10)},
+	{name: "centre", field: centreField, apply: centred},
+	{name: "next crosshair", field: nextField, apply: cycled},
 }
 
 var modifiers = []struct {
@@ -81,7 +98,7 @@ func Bindings(h profiles.Hotkeys) ([]Binding, error) {
 		if !ok {
 			return nil, fmt.Errorf("%w: %s %q", ErrBadHotkey, a.name, text)
 		}
-		b.Action, b.Repeat = id, a.arrow != ""
+		b.Action, b.Field, b.Repeat = id, a.field.name, a.arrow != ""
 
 		if clash := slices.IndexFunc(bindings, b.same); clash >= 0 {
 			return nil, fmt.Errorf("%w: %s and %s on %s", ErrSameHotkey, actions[clash].name, a.name, b.Text)
@@ -101,7 +118,7 @@ func Apply(s profiles.Settings, action int, exe string) (profiles.Settings, erro
 }
 
 func (a action) text(h profiles.Hotkeys) string {
-	text := *a.field(&h)
+	text := *a.field.access(&h)
 	if a.arrow == "" {
 		return text
 	}
@@ -193,15 +210,12 @@ func textOf(flags uint32, key string) string {
 			parts = append(parts, m.name)
 		}
 	}
+	if key != "" {
+		parts = append(parts, key)
+	}
 
-	return strings.Join(append(parts, key), "+")
+	return strings.Join(parts, "+")
 }
-
-func toggleKey(h *profiles.Hotkeys) *string { return &h.Toggle }
-func nudgeKeys(h *profiles.Hotkeys) *string { return &h.Nudge }
-func farKeys(h *profiles.Hotkeys) *string   { return &h.NudgeFar }
-func centreKey(h *profiles.Hotkeys) *string { return &h.Center }
-func nextKey(h *profiles.Hotkeys) *string   { return &h.Next }
 
 func toggled(s profiles.Settings, _ string) (profiles.Settings, error) {
 	s.Visible = !s.Visible

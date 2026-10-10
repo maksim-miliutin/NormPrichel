@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 )
@@ -121,13 +120,12 @@ func (s Settings) Encode() ([]byte, error) {
 }
 
 func (s Settings) Game(exe string) (Game, bool) {
-	for _, game := range s.Games {
-		if strings.EqualFold(game.Exe, exe) {
-			return game, true
-		}
+	i := s.index(exe)
+	if i < 0 {
+		return Game{}, false
 	}
 
-	return Game{}, false
+	return s.Games[i], true
 }
 
 func (g *Game) UnmarshalJSON(text []byte) error {

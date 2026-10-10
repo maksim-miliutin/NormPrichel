@@ -3,6 +3,7 @@
 package profiles_test
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -66,6 +67,30 @@ func TestTheRealDiskKeepsOnlyTheLatestBrokenFile(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, "profiles.json")); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("the broken profiles.json is still in place: %v", err)
 		}
+	}
+}
+
+func TestTheRealDiskKeepsAPictureInCrosshairs(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "NormPrichel")
+	store := profiles.Store{Disk: profiles.OS{}, Dir: dir}
+	file := pngOf(t, 16)
+
+	name, err := store.AddPicture(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	back, err := store.Picture(name)
+	if err != nil || !bytes.Equal(back, file) {
+		t.Errorf("read back %d bytes, %v; want the %d bytes added", len(back), err, len(file))
+	}
+
+	names, err := os.ReadDir(filepath.Join(dir, "crosshairs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0].Name() != name {
+		t.Errorf("crosshairs holds %v, want %s alone", names, name)
 	}
 }
 

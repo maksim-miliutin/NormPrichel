@@ -104,6 +104,17 @@ func TestAnEmptyObjectReadsAsTheSpecDefaults(t *testing.T) {
 	}
 }
 
+func TestAByteOrderMarkFromNotepadOrPowerShellIsSkipped(t *testing.T) {
+	got, err := profiles.Parse([]byte("\xEF\xBB\xBF{ \"games\": [ { \"exe\": \"stalzone.exe\" } ] }"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := got.Game("stalzone.exe"); !ok {
+		t.Errorf("got %+v, want the game listed after the mark", got)
+	}
+}
+
 func TestOmittedFieldsTakeTheirDefaults(t *testing.T) {
 	got, err := profiles.Parse([]byte(`{
 		"hotkeys": { "toggle": "Ctrl+Alt+F9" },

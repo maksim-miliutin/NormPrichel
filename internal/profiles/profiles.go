@@ -1,6 +1,7 @@
 package profiles
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -78,6 +79,10 @@ func Defaults() Settings {
 }
 
 func Parse(text []byte) (Settings, error) {
+	// Windows PowerShell 5.1 and Notepad may start the file with a UTF-8 byte order mark,
+	// which encoding/json takes for a stray character.
+	text = bytes.TrimPrefix(text, []byte("\xEF\xBB\xBF"))
+
 	settings := Defaults()
 	if err := json.Unmarshal(text, &settings); err != nil {
 		return Settings{}, fmt.Errorf("%w: %w", ErrBroken, err)

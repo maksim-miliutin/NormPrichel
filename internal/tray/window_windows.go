@@ -60,6 +60,7 @@ const (
 	nifTip     = 0x4
 
 	mfString    = 0x0000
+	mfChecked   = 0x0008
 	mfSeparator = 0x0800
 
 	tpmRightButton = 0x0002
@@ -75,6 +76,7 @@ const (
 const (
 	commandSettings = 1 + iota
 	commandToggle
+	commandAutostart
 	commandExit
 )
 
@@ -142,6 +144,7 @@ type Handlers struct {
 	Open   func()
 	Toggle func()
 	Exit   func()
+	Fail   func(err error)
 }
 
 // One window per process: the window procedure is a plain function handed to Windows once, and
@@ -248,16 +251,26 @@ func (w *Window) showMenu() {
 	}
 	defer procDestroyMenu.Call(menu)
 
+	starts, err := Autostart()
+	w.fail(err)
+	ticked := uintptr(mfString)
+	if starts {
+		ticked |= mfChecked
+	}
+
 	for _, item := range []struct {
-		id   uintptr
-		text string
-	}{{commandSettings, w.labels.Settings}, {commandToggle, w.labels.Toggle}, {0, ""}, {commandExit, w.labels.Exit}} {
-		if item.id == 0 {
-			procAppendMenuW.Call(menu, mfSeparator, 0, 0)
-			continue
-		}
+		id    uintptr
+		flags uintptr
+		text  string
+	}{
+		{commandSettings, mfString, w.labels.Settings},
+		{commandToggle, mfString, w.labels.Toggle},
+		{commandAutostart, ticked, w.labels.Autostart},
+		{0, mfSeparator, ""},
+		{commandExit, mfString, w.labels.Exit},
+	} {
 		text, _ := windows.UTF16PtrFromString(item.text)
-		procAppendMenuW.Call(menu, mfString, item.id, uintptr(unsafe.Pointer(text)))
+		procAppendMenuW.Call(menu, item.flags, item.id, uintptr(unsafe.Pointer(text)))
 	}
 
 	var at point
@@ -266,6 +279,10 @@ func (w *Window) showMenu() {
 	command, _, _ := procTrackPopupMenu.Call(menu, tpmRightButton|tpmNoNotify|tpmReturnCmd, uintptr(at.X), uintptr(at.Y), 0, w.hwnd, 0)
 	procPostMessageW.Call(w.hwnd, wmNull, 0, 0)
 
+	if command == commandAutostart {
+		w.fail(SetAutostart(!starts))
+		return
+	}
 	w.run(command)
 }
 
@@ -273,6 +290,12 @@ func (w *Window) run(command uintptr) {
 	actions := map[uintptr]func(){commandSettings: w.handlers.Open, commandToggle: w.handlers.Toggle, commandExit: w.handlers.Exit}
 	if action := actions[command]; action != nil {
 		action()
+	}
+}
+
+func (w *Window) fail(err error) {
+	if err != nil && w.handlers.Fail != nil {
+		w.handlers.Fail(err)
 	}
 }
 

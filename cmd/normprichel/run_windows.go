@@ -42,11 +42,6 @@ func run() error {
 	defer state.Close()
 
 	language := tray.SystemLanguage()
-	address, server, err := serve(state, store, language)
-	if err != nil {
-		return err
-	}
-	defer server.Close()
 
 	// Windows gives a window, its timer and its hotkeys to the thread that made them, and the
 	// overlay's message loop serves every window of the thread it runs on.
@@ -58,6 +53,7 @@ func run() error {
 	loop := &app.Loop{State: state, Overlay: overlay.NewController(screen, watcher, store.Paint), Games: watcher}
 	tick := func() { report(loop.Tick()) }
 
+	address := ""
 	acted := reporter(os.Stderr)
 	shell, err := tray.New(language, tray.Handlers{
 		Hotkey: func(action int) {
@@ -76,12 +72,25 @@ func run() error {
 		return err
 	}
 	defer shell.Close()
-	report(shell.ShowIcon())
 
 	keys := hotkeys.NewKeys(hotkeys.System{Window: shell.Handle()})
 	defer keys.Hold(nil)
 	loop.Keys = keys
 
+	address, server, err := serve(settings.Page{
+		State:    state,
+		Pictures: store,
+		Windows:  func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
+		Taken:    func(bindings []hotkeys.Binding) []hotkeys.Binding { return hotkeys.Taken(keys.Others(bindings)) },
+		Version:  versionOf(debug.ReadBuildInfo()),
+		Language: language,
+	})
+	if err != nil {
+		return err
+	}
+	defer server.Close()
+
+	report(shell.ShowIcon())
 	if len(loaded.Games) == 0 {
 		report(tray.Open(address))
 	}
@@ -96,7 +105,7 @@ func run() error {
 	return screen.Run(tick)
 }
 
-func serve(state *live.State, store profiles.Store, language string) (string, *http.Server, error) {
+func serve(page settings.Page) (string, *http.Server, error) {
 	key, err := settings.NewKey(rand.Reader)
 	if err != nil {
 		return "", nil, err
@@ -107,14 +116,6 @@ func serve(state *live.State, store profiles.Store, language string) (string, *h
 	}
 
 	host := listener.Addr().String()
-	page := settings.Page{
-		State:    state,
-		Pictures: store,
-		Windows:  func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
-		Taken:    hotkeys.Taken,
-		Version:  versionOf(debug.ReadBuildInfo()),
-		Language: language,
-	}
 	server := &http.Server{Handler: settings.Guard(key, host, page.Handler()), ReadHeaderTimeout: 10 * time.Second}
 	go server.Serve(listener)
 

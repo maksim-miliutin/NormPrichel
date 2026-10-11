@@ -16,12 +16,13 @@ var (
 	ErrNoAction   = errors.New("hotkeys: no action under that number")
 )
 
-// The modifier values RegisterHotKey takes.
+// The modifier values RegisterHotKey takes; NoRepeat keeps a held key from acting again.
 const (
-	Alt     uint32 = 0x0001
-	Control uint32 = 0x0002
-	Shift   uint32 = 0x0004
-	Win     uint32 = 0x0008
+	Alt      uint32 = 0x0001
+	Control  uint32 = 0x0002
+	Shift    uint32 = 0x0004
+	Win      uint32 = 0x0008
+	NoRepeat uint32 = 0x4000
 )
 
 type Binding struct {
@@ -124,6 +125,14 @@ func (a action) text(h profiles.Hotkeys) string {
 	}
 
 	return text + "+" + a.arrow
+}
+
+func (b Binding) Flags() uint32 {
+	if b.Repeat {
+		return b.Modifiers
+	}
+
+	return b.Modifiers | NoRepeat
 }
 
 func (b Binding) same(other Binding) bool {

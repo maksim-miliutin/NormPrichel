@@ -6,6 +6,8 @@ import (
 	"slices"
 )
 
+var ErrTaken = errors.New("hotkeys: another program holds the hotkey")
+
 type Registrar interface {
 	Register(b Binding) error
 	Unregister(b Binding) error

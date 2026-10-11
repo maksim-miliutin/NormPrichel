@@ -49,6 +49,26 @@ func TestTheSpecDefaultsBindElevenKeys(t *testing.T) {
 	}
 }
 
+func TestOnlyTheArrowsRepeatWhileHeld(t *testing.T) {
+	got, err := hotkeys.Bindings(profiles.Defaults().Hotkeys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, b := range got {
+		want := b.Modifiers | hotkeys.NoRepeat
+		if b.Repeat {
+			want = b.Modifiers
+		}
+		if b.Flags() != want {
+			t.Errorf("%s registers with %#x, want %#x", b.Text, b.Flags(), want)
+		}
+	}
+	if got[0].Flags()&hotkeys.NoRepeat == 0 || got[1].Flags()&hotkeys.NoRepeat != 0 {
+		t.Errorf("the toggle registers with %#x and a nudge with %#x; want the toggle alone not to repeat", got[0].Flags(), got[1].Flags())
+	}
+}
+
 func TestEveryBindingCarriesItsOwnActionNumber(t *testing.T) {
 	got, err := hotkeys.Bindings(profiles.Defaults().Hotkeys)
 	if err != nil {

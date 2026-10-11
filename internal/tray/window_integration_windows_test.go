@@ -41,7 +41,18 @@ type msg struct {
 	Private uint32
 }
 
+// The tests make the program's own window, and a running copy would answer in its place.
+func alone(t *testing.T) {
+	t.Helper()
+
+	name, _ := windows.UTF16PtrFromString("NormPrichel")
+	if found, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(name)), 0); found != 0 {
+		t.Fatal("NormPrichel is running: close it from its tray icon before these tests")
+	}
+}
+
 func TestAHotkeyPressReachesItsHandlerAndTheWindowStaysOutOfSight(t *testing.T) {
+	alone(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -78,6 +89,7 @@ func TestAHotkeyPressReachesItsHandlerAndTheWindowStaysOutOfSight(t *testing.T) 
 }
 
 func TestTheIconGoesIntoTheNotificationAreaAndLeavesWithTheWindow(t *testing.T) {
+	alone(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -102,6 +114,7 @@ func TestTheLanguageOfWindowsIsReadAsRussianOrEnglish(t *testing.T) {
 }
 
 func TestASecondCopyFindsTheFirstAndAsksItToOpenThePage(t *testing.T) {
+	alone(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 

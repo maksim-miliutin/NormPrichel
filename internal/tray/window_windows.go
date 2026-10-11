@@ -39,6 +39,9 @@ var (
 	procCreateBitmap             = gdi32.NewProc("CreateBitmap")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
 	procShellNotifyIconW         = shell32.NewProc("Shell_NotifyIconW")
+	procSetTimer                 = user32.NewProc("SetTimer")
+	procKillTimer                = user32.NewProc("KillTimer")
+	procChangeMessageFilter      = user32.NewProc("ChangeWindowMessageFilterEx")
 	procGetUserDefaultUILanguage = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetUserDefaultUILanguage")
 )
 
@@ -51,9 +54,11 @@ const (
 	wmHotkey        = 0x0312
 	wmLButtonDblClk = 0x0203
 	wmRButtonUp     = 0x0205
+	wmTimer         = 0x0113
 	wmTray          = 0x8000 + 1
 
 	nimAdd     = 0
+	nimModify  = 1
 	nimDelete  = 2
 	nifMessage = 0x1
 	nifIcon    = 0x2
@@ -68,6 +73,10 @@ const (
 	tpmReturnCmd   = 0x0100
 
 	smCxSmIcon = 49
+
+	iconTimer   = 1
+	iconRetry   = 2000 // milliseconds between tries while Explorer will not take the icon
+	msgfltAllow = 1
 
 	biRGB        = 0
 	dibRGBColors = 0
@@ -194,6 +203,11 @@ func New(language string, h Handlers) (*Window, error) {
 	}
 	w.hwnd = hwnd
 
+	// A program run as administrator hears nothing from Explorer, or from a second copy run
+	// without, unless it says it will listen.
+	procChangeMessageFilter.Call(hwnd, uintptr(w.restart), msgfltAllow, 0)
+	procChangeMessageFilter.Call(hwnd, wmWake, msgfltAllow, 0)
+
 	return w, nil
 }
 
@@ -201,8 +215,8 @@ func (w *Window) Handle() uintptr {
 	return w.hwnd
 }
 
-// ShowIcon puts the crosshair in the notification area; Explorer forgets it when it restarts,
-// and the window puts it back when Explorer says it is up again.
+// ShowIcon puts the crosshair in the notification area. Right after sign-in Explorer may refuse it,
+// or take it and still report a timeout, so a modify follows a failed add and a timer tries again.
 func (w *Window) ShowIcon() error {
 	if w.icon == 0 {
 		icon, err := makeIcon()
@@ -218,14 +232,22 @@ func (w *Window) ShowIcon() error {
 	data.Icon = w.icon
 	tip, _ := windows.UTF16FromString("NormPrichel")
 	copy(data.Tip[:len(data.Tip)-1], tip)
-	if ok, _, err := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&data))); ok == 0 {
-		return fmt.Errorf("%w: %w", ErrIcon, err)
-	}
 
-	return nil
+	var err error
+	for _, action := range []uintptr{nimAdd, nimModify} {
+		var ok uintptr
+		if ok, _, err = procShellNotifyIconW.Call(action, uintptr(unsafe.Pointer(&data))); ok != 0 {
+			procKillTimer.Call(w.hwnd, iconTimer)
+			return nil
+		}
+	}
+	procSetTimer.Call(w.hwnd, iconTimer, iconRetry, 0)
+
+	return fmt.Errorf("%w: %w", ErrIcon, err)
 }
 
 func (w *Window) Close() {
+	procKillTimer.Call(w.hwnd, iconTimer)
 	data := w.notifyData()
 	procShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&data)))
 	if w.icon != 0 {
@@ -312,7 +334,7 @@ func windowProc(hwnd, message, wparam, lparam uintptr) uintptr {
 	case message == wmTray && (lparam&0xFFFF == wmRButtonUp || lparam&0xFFFF == wmContextMenu):
 		w.showMenu()
 		return 0
-	case message == uintptr(w.restart) && w.restart != 0:
+	case message == uintptr(w.restart) && w.restart != 0, message == wmTimer && wparam == iconTimer:
 		w.ShowIcon()
 		return 0
 	}

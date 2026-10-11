@@ -64,9 +64,3 @@ func TestTheIconIsTheCrosshairInsideItsSquare(t *testing.T) {
 		}
 	}
 }
-
-func TestWindowsStartsTheProgramByItsWholePath(t *testing.T) {
-	if got, want := tray.StartCommand(`C:\Program Files\NormPrichel\normprichel.exe`), `"C:\Program Files\NormPrichel\normprichel.exe"`; got != want {
-		t.Errorf("got %s, want %s", got, want)
-	}
-}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 )
 
 func main() {
@@ -28,4 +29,13 @@ func reporter(out io.Writer) func(error) {
 		}
 		last = text
 	}
+}
+
+// A build from a tagged commit carries the tag as its version; any other build is a work copy.
+func versionOf(info *debug.BuildInfo, ok bool) string {
+	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return "dev"
+	}
+
+	return info.Main.Version
 }

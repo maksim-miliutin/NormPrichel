@@ -20,6 +20,14 @@ import (
 )
 
 func run() error {
+	first, err := tray.Claim()
+	if err != nil {
+		return err
+	}
+	if !first {
+		return tray.Wake()
+	}
+
 	report := reporter(os.Stderr)
 	report(overlay.DeclareDPIAwareness())
 

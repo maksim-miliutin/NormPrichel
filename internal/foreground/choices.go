@@ -12,13 +12,15 @@ type TopWindow struct {
 	Visible  bool
 	Extended uint32 // the WS_EX_ style bits
 	Cloaked  bool   // hidden by the shell, like a suspended store app
-	Owned    bool   // a dialog of another window
+	Owned    bool   // a dialog of a window on the screen
 	Desktop  bool   // the desktop itself, which Windows lists among the windows
 }
 
-// A tool window stays out of Alt+Tab, and a window that never activates can never be in front.
+// Alt+Tab leaves out tool windows and dialogs unless they ask to be in, and a window that never
+// activates can never be in front.
 const (
 	toolWindow = 0x00000080
+	appWindow  = 0x00040000
 	noActivate = 0x08000000
 )
 
@@ -56,7 +58,8 @@ func Choices(top []TopWindow, processes []Process, own uint32) []Choice {
 }
 
 func (w TopWindow) offered(own uint32) bool {
-	switchable := w.Visible && w.Extended&(toolWindow|noActivate) == 0 && !w.Cloaked && !w.Owned && !w.Desktop
+	listed := w.Extended&appWindow != 0 || w.Extended&toolWindow == 0 && !w.Owned
+	switchable := w.Visible && listed && w.Extended&noActivate == 0 && !w.Cloaked && !w.Desktop
 
 	return switchable && w.Process != own && strings.TrimSpace(w.Title) != ""
 }

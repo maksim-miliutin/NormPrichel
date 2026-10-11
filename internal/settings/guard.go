@@ -30,14 +30,16 @@ func NewKey(random io.Reader) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw[:]), nil
 }
 
-// Guard lets through only requests that carry the key and name the address the page was
-// opened at: a site that points its own name at 127.0.0.1 still sends that name as the Host.
+// Guard lets through only the page's own requests: with the key, to the address it was opened
+// at (a site can borrow 127.0.0.1 by DNS, not the Host) and, by the browser's word, not from a site.
 func Guard(key, host string, page http.Handler) http.Handler {
 	inner := http.StripPrefix("/"+key, page)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		segment, _, found := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
-		if r.Host != host || !found || subtle.ConstantTimeCompare([]byte(segment), []byte(key)) != 1 {
+		keyed := found && subtle.ConstantTimeCompare([]byte(segment), []byte(key)) == 1
+		site := r.Header.Get("Sec-Fetch-Site")
+		if r.Host != host || !keyed || site != "" && site != "same-origin" && site != "none" {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}

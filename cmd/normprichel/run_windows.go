@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,6 +26,7 @@ func run() error {
 		return err
 	}
 	if !first {
+		fmt.Fprintln(os.Stderr, "normprichel: another copy is running; it opens its settings page, and this one ends")
 		return tray.Wake()
 	}
 
@@ -91,7 +93,7 @@ func run() error {
 	defer server.Close()
 
 	report(shell.ShowIcon())
-	if len(loaded.Games) == 0 {
+	if pageAtStart(os.Args[1:]) {
 		report(tray.Open(address))
 	}
 

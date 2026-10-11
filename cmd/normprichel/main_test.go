@@ -5,6 +5,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+
+	"github.com/maksim-miliutin/NormPrichel/internal/tray"
 )
 
 func TestAnErrorIsPrintedOnceUntilSomethingElseHappens(t *testing.T) {
@@ -40,6 +42,24 @@ func TestATaggedBuildShowsItsTagAndAnyOtherSaysDev(t *testing.T) {
 	for _, c := range cases {
 		if got := versionOf(c.info, c.ok); got != c.want {
 			t.Errorf("got %q, want %q", got, c.want)
+		}
+	}
+}
+
+func TestEveryStartByHandShowsThePageAndASignInStartDoesNot(t *testing.T) {
+	cases := []struct {
+		args []string
+		want bool
+	}{
+		{args: nil, want: true},
+		{args: []string{"--verbose"}, want: true},
+		{args: []string{tray.Background}, want: false},
+		{args: []string{"--verbose", tray.Background}, want: false},
+	}
+
+	for _, c := range cases {
+		if got := pageAtStart(c.args); got != c.want {
+			t.Errorf("args %q: got %v, want %v", c.args, got, c.want)
 		}
 	}
 }

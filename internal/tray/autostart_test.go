@@ -6,8 +6,9 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/tray"
 )
 
-func TestWindowsStartsTheProgramByItsWholePath(t *testing.T) {
-	if got, want := tray.StartCommand(`C:\Program Files\NormPrichel\normprichel.exe`), `"C:\Program Files\NormPrichel\normprichel.exe"`; got != want {
+func TestWindowsStartsTheProgramByItsWholePathInTheBackground(t *testing.T) {
+	got := tray.StartCommand(`C:\Program Files\NormPrichel\normprichel.exe`)
+	if want := `"C:\Program Files\NormPrichel\normprichel.exe" ` + tray.Background; got != want {
 		t.Errorf("got %s, want %s", got, want)
 	}
 }

@@ -18,7 +18,10 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
 
-var ErrBadRequest = errors.New("settings: the request does not read")
+var (
+	ErrBadRequest = errors.New("settings: the request does not read")
+	ErrAutostart  = errors.New("settings: starting with Windows cannot be switched")
+)
 
 const (
 	maxBody    = 64 << 10 // bytes of JSON in one change
@@ -37,24 +40,27 @@ type Pictures interface {
 }
 
 type Page struct {
-	State    State
-	Pictures Pictures
-	Windows  func() ([]foreground.Choice, error)
-	Taken    func(bindings []hotkeys.Binding) []hotkeys.Binding
-	Version  string
-	Language string
+	State        State
+	Pictures     Pictures
+	Windows      func() ([]foreground.Choice, error)
+	Taken        func(bindings []hotkeys.Binding) []hotkeys.Binding
+	Autostart    func() (bool, error)
+	SetAutostart func(on bool) error
+	Version      string
+	Language     string
 }
 
 type edit = func(profiles.Settings) (profiles.Settings, error)
 
 type view struct {
-	Settings profiles.Settings `json:"settings"`
-	Shapes   []crosshair.Shape `json:"shapes"`
-	Taken    []takenKey        `json:"taken"`
-	Version  string            `json:"version"`
-	Language string            `json:"language"`
-	Text     map[string]string `json:"text"`
-	Arrows   []string          `json:"arrows"`
+	Settings  profiles.Settings `json:"settings"`
+	Shapes    []crosshair.Shape `json:"shapes"`
+	Taken     []takenKey        `json:"taken"`
+	Version   string            `json:"version"`
+	Language  string            `json:"language"`
+	Text      map[string]string `json:"text"`
+	Arrows    []string          `json:"arrows"`
+	Autostart *bool             `json:"autostart"` // nil when Windows would not tell
 }
 
 type takenKey struct {
@@ -81,6 +87,7 @@ var reasons = []struct {
 	{profiles.ErrNoSaved, "no-saved"},
 	{live.ErrRefused, "refused"},
 	{ErrBadRequest, "bad-request"},
+	{ErrAutostart, "autostart"},
 }
 
 func (p Page) Handler() http.Handler {
@@ -93,6 +100,7 @@ func (p Page) Handler() http.Handler {
 	mux.HandleFunc("GET /api/preview", p.preview)
 	mux.HandleFunc("POST /api/pictures", p.addPicture)
 	mux.HandleFunc("PUT /api/visible", p.setVisible)
+	mux.HandleFunc("PUT /api/autostart", p.setAutostart)
 	mux.HandleFunc("PUT /api/hotkeys", p.setHotkeys)
 	mux.HandleFunc("POST /api/games", p.addGame)
 	mux.HandleFunc("PATCH /api/games/{exe}", p.editGame)
@@ -109,14 +117,24 @@ func (p Page) Handler() http.Handler {
 func (p Page) state(w http.ResponseWriter, _ *http.Request) {
 	current := p.State.Current()
 	respond(w, view{
-		Settings: current,
-		Shapes:   crosshair.Shapes(),
-		Taken:    p.taken(current.Hotkeys),
-		Version:  p.Version,
-		Language: p.Language,
-		Text:     textFor(p.Language),
-		Arrows:   arrowFields(),
+		Settings:  current,
+		Shapes:    crosshair.Shapes(),
+		Taken:     p.taken(current.Hotkeys),
+		Version:   p.Version,
+		Language:  p.Language,
+		Text:      textFor(p.Language),
+		Arrows:    arrowFields(),
+		Autostart: p.starts(),
 	})
+}
+
+func (p Page) starts() *bool {
+	on, err := p.Autostart()
+	if err != nil {
+		return nil
+	}
+
+	return &on
 }
 
 // The fields that hold modifiers alone are the ones whose hotkeys repeat: the arrows.
@@ -200,6 +218,20 @@ func (p Page) setVisible(w http.ResponseWriter, r *http.Request) {
 		s.Visible = on
 		return s, nil
 	})
+}
+
+func (p Page) setAutostart(w http.ResponseWriter, r *http.Request) {
+	on, ok := read[bool](w, r)
+	if !ok {
+		return
+	}
+
+	if err := p.SetAutostart(on); err != nil {
+		failed(w, fmt.Errorf("%w: %w", ErrAutostart, err))
+		return
+	}
+
+	p.state(w, r)
 }
 
 func (p Page) setHotkeys(w http.ResponseWriter, r *http.Request) {

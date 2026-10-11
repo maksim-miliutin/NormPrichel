@@ -98,6 +98,10 @@ type site struct {
 	taken   []string
 	windows []foreground.Choice
 	fail    error
+
+	starts      bool
+	startsFault error
+	switchFault error
 }
 
 func newSite(t *testing.T, s profiles.Settings) *site {
@@ -106,12 +110,14 @@ func newSite(t *testing.T, s profiles.Settings) *site {
 	st := &site{state: live.New(s, nowhere{}, func(error) {})}
 	t.Cleanup(st.state.Close)
 	st.page = settings.Page{
-		State:    st.state,
-		Pictures: profiles.Store{Disk: &disk{files: map[string][]byte{}}, Dir: "NormPrichel"},
-		Windows:  st.desktop,
-		Taken:    st.held,
-		Version:  "v0.1.0",
-		Language: "ru",
+		State:        st.state,
+		Pictures:     profiles.Store{Disk: &disk{files: map[string][]byte{}}, Dir: "NormPrichel"},
+		Windows:      st.desktop,
+		Taken:        st.held,
+		Autostart:    st.autostart,
+		SetAutostart: st.setAutostart,
+		Version:      "v0.1.0",
+		Language:     "ru",
 	}.Handler()
 
 	return st
@@ -123,6 +129,19 @@ func (st *site) desktop() ([]foreground.Choice, error) {
 	}
 
 	return st.windows, nil
+}
+
+func (st *site) autostart() (bool, error) {
+	return st.starts, st.startsFault
+}
+
+func (st *site) setAutostart(on bool) error {
+	if st.switchFault != nil {
+		return st.switchFault
+	}
+	st.starts = on
+
+	return nil
 }
 
 func (st *site) held(bindings []hotkeys.Binding) []hotkeys.Binding {
@@ -144,8 +163,9 @@ type view struct {
 		Hotkey     string `json:"hotkey"`
 		Suggestion string `json:"suggestion"`
 	} `json:"taken"`
-	Version  string `json:"version"`
-	Language string `json:"language"`
+	Version   string `json:"version"`
+	Language  string `json:"language"`
+	Autostart *bool  `json:"autostart"`
 }
 
 type refusal struct {
@@ -426,4 +446,35 @@ func TestABodyThatDoesNotReadIsRefused(t *testing.T) {
 	st.refuse(t, http.MethodPut, "/api/games/other.exe/offset", `{"x": 1,`, "bad-request")
 	st.refuse(t, http.MethodPut, "/api/games/other.exe/offset", `{"x": 1, "z": 2}`, "bad-request")
 	st.refuse(t, http.MethodPut, "/api/visible", `"yes"`, "bad-request")
+}
+
+func TestStartingWithWindowsIsShownAndSwitchedFromThePage(t *testing.T) {
+	st := newSite(t, listed())
+
+	if got := st.change(t, http.MethodGet, "/api/state", ""); got.Autostart == nil || *got.Autostart {
+		t.Fatalf("got %v, want off", got.Autostart)
+	}
+	if got := st.change(t, http.MethodPut, "/api/autostart", "true"); got.Autostart == nil || !*got.Autostart || !st.starts {
+		t.Errorf("got %v with Windows told %v; want on", got.Autostart, st.starts)
+	}
+	if got := st.change(t, http.MethodPut, "/api/autostart", "false"); got.Autostart == nil || *got.Autostart || st.starts {
+		t.Errorf("got %v with Windows told %v; want off", got.Autostart, st.starts)
+	}
+}
+
+func TestStartingWithWindowsThatCannotBeReadIsLeftUnsaid(t *testing.T) {
+	st := newSite(t, listed())
+	st.startsFault = errors.New("the registry is locked")
+
+	if got := st.change(t, http.MethodGet, "/api/state", ""); got.Autostart != nil {
+		t.Errorf("got %v, want nothing said", *got.Autostart)
+	}
+}
+
+func TestStartingWithWindowsThatCannotBeSwitchedIsNamed(t *testing.T) {
+	st := newSite(t, listed())
+	st.switchFault = errors.New("access denied")
+
+	st.refuse(t, http.MethodPut, "/api/autostart", "true", "autostart")
+	st.refuse(t, http.MethodPut, "/api/autostart", `"yes"`, "bad-request")
 }

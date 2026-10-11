@@ -80,12 +80,14 @@ func run() error {
 	loop.Keys = keys
 
 	address, server, err := serve(settings.Page{
-		State:    state,
-		Pictures: store,
-		Windows:  func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
-		Taken:    func(bindings []hotkeys.Binding) []hotkeys.Binding { return hotkeys.Taken(keys.Others(bindings)) },
-		Version:  versionOf(debug.ReadBuildInfo()),
-		Language: language,
+		State:        state,
+		Pictures:     store,
+		Windows:      func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
+		Taken:        func(bindings []hotkeys.Binding) []hotkeys.Binding { return hotkeys.Taken(keys.Others(bindings)) },
+		Autostart:    tray.Autostart,
+		SetAutostart: tray.SetAutostart,
+		Version:      versionOf(debug.ReadBuildInfo()),
+		Language:     language,
 	})
 	if err != nil {
 		return err

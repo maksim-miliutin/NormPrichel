@@ -5,6 +5,7 @@ package settings
 var texts = map[string]map[string]string{
 	"ru": {
 		"visible":       "Прицел виден",
+		"autostart":     "Запускать вместе с Windows",
 		"games":         "Игры",
 		"addGame":       "Добавить игру",
 		"chooseWindow":  "Выберите окно игры: она должна быть запущена.",
@@ -85,9 +86,11 @@ var texts = map[string]map[string]string{
 		"error.failed":        "Не получилось:",
 		"error.offline":       "Программа не отвечает: возможно, она закрыта.",
 		"error.stale":         "Эта страница от прошлого запуска программы. Откройте настройки заново из значка в трее.",
+		"error.autostart":     "Не получилось переключить запуск вместе с Windows.",
 	},
 	"en": {
 		"visible":       "Crosshair on",
+		"autostart":     "Start with Windows",
 		"games":         "Games",
 		"addGame":       "Add a game",
 		"chooseWindow":  "Pick the game's window: the game has to be running.",
@@ -168,6 +171,7 @@ var texts = map[string]map[string]string{
 		"error.failed":        "That did not work:",
 		"error.offline":       "The program does not answer: it may have been closed.",
 		"error.stale":         "This page is from an earlier run of the program. Open the settings again from the tray icon.",
+		"error.autostart":     "Starting with Windows could not be switched.",
 	},
 }
 

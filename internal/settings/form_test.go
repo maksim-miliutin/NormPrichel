@@ -3,8 +3,10 @@ package settings_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
 	"github.com/maksim-miliutin/NormPrichel/internal/live"
@@ -248,5 +250,151 @@ func TestSavedCrosshairsAreListedByNameAndTheVersionIsShown(t *testing.T) {
 	screen := form.Screen()
 	if !slices.Equal(screen.Saved, []string{"Зелёный крест", "Круг"}) || screen.Version != "v0.1.0" {
 		t.Errorf("saved %q, version %q", screen.Saved, screen.Version)
+	}
+}
+
+func knobNames(knobs []settings.KnobView) []string {
+	var got []string
+	for _, k := range knobs {
+		got = append(got, k.Name)
+	}
+
+	return got
+}
+
+func TestTheShownGameOffersTheKnobsOfItsShapeInWords(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+
+	shown := form.Screen().Game
+	if got := knobNames(shown.Knobs); !slices.Equal(got, []string{"opacity", "dot", "outline"}) {
+		t.Fatalf("a dot offers %v", got)
+	}
+	for _, k := range shown.Knobs {
+		if k.Label != form.Word(k.Name) || k.Label == "" || k.Value != shown.Crosshair.Value(k.Name) || k.Max <= k.Min {
+			t.Errorf("knob %+v does not match its word, value or range", k)
+		}
+	}
+}
+
+func TestAnotherShapeOffersItsOwnKnobs(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := form.SetShape(crosshair.Cross); err != nil {
+		t.Fatal(err)
+	}
+	if got := knobNames(form.Screen().Game.Knobs); !slices.Equal(got, []string{"opacity", "length", "thickness", "gap", "outline"}) {
+		t.Errorf("a cross offers %v", got)
+	}
+	if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair.Shape != crosshair.Cross {
+		t.Errorf("the settings hold %s, want cross", game.Crosshair.Shape)
+	}
+}
+
+func TestAKnobIsSetWithinItsRangeForTheShownGameAlone(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.Choose("other.exe")
+
+	if err := form.SetKnob("thickness", 99); err != nil {
+		t.Fatal(err)
+	}
+	other, _ := state.Current().Game("other.exe")
+	first, _ := state.Current().Game("stalzone.exe")
+	if other.Crosshair.Thickness != 16 || first.Crosshair.Thickness == 16 {
+		t.Errorf("thickness %d for other.exe and %d for stalzone.exe; want 16 for other.exe alone", other.Crosshair.Thickness, first.Crosshair.Thickness)
+	}
+	if err := form.SetKnob("size", 3); !errors.Is(err, crosshair.ErrUnknownKnob) {
+		t.Errorf("got %v, want ErrUnknownKnob", err)
+	}
+}
+
+func TestTheColoursOfTheCrosshairAndItsOutlineAreSet(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	red, blue := crosshair.RGB{R: 255}, crosshair.RGB{B: 255}
+	if err := errors.Join(form.SetColor(red), form.SetOutlineColor(blue)); err != nil {
+		t.Fatal(err)
+	}
+	if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair.Color != red || game.Crosshair.Outline.Color != blue {
+		t.Errorf("got %+v and %+v", game.Crosshair.Color, game.Crosshair.Outline.Color)
+	}
+}
+
+func TestAPictureIsAddedShownAndScaledInItsRange(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := form.AddPicture(pngOf(t, 9)); err != nil {
+		t.Fatal(err)
+	}
+	shown := form.Screen().Game
+	if !shown.Picture || shown.Crosshair.Image == "" {
+		t.Fatalf("got %+v, want the picture on show", shown)
+	}
+	if shown.Scale.Label != form.Word("scale") || shown.Scale.Knob != crosshair.PictureScale() || shown.Scale.Value != 100 {
+		t.Errorf("the scale reads %+v", shown.Scale)
+	}
+
+	for _, c := range []struct{ asked, want int }{{500, 400}, {10, 25}, {150, 150}} {
+		form.SetScale(c.asked)
+		if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair.Scale != c.want {
+			t.Errorf("scale %d holds %d, want %d", c.asked, game.Crosshair.Scale, c.want)
+		}
+	}
+}
+
+func TestABrokenPictureIsRefusedInWordsAndChangesNothing(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	before := state.Current()
+
+	if err := form.AddPicture([]byte("not a png")); !errors.Is(err, crosshair.ErrNotPNG) {
+		t.Errorf("got %v, want ErrNotPNG", err)
+	}
+	if got := form.Screen().Problem; got != form.Word("error.not-png") {
+		t.Errorf("the problem reads %q", got)
+	}
+	if !equal(before, state.Current()) {
+		t.Error("the settings changed")
+	}
+}
+
+func TestThePictureTabStaysOpenWithoutAPictureUntilAnotherGameIsChosen(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+
+	form.ShowPicture()
+	if shown := form.Screen().Game; !shown.Picture || shown.Crosshair.Image != "" {
+		t.Errorf("got %+v, want the empty picture tab", shown)
+	}
+	form.Choose("stalzone.exe")
+	if !form.Screen().Game.Picture {
+		t.Error("choosing the game on show closed its picture tab")
+	}
+
+	form.Choose("other.exe")
+	form.Choose("stalzone.exe")
+	if form.Screen().Game.Picture {
+		t.Error("the picture tab is still open after another game was shown")
+	}
+}
+
+func TestGoingBackToTheReadyMadeDropsThePictureAndKeepsTheShape(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.AddPicture(pngOf(t, 9))
+
+	if err := form.ShowReady(); err != nil {
+		t.Fatal(err)
+	}
+	game, _ := state.Current().Game("stalzone.exe")
+	if form.Screen().Game.Picture || game.Crosshair.Image != "" || game.Crosshair.Shape != crosshair.Dot {
+		t.Errorf("got %+v, want the dot back without a picture", game.Crosshair)
+	}
+}
+
+func TestAGameThatNamesAPictureOpensOnThePictureTab(t *testing.T) {
+	pictured := listed()
+	pictured.Games[1].Crosshair.Image = strings.Repeat("ab", 32) + ".png"
+	form, _, _ := newForm(t, pictured)
+
+	form.Choose("other.exe")
+	if !form.Screen().Game.Picture {
+		t.Error("a game that names a picture opens on the ready-made shapes")
 	}
 }

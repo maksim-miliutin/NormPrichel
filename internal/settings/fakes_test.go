@@ -2,8 +2,12 @@ package settings_test
 
 import (
 	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"io/fs"
 	"sync"
+	"testing"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
@@ -79,4 +83,17 @@ func equal(a, b profiles.Settings) bool {
 	y, _ := b.Encode()
 
 	return bytes.Equal(x, y)
+}
+
+func pngOf(t *testing.T, side int) []byte {
+	t.Helper()
+
+	img := image.NewNRGBA(image.Rect(0, 0, side, side))
+	img.SetNRGBA(side/2, side/2, color.NRGBA{R: 255, A: 255})
+	var file bytes.Buffer
+	if err := png.Encode(&file, img); err != nil {
+		t.Fatal(err)
+	}
+
+	return file.Bytes()
 }

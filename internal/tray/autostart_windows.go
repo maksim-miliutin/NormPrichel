@@ -11,9 +11,12 @@ import (
 var ErrAutostart = errors.New("tray: starting with Windows cannot be switched")
 
 const (
-	runKey    = `Software\Microsoft\Windows\CurrentVersion\Run`
-	valueName = "NormPrichel"
+	runKey      = `Software\Microsoft\Windows\CurrentVersion\Run`
+	approvedKey = `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
 )
+
+// The integration test switches the name, so it never touches the player's own entry.
+var autostartName = "NormPrichel"
 
 // Autostart is on only when Windows would start this very file: after the file moves, the old
 // entry points nowhere and the menu shows it off.
@@ -32,7 +35,7 @@ func Autostart() (bool, error) {
 	}
 	defer key.Close()
 
-	value, _, err := key.GetStringValue(valueName)
+	value, _, err := key.GetStringValue(autostartName)
 	if errors.Is(err, registry.ErrNotExist) {
 		return false, nil
 	}
@@ -40,7 +43,33 @@ func Autostart() (bool, error) {
 		return false, fmt.Errorf("%w: %w", ErrAutostart, err)
 	}
 
-	return value == StartCommand(exe), nil
+	return value == StartCommand(exe) && approved(), nil
+}
+
+func approved() bool {
+	key, err := registry.OpenKey(registry.CURRENT_USER, approvedKey, registry.QUERY_VALUE)
+	if err != nil {
+		return true
+	}
+	defer key.Close()
+
+	mark, _, err := key.GetBinaryValue(autostartName)
+	if err != nil {
+		return true
+	}
+
+	return Approved(mark)
+}
+
+// Switching here is the player's latest word, so Task Manager's mark goes, whichever way.
+func forgetMark() {
+	key, err := registry.OpenKey(registry.CURRENT_USER, approvedKey, registry.SET_VALUE)
+	if err != nil {
+		return
+	}
+	defer key.Close()
+
+	key.DeleteValue(autostartName)
 }
 
 func SetAutostart(on bool) error {
@@ -49,9 +78,10 @@ func SetAutostart(on bool) error {
 		return fmt.Errorf("%w: %w", ErrAutostart, err)
 	}
 	defer key.Close()
+	forgetMark()
 
 	if !on {
-		if err := key.DeleteValue(valueName); err != nil && !errors.Is(err, registry.ErrNotExist) {
+		if err := key.DeleteValue(autostartName); err != nil && !errors.Is(err, registry.ErrNotExist) {
 			return fmt.Errorf("%w: %w", ErrAutostart, err)
 		}
 		return nil
@@ -61,7 +91,7 @@ func SetAutostart(on bool) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrAutostart, err)
 	}
-	if err := key.SetStringValue(valueName, StartCommand(exe)); err != nil {
+	if err := key.SetStringValue(autostartName, StartCommand(exe)); err != nil {
 		return fmt.Errorf("%w: %w", ErrAutostart, err)
 	}
 

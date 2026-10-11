@@ -31,12 +31,6 @@ func Language(id uint16) string {
 	return "en"
 }
 
-// StartCommand quotes the path: unquoted, a path with spaces is cut at the first one, and
-// Windows would look for C:\Program instead of the program.
-func StartCommand(exe string) string {
-	return `"` + exe + `"`
-}
-
 func LabelsFor(language string) Labels {
 	if l, ok := labels[language]; ok {
 		return l

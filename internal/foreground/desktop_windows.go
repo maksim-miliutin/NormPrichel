@@ -4,18 +4,38 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-var ErrSnapshot = errors.New("foreground: the running processes cannot be listed")
+var (
+	ErrSnapshot = errors.New("foreground: the running processes cannot be listed")
+	ErrWindows  = errors.New("foreground: the windows on the desktop cannot be listed")
+)
 
 var (
-	user32             = windows.NewLazySystemDLL("user32.dll")
-	procIsIconic       = user32.NewProc("IsIconic")
-	procGetClientRect  = user32.NewProc("GetClientRect")
-	procClientToScreen = user32.NewProc("ClientToScreen")
+	user32                = windows.NewLazySystemDLL("user32.dll")
+	procIsIconic          = user32.NewProc("IsIconic")
+	procGetClientRect     = user32.NewProc("GetClientRect")
+	procClientToScreen    = user32.NewProc("ClientToScreen")
+	procGetWindowTextW    = user32.NewProc("GetWindowTextW")
+	procGetWindowLongPtrW = user32.NewProc("GetWindowLongPtrW")
+	procGetWindow         = user32.NewProc("GetWindow")
+)
+
+const gwOwner = 4
+
+// GWL_EXSTYLE is -20 in the Windows headers.
+var gwlExStyle = ^uintptr(19)
+
+// EnumWindows calls back on the thread that asked, and one callback serves every call, so what
+// it collects goes through a variable under a lock.
+var (
+	enumerating sync.Mutex
+	enumerated  []windows.HWND
+	collect     = sync.OnceValue(func() uintptr { return windows.NewCallback(collected) })
 )
 
 type point struct {
@@ -80,4 +100,69 @@ func (System) Processes() ([]Process, error) {
 	}
 
 	return processes, nil
+}
+
+func (s System) Choices(own uint32) ([]Choice, error) {
+	top, err := topWindows()
+	if err != nil {
+		return nil, err
+	}
+
+	processes, err := s.Processes()
+	if err != nil {
+		return nil, err
+	}
+
+	return Choices(top, processes, own), nil
+}
+
+func topWindows() ([]TopWindow, error) {
+	enumerating.Lock()
+	enumerated = nil
+	err := windows.EnumWindows(collect(), nil)
+	found := enumerated
+	enumerated = nil
+	enumerating.Unlock()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrWindows, err)
+	}
+
+	desktop := windows.GetShellWindow()
+	top := make([]TopWindow, len(found))
+	for i, hwnd := range found {
+		top[i] = described(hwnd)
+		top[i].Desktop = hwnd == desktop
+	}
+
+	return top, nil
+}
+
+func collected(hwnd windows.HWND, _ uintptr) uintptr {
+	enumerated = append(enumerated, hwnd)
+
+	return 1
+}
+
+// The title of another program's window is read from Windows itself, not asked of the window,
+// so a game that hangs cannot hang the list.
+func described(hwnd windows.HWND) TopWindow {
+	var pid uint32
+	windows.GetWindowThreadProcessId(hwnd, &pid)
+
+	var title [256]uint16
+	n, _, _ := procGetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&title[0])), uintptr(len(title)))
+	extended, _, _ := procGetWindowLongPtrW.Call(uintptr(hwnd), gwlExStyle)
+	owner, _, _ := procGetWindow.Call(uintptr(hwnd), gwOwner)
+
+	var cloaked uint32
+	windows.DwmGetWindowAttribute(hwnd, windows.DWMWA_CLOAKED, unsafe.Pointer(&cloaked), uint32(unsafe.Sizeof(cloaked)))
+
+	return TopWindow{
+		Title:    windows.UTF16ToString(title[:n]),
+		Process:  pid,
+		Visible:  windows.IsWindowVisible(hwnd),
+		Extended: uint32(extended),
+		Cloaked:  cloaked != 0,
+		Owned:    owner != 0,
+	}
 }

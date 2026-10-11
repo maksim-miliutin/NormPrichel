@@ -14,7 +14,6 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
-	"github.com/maksim-miliutin/NormPrichel/internal/live"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
 
@@ -67,27 +66,6 @@ type takenKey struct {
 	Field      string `json:"field"`
 	Hotkey     string `json:"hotkey"`
 	Suggestion string `json:"suggestion,omitempty"`
-}
-
-// The page names a refusal by its code and words it in the player's language.
-var reasons = []struct {
-	err  error
-	code string
-}{
-	{crosshair.ErrNotPNG, "not-png"},
-	{crosshair.ErrFileTooBig, "too-big"},
-	{crosshair.ErrTooLarge, "too-large"},
-	{crosshair.ErrUnknownShape, "unknown-shape"},
-	{profiles.ErrNoPicture, "no-picture"},
-	{hotkeys.ErrBadHotkey, "bad-hotkey"},
-	{hotkeys.ErrSameHotkey, "same-hotkey"},
-	{profiles.ErrListed, "listed"},
-	{profiles.ErrNoExe, "no-exe"},
-	{profiles.ErrNoGame, "no-game"},
-	{profiles.ErrNoSaved, "no-saved"},
-	{live.ErrRefused, "refused"},
-	{ErrBadRequest, "bad-request"},
-	{ErrAutostart, "autostart"},
 }
 
 func (p Page) Handler() http.Handler {

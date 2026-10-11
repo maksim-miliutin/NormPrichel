@@ -1,5 +1,12 @@
 package settings
 
+import (
+	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
+	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
+	"github.com/maksim-miliutin/NormPrichel/internal/live"
+	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
+)
+
 // The page carries no words of its own: every label comes from here, in the language of
 // Windows, and a test checks that both languages name the same things.
 var texts = map[string]map[string]string{
@@ -181,4 +188,25 @@ func textFor(language string) map[string]string {
 	}
 
 	return texts["en"]
+}
+
+// A refusal is named by its code and worded in the player's language.
+var reasons = []struct {
+	err  error
+	code string
+}{
+	{crosshair.ErrNotPNG, "not-png"},
+	{crosshair.ErrFileTooBig, "too-big"},
+	{crosshair.ErrTooLarge, "too-large"},
+	{crosshair.ErrUnknownShape, "unknown-shape"},
+	{profiles.ErrNoPicture, "no-picture"},
+	{hotkeys.ErrBadHotkey, "bad-hotkey"},
+	{hotkeys.ErrSameHotkey, "same-hotkey"},
+	{profiles.ErrListed, "listed"},
+	{profiles.ErrNoExe, "no-exe"},
+	{profiles.ErrNoGame, "no-game"},
+	{profiles.ErrNoSaved, "no-saved"},
+	{live.ErrRefused, "refused"},
+	{ErrBadRequest, "bad-request"},
+	{ErrAutostart, "autostart"},
 }

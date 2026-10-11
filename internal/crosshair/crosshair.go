@@ -49,13 +49,14 @@ var (
 var shapes = []struct {
 	shape Shape
 	parts func(s Style) parts
+	uses  []string
 }{
-	{Dot, func(s Style) parts { return withDot(parts{parity: s.DotSize % 2}, s) }},
-	{Cross, func(s Style) parts { return withArms(s, true) }},
-	{CrossDot, func(s Style) parts { return withDot(withArms(s, true), s) }},
-	{Circle, func(s Style) parts { return withRing(s) }},
-	{CircleDot, func(s Style) parts { return withDot(withRing(s), s) }},
-	{Tee, func(s Style) parts { return withArms(s, false) }},
+	{Dot, func(s Style) parts { return withDot(parts{parity: s.DotSize % 2}, s) }, []string{"opacity", "dot", "outline"}},
+	{Cross, func(s Style) parts { return withArms(s, true) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
+	{CrossDot, func(s Style) parts { return withDot(withArms(s, true), s) }, []string{"opacity", "length", "thickness", "gap", "dot", "outline"}},
+	{Circle, func(s Style) parts { return withRing(s) }, []string{"opacity", "thickness", "radius", "outline"}},
+	{CircleDot, func(s Style) parts { return withDot(withRing(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
+	{Tee, func(s Style) parts { return withArms(s, false) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
 }
 
 type limit struct {

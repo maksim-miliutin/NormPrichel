@@ -53,6 +53,8 @@ type view struct {
 	Taken    []takenKey        `json:"taken"`
 	Version  string            `json:"version"`
 	Language string            `json:"language"`
+	Text     map[string]string `json:"text"`
+	Arrows   []string          `json:"arrows"`
 }
 
 type takenKey struct {
@@ -83,6 +85,9 @@ var reasons = []struct {
 
 func (p Page) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", pageFile("index.html"))
+	mux.HandleFunc("GET /app.js", pageFile("app.js"))
+	mux.HandleFunc("GET /style.css", pageFile("style.css"))
 	mux.HandleFunc("GET /api/state", p.state)
 	mux.HandleFunc("GET /api/windows", p.windows)
 	mux.HandleFunc("GET /api/preview", p.preview)
@@ -109,7 +114,22 @@ func (p Page) state(w http.ResponseWriter, _ *http.Request) {
 		Taken:    p.taken(current.Hotkeys),
 		Version:  p.Version,
 		Language: p.Language,
+		Text:     textFor(p.Language),
+		Arrows:   arrowFields(),
 	})
+}
+
+// The fields that hold modifiers alone are the ones whose hotkeys repeat: the arrows.
+func arrowFields() []string {
+	fields := []string{}
+	bindings, _ := hotkeys.Bindings(profiles.Defaults().Hotkeys)
+	for _, b := range bindings {
+		if b.Repeat && !slices.Contains(fields, b.Field) {
+			fields = append(fields, b.Field)
+		}
+	}
+
+	return fields
 }
 
 // Each field is named once, by the first of its hotkeys that another program holds.

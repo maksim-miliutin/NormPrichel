@@ -163,6 +163,6 @@ func described(hwnd windows.HWND) TopWindow {
 		Visible:  windows.IsWindowVisible(hwnd),
 		Extended: uint32(extended),
 		Cloaked:  cloaked != 0,
-		Owned:    owner != 0,
+		Owned:    owner != 0 && windows.IsWindowVisible(windows.HWND(owner)),
 	}
 }

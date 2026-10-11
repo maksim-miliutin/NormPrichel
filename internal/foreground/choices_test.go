@@ -26,10 +26,15 @@ func TestAPlayerChoosesFromTitledWindowsOnTheDesktop(t *testing.T) {
 	desktop.Desktop = true
 	styled := shown("Styled", 44)
 	styled.Extended = 0x00040100
+	launched := shown("Game launched from a launcher", 44)
+	launched.Owned = true
+	launched.Extended = 0x00040000
+	pinned := shown("Pinned tool", 44)
+	pinned.Extended = 0x00040080
 
 	top := []foreground.TopWindow{
 		shown("STALZONE", 42),
-		hidden, tool, overlay, cloaked, owned, desktop, styled,
+		hidden, tool, overlay, cloaked, owned, desktop, styled, launched, pinned,
 		shown("", 44),
 		shown("   ", 44),
 		shown("NormPrichel", own),
@@ -40,7 +45,9 @@ func TestAPlayerChoosesFromTitledWindowsOnTheDesktop(t *testing.T) {
 	got := foreground.Choices(top, processes, own)
 
 	want := []foreground.Choice{
+		{Title: "Game launched from a launcher", Exe: "notepad.exe"},
 		{Title: "notes.txt - Notepad", Exe: "notepad.exe"},
+		{Title: "Pinned tool", Exe: "notepad.exe"},
 		{Title: "STALZONE", Exe: "STALZONE.EXE"},
 		{Title: "Styled", Exe: "notepad.exe"},
 	}

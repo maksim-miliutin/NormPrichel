@@ -101,7 +101,7 @@ func TestAskingForTheSameHotkeysAgainTouchesNothing(t *testing.T) {
 	}
 }
 
-func TestATakenHotkeyIsNamedAndTriedAgainOnlyWhenAskedAnew(t *testing.T) {
+func TestATakenHotkeyIsNamedAndTriedAgainUntilItIsFree(t *testing.T) {
 	r := &registrar{refused: []string{"Ctrl+Shift+C"}}
 	keys := hotkeys.NewKeys(r)
 	bindings := defaults(t)
@@ -112,19 +112,67 @@ func TestATakenHotkeyIsNamedAndTriedAgainOnlyWhenAskedAnew(t *testing.T) {
 	}
 	r.take()
 
+	if err := keys.Hold(bindings); !errors.Is(err, errHeld) {
+		t.Errorf("while still taken: got %v, want the refusal again", err)
+	}
+	if got := r.take(); !slices.Equal(got, []string{"+Ctrl+Shift+C"}) {
+		t.Errorf("while still taken: made %v, want the taken one tried alone", got)
+	}
+
+	r.refused = nil
+	if err := keys.Hold(bindings); err != nil {
+		t.Errorf("once free: got %v, want it held", err)
+	}
+	r.take()
 	if err := keys.Hold(bindings); err != nil || len(r.take()) != 0 {
-		t.Errorf("the same hotkeys again: got %v, want no error and no retry", err)
+		t.Errorf("all held: got %v, want no error and no calls", err)
 	}
 
 	keys.Hold(nil)
-	if got := r.take(); slices.Contains(got, "-Ctrl+Shift+C") || len(got) != 10 {
-		t.Errorf("let go of %v, want the ten that were held and not the refused one", got)
+	if got := r.take(); len(got) != 11 {
+		t.Errorf("let go of %v, want all eleven", got)
+	}
+}
+
+func TestTheHotkeysHeldHereAreNotTakenForOtherPrograms(t *testing.T) {
+	r := &registrar{refused: []string{"Ctrl+Shift+C"}}
+	keys := hotkeys.NewKeys(r)
+	bindings := defaults(t)
+
+	if got := keys.Others(bindings); len(got) != 11 {
+		t.Errorf("holding nothing: %d left to look at, want all eleven", len(got))
 	}
 
 	keys.Hold(bindings)
-	if got := r.take(); !slices.Equal(got, marked("+", bindings)) {
-		t.Errorf("asked anew: registered %v, want all eleven tried again", got)
+	if got := marked("", keys.Others(bindings)); !slices.Equal(got, []string{"Ctrl+Shift+C"}) {
+		t.Errorf("holding ten: %v left to look at, want the one held elsewhere", got)
 	}
+
+	keys.Hold(nil)
+	if got := keys.Others(bindings); len(got) != 11 {
+		t.Errorf("after letting go: %d left to look at, want all eleven", len(got))
+	}
+}
+
+func TestOtherThreadsMayAskWhileHotkeysChange(t *testing.T) {
+	keys := hotkeys.NewKeys(&registrar{})
+	bindings := defaults(t)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 200 {
+			keys.Others(bindings)
+		}
+	}()
+	for i := range 200 {
+		if i%2 == 0 {
+			keys.Hold(bindings)
+			continue
+		}
+		keys.Hold(nil)
+	}
+	<-done
 }
 
 func TestChangedHotkeysReplaceTheOldOnes(t *testing.T) {

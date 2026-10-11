@@ -78,6 +78,30 @@ func TestAnotherHostIsTurnedAwayEvenWithTheKey(t *testing.T) {
 	}
 }
 
+func TestARequestFromAnotherSiteIsTurnedAwayEvenWithTheKey(t *testing.T) {
+	sites := map[string]int{
+		"":            http.StatusOK,
+		"none":        http.StatusOK,
+		"same-origin": http.StatusOK,
+		"same-site":   http.StatusForbidden,
+		"cross-site":  http.StatusForbidden,
+	}
+
+	for site, want := range sites {
+		page := &inner{}
+		r := httptest.NewRequest(http.MethodPost, "http://"+host+"/"+key+"/api/games", nil)
+		if site != "" {
+			r.Header.Set("Sec-Fetch-Site", site)
+		}
+		w := httptest.NewRecorder()
+		settings.Guard(key, host, page).ServeHTTP(w, r)
+
+		if w.Code != want || (want == http.StatusForbidden) != (len(page.paths) == 0) {
+			t.Errorf("Sec-Fetch-Site %q: status %d with %d let through, want %d", site, w.Code, len(page.paths), want)
+		}
+	}
+}
+
 func TestAnAnswerIsNotCachedReferredOnOrFramed(t *testing.T) {
 	got := ask(settings.Guard(key, host, &inner{}), http.MethodGet, host, "/"+key+"/")
 

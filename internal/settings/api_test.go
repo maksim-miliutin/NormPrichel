@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"image"
-	"image/color"
 	"image/draw"
 	"image/png"
 	"net/http"
@@ -291,19 +290,6 @@ func TestATakenHotkeyIsNamedOncePerFieldWithAFreeOneOffered(t *testing.T) {
 			t.Errorf("%s: %s with %q offered, want %s with %q", taken.Field, taken.Hotkey, taken.Suggestion, w[0], w[1])
 		}
 	}
-}
-
-func pngOf(t *testing.T, side int) []byte {
-	t.Helper()
-
-	img := image.NewNRGBA(image.Rect(0, 0, side, side))
-	img.SetNRGBA(side/2, side/2, color.NRGBA{R: 255, A: 255})
-	var file bytes.Buffer
-	if err := png.Encode(&file, img); err != nil {
-		t.Fatal(err)
-	}
-
-	return file.Bytes()
 }
 
 func TestAPictureIsTakenOnlyAsASmallPNG(t *testing.T) {

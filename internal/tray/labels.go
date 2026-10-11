@@ -8,14 +8,15 @@ import (
 )
 
 type Labels struct {
-	Settings string
-	Toggle   string
-	Exit     string
+	Settings  string
+	Toggle    string
+	Autostart string
+	Exit      string
 }
 
 var labels = map[string]Labels{
-	"ru": {Settings: "Настройки", Toggle: "Показать или скрыть прицел", Exit: "Выход"},
-	"en": {Settings: "Settings", Toggle: "Show or hide the crosshair", Exit: "Exit"},
+	"ru": {Settings: "Настройки", Toggle: "Показать или скрыть прицел", Autostart: "Запускать вместе с Windows", Exit: "Выход"},
+	"en": {Settings: "Settings", Toggle: "Show or hide the crosshair", Autostart: "Start with Windows", Exit: "Exit"},
 }
 
 const langRussian = 0x19
@@ -28,6 +29,12 @@ func Language(id uint16) string {
 	}
 
 	return "en"
+}
+
+// StartCommand quotes the path: unquoted, a path with spaces is cut at the first one, and
+// Windows would look for C:\Program instead of the program.
+func StartCommand(exe string) string {
+	return `"` + exe + `"`
 }
 
 func LabelsFor(language string) Labels {

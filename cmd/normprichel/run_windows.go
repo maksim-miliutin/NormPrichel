@@ -62,6 +62,7 @@ func run() error {
 			tick()
 		},
 		Exit: screen.Stop,
+		Fail: acted,
 	})
 	if err != nil {
 		return err

@@ -26,7 +26,7 @@ func TestRussianWindowsGetsRussianAndAnyOtherEnglish(t *testing.T) {
 func TestTheMenuIsWordedInBothLanguages(t *testing.T) {
 	for _, language := range []string{"ru", "en"} {
 		l := tray.LabelsFor(language)
-		if l.Settings == "" || l.Toggle == "" || l.Exit == "" {
+		if l.Settings == "" || l.Toggle == "" || l.Autostart == "" || l.Exit == "" {
 			t.Errorf("%s: %+v has an empty item", language, l)
 		}
 	}
@@ -62,5 +62,11 @@ func TestTheIconIsTheCrosshairInsideItsSquare(t *testing.T) {
 		if arm[0] != 0x66 || arm[1] != 0xFF || arm[2] != 0x00 || arm[3] != 0xFF {
 			t.Errorf("side %d: an arm pixel is %v, want the default green as blue, green, red, alpha", side, arm)
 		}
+	}
+}
+
+func TestWindowsStartsTheProgramByItsWholePath(t *testing.T) {
+	if got, want := tray.StartCommand(`C:\Program Files\NormPrichel\normprichel.exe`), `"C:\Program Files\NormPrichel\normprichel.exe"`; got != want {
+		t.Errorf("got %s, want %s", got, want)
 	}
 }

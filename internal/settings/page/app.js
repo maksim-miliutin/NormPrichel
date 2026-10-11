@@ -27,14 +27,22 @@ const always = ["opacity", "outline"];
 const modifiers = [["ctrlKey", "Ctrl"], ["shiftKey", "Shift"], ["altKey", "Alt"], ["metaKey", "Win"]];
 
 const namedKeys = {
-	ArrowLeft: "Left", ArrowRight: "Right", ArrowUp: "Up", ArrowDown: "Down",
-	Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown",
-	Insert: "Insert", Delete: "Delete", Space: "Space",
+	32: "Space", 33: "PageUp", 34: "PageDown", 35: "End", 36: "Home",
+	37: "Left", 38: "Up", 39: "Right", 40: "Down", 45: "Insert", 46: "Delete",
 };
 
 let view = null;
 let selected = "";
+let shown = "";
 let mode = "ready";
+
+// Requests and the preview each keep their own problem: a change the program took must not wipe
+// out the preview's word that the picture is gone, nor a working preview a refusal.
+const problems = { request: "", preview: "" };
+
+// Crosshairs changed here that the program has not answered for yet, by exe: a state that left
+// the program before the change would otherwise put the old crosshair back on the page.
+const unsent = new Map();
 
 function byId(id)
 {
@@ -111,7 +119,10 @@ async function api(method, path, body)
 		return null;
 	}
 
-	byId("problem").hidden = true;
+	if (method !== "GET")
+	{
+		settle("request");
+	}
 
 	return answer;
 }
@@ -128,11 +139,23 @@ function refuse(answer)
 	complain(t("error." + code));
 }
 
-function complain(message)
+function complain(message, source = "request")
+{
+	problems[source] = message;
+	showProblem();
+}
+
+function settle(source)
+{
+	problems[source] = "";
+	showProblem();
+}
+
+function showProblem()
 {
 	const box = byId("problem");
-	box.textContent = message;
-	box.hidden = false;
+	box.textContent = problems.request || problems.preview;
+	box.hidden = box.textContent === "";
 }
 
 // One change on the way at a time, and of the ones that pile up meanwhile only the newest goes:
@@ -184,6 +207,10 @@ async function change(method, path, body)
 function show(fresh)
 {
 	view = fresh;
+	for (const game of view.settings.games)
+	{
+		game.crosshair = unsent.get(game.exe.toLowerCase()) || game.crosshair;
+	}
 	document.documentElement.lang = view.language;
 	buildShapes();
 	for (const node of document.querySelectorAll("[data-text]"))
@@ -249,7 +276,11 @@ function showGame()
 	byId("game-exe").textContent = game.exe;
 	byId("offset-x").value = game.offset.x;
 	byId("offset-y").value = game.offset.y;
-	mode = game.crosshair.image ? "picture" : "ready";
+	if (!same(game.exe, shown) || game.crosshair.image)
+	{
+		mode = game.crosshair.image ? "picture" : "ready";
+	}
+	shown = game.exe;
 	showCrosshair(game.crosshair);
 	showSaved();
 }
@@ -340,11 +371,22 @@ function enlarge(event)
 	image.style.width = image.naturalWidth * zoom + "px";
 }
 
+function unpainted()
+{
+	const game = current();
+	complain(t(game && game.crosshair.image ? "error.no-picture" : "error.offline"), "preview");
+}
+
 // The page answers a change on the spot, and the program gets it shortly after: the reply only
 // matters when it is a refusal, and then the state comes back whole from the program.
 const sendCrosshair = latest(async function (edit)
 {
-	if (!await api("PUT", games(edit.exe) + "/crosshair", edit.crosshair))
+	const sent = await api("PUT", games(edit.exe) + "/crosshair", edit.crosshair);
+	if (unsent.get(edit.exe.toLowerCase()) === edit.crosshair)
+	{
+		unsent.delete(edit.exe.toLowerCase());
+	}
+	if (!sent)
 	{
 		await load();
 	}
@@ -359,6 +401,7 @@ function changeCrosshair(edit)
 	}
 
 	game.crosshair = edit(game.crosshair);
+	unsent.set(game.exe.toLowerCase(), game.crosshair);
 	showCrosshair(game.crosshair);
 	sendCrosshair({ exe: game.exe, crosshair: game.crosshair });
 }
@@ -377,7 +420,13 @@ function showSaved()
 			mode = crosshair.image ? "picture" : "ready";
 			changeCrosshair(() => structuredClone(crosshair));
 		});
-		forget.addEventListener("click", () => change("DELETE", "api/saved/" + index));
+		forget.addEventListener("click", function ()
+		{
+			if (confirm(t("confirmForget")))
+			{
+				change("DELETE", "api/saved/" + index);
+			}
+		});
 		list.append(element("li", { class: "saved-entry" }, element("span", { class: "label", text: name }), use, forget));
 	});
 
@@ -427,7 +476,7 @@ function capture(event, field, input)
 		return;
 	}
 
-	const key = namedKeys[event.code] || (/^(?:Key([A-Z])|Digit([0-9])|(F[0-9]{1,2})|(Numpad[0-9]))$/.exec(event.code) || []).slice(1).find(Boolean);
+	const key = keyName(event.keyCode);
 	if (!key)
 	{
 		return;
@@ -442,6 +491,26 @@ function capture(event, field, input)
 
 	input.value = arrows ? held.join("+") : held.concat(key).join("+");
 	setHotkey(field, input.value);
+}
+
+// Windows binds a hotkey to a virtual key, and keyCode is that key; the key's place on the
+// board, which code would give, means another letter on a German keyboard.
+function keyName(code)
+{
+	if (code >= 65 && code <= 90 || code >= 48 && code <= 57)
+	{
+		return String.fromCharCode(code);
+	}
+	if (code >= 112 && code <= 135)
+	{
+		return "F" + (code - 111);
+	}
+	if (code >= 96 && code <= 105)
+	{
+		return "Numpad" + (code - 96);
+	}
+
+	return namedKeys[code] || "";
 }
 
 async function setHotkey(field, text)
@@ -535,6 +604,8 @@ function wire()
 	byId("file").addEventListener("change", upload);
 	byId("preview-dark").addEventListener("load", enlarge);
 	byId("preview-light").addEventListener("load", enlarge);
+	byId("preview-dark").addEventListener("error", unpainted);
+	byId("preview-dark").addEventListener("load", () => settle("preview"));
 
 	byId("offset-x").addEventListener("change", setOffset);
 	byId("offset-y").addEventListener("change", setOffset);
@@ -549,9 +620,24 @@ function wire()
 	window.addEventListener("focus", load);
 }
 
+function whole(input)
+{
+	const value = input.value.trim() === "" ? NaN : Math.round(Number(input.value));
+
+	return Number.isFinite(value) ? value : null;
+}
+
 function setOffset()
 {
-	change("PUT", games(selected) + "/offset", { x: Number(byId("offset-x").value), y: Number(byId("offset-y").value) });
+	const x = whole(byId("offset-x"));
+	const y = whole(byId("offset-y"));
+	if (x === null || y === null)
+	{
+		showGame();
+		return;
+	}
+
+	change("PUT", games(selected) + "/offset", { x: x, y: y });
 }
 
 async function upload()

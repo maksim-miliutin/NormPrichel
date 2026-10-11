@@ -49,3 +49,23 @@ func TestTheWindowInFrontBelongsToAListedProcess(t *testing.T) {
 	}
 	t.Errorf("the window in front belongs to process %d, which the snapshot does not list", window.Process)
 }
+
+func TestTheWindowsToChooseFromAreNamedAndExcludeThisTest(t *testing.T) {
+	choices, err := foreground.System{}.Choices(uint32(os.Getpid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range choices {
+		t.Logf("%s  (%s)", c.Title, c.Exe)
+		if strings.TrimSpace(c.Title) == "" || c.Exe == "" {
+			t.Errorf("a choice without a title or an exe: %+v", c)
+		}
+		if strings.EqualFold(c.Exe, "foreground.test.exe") {
+			t.Errorf("the test itself is offered: %+v", c)
+		}
+		if c.Title == "Program Manager" && strings.EqualFold(c.Exe, "explorer.exe") {
+			t.Errorf("the desktop is offered as a game: %+v", c)
+		}
+	}
+}

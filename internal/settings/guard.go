@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -14,6 +15,11 @@ var ErrKey = errors.New("settings: no key could be made for the page")
 
 const policy = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; " +
 	"base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+// Listen takes a free port on the loopback address alone: nothing outside this computer can reach it.
+func Listen() (net.Listener, error) {
+	return net.Listen("tcp", "127.0.0.1:0")
+}
 
 func NewKey(random io.Reader) (string, error) {
 	var raw [32]byte

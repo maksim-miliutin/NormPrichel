@@ -1,9 +1,13 @@
 package main
 
 import (
+	"crypto/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
+	"time"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/app"
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
@@ -11,6 +15,7 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/live"
 	"github.com/maksim-miliutin/NormPrichel/internal/overlay"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
+	"github.com/maksim-miliutin/NormPrichel/internal/settings"
 	"github.com/maksim-miliutin/NormPrichel/internal/tray"
 )
 
@@ -23,10 +28,17 @@ func run() error {
 		return err
 	}
 	store := profiles.Store{Disk: profiles.OS{}, Dir: dir}
-	settings, err := store.Load()
+	loaded, err := store.Load()
 	report(err)
-	state := live.New(settings, store, reporter(os.Stderr))
+	state := live.New(loaded, store, reporter(os.Stderr))
 	defer state.Close()
+
+	language := tray.SystemLanguage()
+	address, server, err := serve(state, store, language)
+	if err != nil {
+		return err
+	}
+	defer server.Close()
 
 	// Windows gives a window, its timer and its hotkeys to the thread that made them, and the
 	// overlay's message loop serves every window of the thread it runs on.
@@ -38,19 +50,32 @@ func run() error {
 	loop := &app.Loop{State: state, Overlay: overlay.NewController(screen, watcher, store.Paint), Games: watcher}
 	tick := func() { report(loop.Tick()) }
 
-	pressed := reporter(os.Stderr)
-	shell, err := tray.New(tray.Handlers{Hotkey: func(action int) {
-		pressed(loop.Hotkey(action))
-		tick()
-	}})
+	acted := reporter(os.Stderr)
+	shell, err := tray.New(language, tray.Handlers{
+		Hotkey: func(action int) {
+			acted(loop.Hotkey(action))
+			tick()
+		},
+		Open: func() { acted(tray.Open(address)) },
+		Toggle: func() {
+			acted(loop.Toggle())
+			tick()
+		},
+		Exit: screen.Stop,
+	})
 	if err != nil {
 		return err
 	}
 	defer shell.Close()
+	report(shell.ShowIcon())
 
 	keys := hotkeys.NewKeys(hotkeys.System{Window: shell.Handle()})
 	defer keys.Hold(nil)
 	loop.Keys = keys
+
+	if len(loaded.Games) == 0 {
+		report(tray.Open(address))
+	}
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -60,4 +85,29 @@ func run() error {
 	}()
 
 	return screen.Run(tick)
+}
+
+func serve(state *live.State, store profiles.Store, language string) (string, *http.Server, error) {
+	key, err := settings.NewKey(rand.Reader)
+	if err != nil {
+		return "", nil, err
+	}
+	listener, err := settings.Listen()
+	if err != nil {
+		return "", nil, err
+	}
+
+	host := listener.Addr().String()
+	page := settings.Page{
+		State:    state,
+		Pictures: store,
+		Windows:  func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
+		Taken:    hotkeys.Taken,
+		Version:  versionOf(debug.ReadBuildInfo()),
+		Language: language,
+	}
+	server := &http.Server{Handler: settings.Guard(key, host, page.Handler()), ReadHeaderTimeout: 10 * time.Second}
+	go server.Serve(listener)
+
+	return "http://" + host + "/" + key + "/", server, nil
 }

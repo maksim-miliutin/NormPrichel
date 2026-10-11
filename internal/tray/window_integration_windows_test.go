@@ -46,7 +46,7 @@ func TestAHotkeyPressReachesItsHandlerAndTheWindowStaysOutOfSight(t *testing.T) 
 	defer runtime.UnlockOSThread()
 
 	pressed := -1
-	window, err := tray.New(tray.Handlers{Hotkey: func(action int) { pressed = action }})
+	window, err := tray.New("en", tray.Handlers{Hotkey: func(action int) { pressed = action }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,4 +75,28 @@ func TestAHotkeyPressReachesItsHandlerAndTheWindowStaysOutOfSight(t *testing.T) 
 	if found, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(name)), 0); found != window.Handle() {
 		t.Errorf("a second copy of the program would find window %#x, want %#x", found, window.Handle())
 	}
+}
+
+func TestTheIconGoesIntoTheNotificationAreaAndLeavesWithTheWindow(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	window, err := tray.New("ru", tray.Handlers{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := window.ShowIcon(); err != nil {
+		window.Close()
+		t.Fatal(err)
+	}
+	t.Log("the crosshair icon is in the notification area for two seconds")
+	time.Sleep(2 * time.Second)
+	window.Close()
+}
+
+func TestTheLanguageOfWindowsIsReadAsRussianOrEnglish(t *testing.T) {
+	if got := tray.SystemLanguage(); got != "ru" && got != "en" {
+		t.Errorf("got %q, want ru or en", got)
+	}
+	t.Logf("this Windows speaks %s", tray.SystemLanguage())
 }

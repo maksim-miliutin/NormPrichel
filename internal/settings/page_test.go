@@ -74,8 +74,9 @@ func TestThePageComesWithItsScriptAndStyleTypedWhateverWindowsSays(t *testing.T)
 	}
 }
 
-func TestEveryWordThePageUsesIsThereInBothLanguages(t *testing.T) {
-	page := pageIn(t, "ru")
+func shown(t *testing.T, page http.Handler, words worded) []string {
+	t.Helper()
+
 	html, _ := get(t, page, "/")
 	script, _ := get(t, page, "/app.js")
 
@@ -89,22 +90,58 @@ func TestEveryWordThePageUsesIsThereInBothLanguages(t *testing.T) {
 		t.Fatalf("found only %d words on the page; the patterns no longer match it", len(keys))
 	}
 
+	for _, shape := range words.Shapes {
+		keys = append(keys, "shape."+shape)
+	}
+	fields, _ := json.Marshal(words.Settings.Hotkeys)
+	var hotkeys map[string]string
+	json.Unmarshal(fields, &hotkeys)
+	for field := range hotkeys {
+		keys = append(keys, "hotkey."+field)
+	}
+
+	return keys
+}
+
+func TestEveryWordThePageUsesIsThereInBothLanguages(t *testing.T) {
+	page := pageIn(t, "ru")
+
 	for _, language := range []string{"ru", "en"} {
 		words := wordsIn(t, language)
-		for _, shape := range words.Shapes {
-			keys = append(keys, "shape."+shape)
-		}
-		fields, _ := json.Marshal(words.Settings.Hotkeys)
-		var hotkeys map[string]string
-		json.Unmarshal(fields, &hotkeys)
-		for field := range hotkeys {
-			keys = append(keys, "hotkey."+field)
-		}
-
-		for _, key := range keys {
+		for _, key := range shown(t, page, words) {
 			if strings.TrimSpace(words.Text[key]) == "" {
 				t.Errorf("%s: no words for %q", language, key)
 			}
+		}
+	}
+}
+
+// Refusals are worded after the program's reasons, which a test inside the package holds.
+func TestThePageShowsEveryWordItIsSent(t *testing.T) {
+	words := wordsIn(t, "en")
+	used := map[string]bool{}
+	for _, key := range shown(t, pageIn(t, "en"), words) {
+		used[key] = true
+	}
+
+	for key := range words.Text {
+		if !used[key] && !strings.HasPrefix(key, "error.") {
+			t.Errorf("%q is worded, but nothing on the page shows it", key)
+		}
+	}
+}
+
+// Square is the design: the browser rounds its own controls, so the style takes that off every
+// element, and nothing of its own puts it back.
+func TestNothingOnThePageIsRounded(t *testing.T) {
+	style, _ := get(t, pageIn(t, "ru"), "/style.css")
+
+	if !regexp.MustCompile(`(?m)^\*\s*\{[^}]*\bborder-radius: 0;`).MatchString(style) {
+		t.Error("the style leaves the browser's rounding on")
+	}
+	for _, radius := range regexp.MustCompile(`border-radius:\s*([^;]*);`).FindAllStringSubmatch(style, -1) {
+		if radius[1] != "0" {
+			t.Errorf("a corner is rounded by %s", radius[1])
 		}
 	}
 }

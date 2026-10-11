@@ -40,7 +40,6 @@ var texts = map[string]map[string]string{
 		"upload":           "Загрузить PNG",
 		"uploadHint":       "PNG с прозрачностью, до 2 МБ и до 512 × 512 px. Центр картинки встанет в точку прицеливания.",
 		"scale":            "Масштаб, %",
-		"backToReady":      "Вернуться к готовому",
 
 		"preview":      "Превью",
 		"position":     "Положение",
@@ -49,7 +48,6 @@ var texts = map[string]map[string]string{
 		"centre":       "В центр",
 
 		"saved":       "Сохранённые прицелы",
-		"savedHint":   "Клавиша «Следующий сохранённый прицел» перебирает их в игре по кругу.",
 		"saveAs":      "Название для текущего",
 		"saveCurrent": "Сохранить",
 		"use":         "Выбрать",
@@ -125,7 +123,6 @@ var texts = map[string]map[string]string{
 		"upload":           "Upload a PNG",
 		"uploadHint":       "A PNG with transparency, up to 2 MB and 512 × 512 px. Its centre goes on the aim point.",
 		"scale":            "Scale, %",
-		"backToReady":      "Back to ready-made",
 
 		"preview":      "Preview",
 		"position":     "Position",
@@ -134,7 +131,6 @@ var texts = map[string]map[string]string{
 		"centre":       "Centre",
 
 		"saved":       "Saved crosshairs",
-		"savedHint":   "The Next saved crosshair key goes round them in game.",
 		"saveAs":      "Name for the current one",
 		"saveCurrent": "Save",
 		"use":         "Use",

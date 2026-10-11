@@ -85,6 +85,10 @@ func newWorld(t *testing.T, s profiles.Settings) world {
 	return w
 }
 
+func (w world) lastDrawn() profiles.Settings {
+	return w.overlay.drawn[len(w.overlay.drawn)-1]
+}
+
 func actionOf(t *testing.T, text string) int {
 	t.Helper()
 
@@ -210,5 +214,68 @@ func TestAHotkeyForAGameThatLeftChangesNothing(t *testing.T) {
 
 	if err := w.loop.Hotkey(actionOf(t, "Ctrl+Shift+Home")); !errors.Is(err, profiles.ErrNoGame) {
 		t.Errorf("got %v, want ErrNoGame", err)
+	}
+}
+
+func TestTheToggleHidesTheCrosshairUntilTheGameLeavesTheFront(t *testing.T) {
+	w := newWorld(t, settings())
+	w.games.exe = "stalzone.exe"
+	w.loop.Tick()
+	toggle := actionOf(t, "Ctrl+Shift+X")
+
+	for i, want := range []bool{false, true, false} {
+		if err := w.loop.Hotkey(toggle); err != nil {
+			t.Fatal(err)
+		}
+		w.loop.Tick()
+		if got := w.lastDrawn().Visible; got != want {
+			t.Fatalf("after %d presses the crosshair is drawn %v, want %v", i+1, got, want)
+		}
+	}
+	if !w.state.Current().Visible {
+		t.Error("the toggle reached the settings, and the crosshair would stay hidden for good")
+	}
+
+	w.games.exe = ""
+	w.loop.Tick()
+	w.games.exe = "stalzone.exe"
+	w.loop.Tick()
+	if !w.lastDrawn().Visible {
+		t.Error("the crosshair is not back once the game comes in front again")
+	}
+}
+
+func TestTheToggleShowsASwitchedOffCrosshairOnlyWhileTheGameStaysInFront(t *testing.T) {
+	off := settings()
+	off.Visible = false
+	w := newWorld(t, off)
+	w.games.exe = "stalzone.exe"
+	w.loop.Tick()
+
+	w.loop.Hotkey(actionOf(t, "Ctrl+Shift+X"))
+	w.loop.Tick()
+	if !w.lastDrawn().Visible {
+		t.Error("the toggle does not show a switched-off crosshair")
+	}
+
+	w.games.exe = ""
+	w.loop.Tick()
+	w.games.exe = "stalzone.exe"
+	w.loop.Tick()
+	if w.lastDrawn().Visible {
+		t.Error("the crosshair is still shown after the game came back, though it is switched off")
+	}
+}
+
+func TestAnotherGameInFrontStartsFromTheSwitch(t *testing.T) {
+	w := newWorld(t, settings())
+	w.games.exe = "stalzone.exe"
+	w.loop.Tick()
+	w.loop.Hotkey(actionOf(t, "Ctrl+Shift+X"))
+
+	w.games.exe = "other.exe"
+	w.loop.Tick()
+	if !w.lastDrawn().Visible {
+		t.Error("the toggle in one game hides the crosshair in another")
 	}
 }

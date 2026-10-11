@@ -2,6 +2,7 @@ package hotkeys_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
@@ -47,17 +48,21 @@ func actionOf(t *testing.T, text string) int {
 	return 0
 }
 
-func TestTheToggleHidesTheCrosshairAndShowsItAgain(t *testing.T) {
+func TestTheToggleIsToldApartAndChangesNoSetting(t *testing.T) {
 	toggle := actionOf(t, "Ctrl+Shift+X")
 
-	hidden, err := hotkeys.Apply(listed(), toggle, "stalzone.exe")
-	if err != nil || hidden.Visible {
-		t.Fatalf("got visible %v, %v; want the crosshair hidden", hidden.Visible, err)
+	if !hotkeys.Toggles(toggle) {
+		t.Error("the toggle is not told apart")
+	}
+	for _, other := range []int{actionOf(t, "Ctrl+Shift+Home"), actionOf(t, "Ctrl+Shift+Left"), -1, 99} {
+		if hotkeys.Toggles(other) {
+			t.Errorf("action %d is taken for the toggle", other)
+		}
 	}
 
-	shown, err := hotkeys.Apply(hidden, toggle, "stalzone.exe")
-	if err != nil || !shown.Visible {
-		t.Errorf("got visible %v, %v; want the crosshair back", shown.Visible, err)
+	got, err := hotkeys.Apply(listed(), toggle, "stalzone.exe")
+	if err != nil || !reflect.DeepEqual(got, listed()) {
+		t.Errorf("got %+v, %v; want the settings as they were", got, err)
 	}
 }
 

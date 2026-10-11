@@ -57,7 +57,7 @@ var texts = map[string]map[string]string{
 
 		"hotkeys":         "Горячие клавиши",
 		"hotkeysHint":     "Работают, только пока впереди окно игры из списка. Щёлкните поле и нажмите сочетание.",
-		"hotkey.toggle":   "Показать или скрыть прицел",
+		"hotkey.toggle":   "Показать или скрыть прицел, пока вы в игре",
 		"hotkey.nudge":    "Сдвиг на 1 px: держите их и жмите стрелки",
 		"hotkey.nudgeFar": "Сдвиг на 10 px: держите их и жмите стрелки",
 		"hotkey.center":   "Вернуть в центр",
@@ -142,7 +142,7 @@ var texts = map[string]map[string]string{
 
 		"hotkeys":         "Hotkeys",
 		"hotkeysHint":     "They work only while a listed game is in front. Click a field and press the keys.",
-		"hotkey.toggle":   "Show or hide the crosshair",
+		"hotkey.toggle":   "Show or hide the crosshair while you stay in the game",
 		"hotkey.nudge":    "Nudge by 1 px: hold these and press arrows",
 		"hotkey.nudgeFar": "Nudge by 10 px: hold these and press arrows",
 		"hotkey.center":   "Back to the centre",

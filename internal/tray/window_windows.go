@@ -306,7 +306,7 @@ func windowProc(hwnd, message, wparam, lparam uintptr) uintptr {
 	case message == wmHotkey && w.handlers.Hotkey != nil:
 		w.handlers.Hotkey(int(wparam))
 		return 0
-	case message == wmTray && lparam&0xFFFF == wmLButtonDblClk:
+	case message == wmTray && lparam&0xFFFF == wmLButtonDblClk, message == wmWake:
 		w.run(commandSettings)
 		return 0
 	case message == wmTray && (lparam&0xFFFF == wmRButtonUp || lparam&0xFFFF == wmContextMenu):

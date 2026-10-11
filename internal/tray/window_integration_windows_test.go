@@ -100,3 +100,39 @@ func TestTheLanguageOfWindowsIsReadAsRussianOrEnglish(t *testing.T) {
 	}
 	t.Logf("this Windows speaks %s", tray.SystemLanguage())
 }
+
+func TestASecondCopyFindsTheFirstAndAsksItToOpenThePage(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	first, err := tray.Claim()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first {
+		t.Fatal("the program is running: close it before this test")
+	}
+	if again, err := tray.Claim(); err != nil || again {
+		t.Errorf("a second claim: %v, %v; want it refused", again, err)
+	}
+
+	opened := false
+	window, err := tray.New("en", tray.Handlers{Open: func() { opened = true }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer window.Close()
+
+	woken := make(chan error, 1)
+	go func() { woken <- tray.Wake() }()
+	deadline := time.Now().Add(5 * time.Second)
+	for !opened && time.Now().Before(deadline) {
+		var m msg
+		if got, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0, pmRemove); got != 0 {
+			procDispatchMessage.Call(uintptr(unsafe.Pointer(&m)))
+		}
+	}
+	if err := <-woken; err != nil || !opened {
+		t.Errorf("wake: %v, page opened %v; want the first copy asked to open its page", err, opened)
+	}
+}

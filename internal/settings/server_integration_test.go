@@ -23,7 +23,7 @@ func TestThePageListensOnThisComputerAloneAndAnswersOnlyWithTheKey(t *testing.T)
 
 	state := live.New(listed(), nowhere{}, func(error) {})
 	defer state.Close()
-	page := settings.Page{State: state, Taken: (&site{}).held, Language: "en"}
+	page := settings.Page{State: state, Taken: (&site{}).held, Autostart: (&site{}).autostart, Language: "en"}
 	server := &http.Server{Handler: settings.Guard(key, host, page.Handler())}
 	go server.Serve(listener)
 	defer server.Close()

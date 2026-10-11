@@ -5,6 +5,9 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
+	"slices"
+
+	"github.com/maksim-miliutin/NormPrichel/internal/tray"
 )
 
 func main() {
@@ -38,4 +41,10 @@ func versionOf(info *debug.BuildInfo, ok bool) string {
 	}
 
 	return info.Main.Version
+}
+
+// A start by hand always shows the page: the program has no window of its own, and with its icon
+// tucked away it would look as if it never started. At sign-in it keeps to the tray.
+func pageAtStart(args []string) bool {
+	return !slices.Contains(args, tray.Background)
 }

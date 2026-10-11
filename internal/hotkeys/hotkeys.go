@@ -59,7 +59,7 @@ type action struct {
 }
 
 var actions = []action{
-	{name: "toggle", field: toggleField, apply: toggled},
+	{name: "toggle", field: toggleField, apply: unchanged},
 	{name: "nudge left", field: nudgeField, arrow: "Left", apply: nudged(-1, 0)},
 	{name: "nudge right", field: nudgeField, arrow: "Right", apply: nudged(1, 0)},
 	{name: "nudge up", field: nudgeField, arrow: "Up", apply: nudged(0, -1)},
@@ -108,6 +108,10 @@ func Bindings(h profiles.Hotkeys) ([]Binding, error) {
 	}
 
 	return bindings, nil
+}
+
+func Toggles(action int) bool {
+	return action >= 0 && action < len(actions) && actions[action].field.name == toggleField.name
 }
 
 func Apply(s profiles.Settings, action int, exe string) (profiles.Settings, error) {
@@ -226,9 +230,9 @@ func textOf(flags uint32, key string) string {
 	return strings.Join(parts, "+")
 }
 
-func toggled(s profiles.Settings, _ string) (profiles.Settings, error) {
-	s.Visible = !s.Visible
-
+// The toggle turns the crosshair over only while the game stays in front, and the loop keeps
+// that: written into the settings, it would outlast the visit.
+func unchanged(s profiles.Settings, _ string) (profiles.Settings, error) {
 	return s, nil
 }
 

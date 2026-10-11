@@ -33,15 +33,21 @@ type Loop struct {
 	Games   Games
 	Keys    Keys
 
-	front string
+	front   string
+	flipped bool // the toggle hotkey turned the crosshair over until the game leaves the front
 }
 
 func (l *Loop) Tick() error {
 	current := l.State.Current()
-	drawn := l.Overlay.Refresh(current)
-
 	target, inFront, err := l.Games.Front(current)
+	if target.Game.Exe != l.front {
+		l.flipped = false
+	}
 	l.front = target.Game.Exe
+
+	shown := current
+	shown.Visible = current.Visible != l.flipped
+	drawn := l.Overlay.Refresh(shown)
 
 	var wanted []hotkeys.Binding
 	var unread error
@@ -53,6 +59,11 @@ func (l *Loop) Tick() error {
 }
 
 func (l *Loop) Hotkey(action int) error {
+	if hotkeys.Toggles(action) {
+		l.flipped = !l.flipped
+		return nil
+	}
+
 	_, err := l.State.Change(func(s profiles.Settings) (profiles.Settings, error) {
 		return hotkeys.Apply(s, action, l.front)
 	})

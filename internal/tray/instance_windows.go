@@ -22,11 +22,15 @@ const wmWake = 0x8000 + 2
 // however it ends.
 var claim windows.Handle
 
+// A copy run as administrator makes the name out of reach for one run without, which gets
+// access denied rather than "already exists"; both mean the program is running.
 func Claim() (bool, error) {
 	name, _ := windows.UTF16PtrFromString(`Local\NormPrichel`)
 	handle, err := windows.CreateMutex(nil, false, name)
-	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
-		windows.CloseHandle(handle)
+	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) || errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+		if handle != 0 {
+			windows.CloseHandle(handle)
+		}
 		return false, nil
 	}
 	if err != nil {
@@ -46,7 +50,9 @@ func Wake() error {
 			var pid uint32
 			windows.GetWindowThreadProcessId(windows.HWND(hwnd), &pid)
 			procAllowSetForegroundWindow.Call(uintptr(pid))
-			procPostMessageW.Call(hwnd, wmWake, 0, 0)
+			if posted, _, err := procPostMessageW.Call(hwnd, wmWake, 0, 0); posted == 0 {
+				return fmt.Errorf("%w: %w", ErrInstance, err)
+			}
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)

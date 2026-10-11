@@ -414,7 +414,7 @@ function showSaved()
 	{
 		const { name, ...crosshair } = entry;
 		const use = element("button", { type: "button", text: t("use") });
-		const forget = element("button", { type: "button", class: "quiet", text: t("forget") });
+		const forget = element("button", { type: "button", text: t("forget") });
 		use.addEventListener("click", function ()
 		{
 			mode = crosshair.image ? "picture" : "ready";
@@ -439,7 +439,7 @@ function showHotkeys()
 	box.replaceChildren();
 	for (const [field, text] of Object.entries(view.settings.hotkeys))
 	{
-		const input = element("input", { type: "text", class: "hotkey", value: text, spellcheck: "false", autocomplete: "off" });
+		const input = element("input", { type: "text", value: text, spellcheck: "false", autocomplete: "off" });
 		input.addEventListener("keydown", (event) => capture(event, field, input));
 		input.addEventListener("change", () => setHotkey(field, input.value));
 

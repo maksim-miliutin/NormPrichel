@@ -219,6 +219,8 @@ function show(fresh)
 	}
 
 	byId("visible").checked = view.settings.visible;
+	byId("autostart").checked = view.autostart === true;
+	byId("autostart-switch").hidden = view.autostart === null;
 	byId("version").textContent = view.version;
 	if (!view.settings.games.some((game) => same(game.exe, selected)))
 	{
@@ -563,6 +565,13 @@ function nudge(event)
 function wire()
 {
 	byId("visible").addEventListener("change", (event) => change("PUT", "api/visible", event.target.checked));
+	byId("autostart").addEventListener("change", async function (event)
+	{
+		if (!await change("PUT", "api/autostart", event.target.checked))
+		{
+			load();
+		}
+	});
 	byId("add-game").addEventListener("click", startAdding);
 	byId("refresh-windows").addEventListener("click", startAdding);
 	byId("cancel-adding").addEventListener("click", function ()

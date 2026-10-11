@@ -18,7 +18,7 @@ func pageIn(t *testing.T, language string) http.Handler {
 	state := live.New(listed(), nowhere{}, func(error) {})
 	t.Cleanup(state.Close)
 
-	return settings.Page{State: state, Language: language, Taken: (&site{}).held}.Handler()
+	return settings.Page{State: state, Language: language, Taken: (&site{}).held, Autostart: (&site{}).autostart}.Handler()
 }
 
 func get(t *testing.T, page http.Handler, path string) (string, string) {

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>NormPrichel</title>
+	<link rel="stylesheet" href="style.css">
+	<script src="app.js" defer></script>
+</head>
+<body>
+	<header class="bar">
+		<h1>NormPrichel</h1>
+		<label class="switch">
+			<input type="checkbox" id="visible">
+			<span data-text="visible"></span>
+		</label>
+	</header>
+
+	<p id="problem" class="problem" role="alert" hidden></p>
+
+	<main class="layout">
+		<section class="card games">
+			<h2 data-text="games"></h2>
+			<ul id="games" class="list"></ul>
+			<p id="no-games" class="hint" data-text="noGames" hidden></p>
+			<button type="button" id="add-game" class="primary" data-text="addGame"></button>
+
+			<div id="adding" class="adding" hidden>
+				<p class="hint" data-text="chooseWindow"></p>
+				<ul id="windows" class="list"></ul>
+				<p id="no-windows" class="hint" data-text="noWindows" hidden></p>
+				<div class="row">
+					<button type="button" id="refresh-windows" data-text="refresh"></button>
+					<button type="button" id="cancel-adding" data-text="cancel"></button>
+				</div>
+			</div>
+		</section>
+
+		<section id="game" class="game" hidden>
+			<div class="card head">
+				<label class="field grow">
+					<span data-text="name"></span>
+					<input type="text" id="game-name" maxlength="80">
+					<span id="game-exe" class="exe"></span>
+				</label>
+				<label class="check">
+					<input type="checkbox" id="game-enabled">
+					<span data-text="enabled"></span>
+				</label>
+				<button type="button" id="remove-game" class="danger" data-text="remove"></button>
+			</div>
+
+			<div class="panels">
+				<section class="card">
+					<h2 data-text="crosshair"></h2>
+					<div class="tabs" role="tablist">
+						<button type="button" id="kind-ready" role="tab" data-text="readyMade"></button>
+						<button type="button" id="kind-picture" role="tab" data-text="picture"></button>
+					</div>
+
+					<div id="ready">
+						<div id="shapes" class="shapes"></div>
+						<label class="field colour">
+							<span data-text="color"></span>
+							<input type="color" id="color">
+						</label>
+						<div id="sliders"></div>
+						<label class="field colour">
+							<span data-text="outlineColor"></span>
+							<input type="color" id="outline-color">
+						</label>
+					</div>
+
+					<div id="picture" hidden>
+						<p class="hint" data-text="uploadHint"></p>
+						<label class="upload">
+							<input type="file" id="file" accept="image/png">
+							<span class="button primary" data-text="upload"></span>
+						</label>
+						<label class="field">
+							<span class="caption"><span data-text="scale"></span><output id="scale-value"></output></span>
+							<input type="range" id="scale" min="25" max="400" step="25">
+						</label>
+					</div>
+				</section>
+
+				<section class="card">
+					<h2 data-text="preview"></h2>
+					<div class="previews">
+						<div class="backdrop dark"><img id="preview-dark" alt=""></div>
+						<div class="backdrop light"><img id="preview-light" alt=""></div>
+					</div>
+
+					<h2 data-text="position"></h2>
+					<p class="hint" data-text="positionHint"></p>
+					<div class="position">
+						<label class="field">X <input type="number" id="offset-x" min="-500" max="500"></label>
+						<label class="field">Y <input type="number" id="offset-y" min="-500" max="500"></label>
+						<div class="pad">
+							<button type="button" class="up" data-x="0" data-y="-1" aria-label="↑">↑</button>
+							<button type="button" class="left" data-x="-1" data-y="0" aria-label="←">←</button>
+							<button type="button" class="right" data-x="1" data-y="0" aria-label="→">→</button>
+							<button type="button" class="down" data-x="0" data-y="1" aria-label="↓">↓</button>
+						</div>
+						<div class="steps">
+							<label class="field">
+								<span data-text="step"></span>
+								<select id="step">
+									<option value="1">1</option>
+									<option value="10">10</option>
+								</select>
+							</label>
+							<button type="button" id="centre" data-text="centre"></button>
+						</div>
+					</div>
+				</section>
+
+				<section class="card">
+					<h2 data-text="saved"></h2>
+					<p class="hint" data-text="savedHint"></p>
+					<ul id="saved" class="list"></ul>
+					<p id="no-saved" class="hint" data-text="noSaved" hidden></p>
+					<div class="row">
+						<label class="field grow">
+							<span data-text="saveAs"></span>
+							<input type="text" id="save-name" maxlength="60">
+						</label>
+						<button type="button" id="save" data-text="saveCurrent"></button>
+					</div>
+				</section>
+			</div>
+		</section>
+
+		<section class="card hotkeys">
+			<h2 data-text="hotkeys"></h2>
+			<p class="hint" data-text="hotkeysHint"></p>
+			<div id="hotkeys"></div>
+		</section>
+
+		<section class="card about">
+			<h2 data-text="about"></h2>
+			<p data-text="borderless"></p>
+			<p class="warning" data-text="risk"></p>
+			<p>
+				<span data-text="version"></span> <span id="version"></span>
+				· <a href="https://github.com/maksim-miliutin/NormPrichel" target="_blank" rel="noreferrer noopener">GitHub</a>
+			</p>
+		</section>
+	</main>
+</body>
+</html>

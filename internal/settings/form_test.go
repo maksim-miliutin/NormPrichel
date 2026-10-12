@@ -517,3 +517,63 @@ func TestASavedCrosshairBringsItsOwnTab(t *testing.T) {
 		t.Error("a saved ready-made crosshair leaves the picture tab open")
 	}
 }
+
+func TestTheHotkeysAreListedInWords(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+
+	rows := form.Screen().Hotkeys
+	var fields []string
+	for _, row := range rows {
+		fields = append(fields, row.Field)
+		if row.Label != form.Word("hotkey."+row.Field) || row.Label == "" || row.Text != hotkeys.Get(profiles.Defaults().Hotkeys, row.Field) || row.Taken != "" || row.Suggestion != "" {
+			t.Errorf("row %+v", row)
+		}
+	}
+	if !slices.Equal(fields, hotkeys.Fields()) {
+		t.Errorf("fields %v, want %v", fields, hotkeys.Fields())
+	}
+}
+
+func TestATakenHotkeyIsNamedWithAFreeOneToTake(t *testing.T) {
+	form, state, m := newForm(t, listed())
+	m.taken = []string{"Ctrl+Shift+C", "Ctrl+Shift+Right", "Ctrl+Shift+Left"}
+
+	rows := form.Screen().Hotkeys
+	if next := rows[4]; next.Taken != "Ctrl+Shift+C" || next.Suggestion != "Ctrl+Shift+Alt+C" {
+		t.Errorf("next reads %+v", next)
+	}
+	if nudge := rows[1]; nudge.Taken != "Ctrl+Shift+Left" || nudge.Suggestion == "" {
+		t.Errorf("nudge reads %+v", nudge)
+	}
+
+	if err := form.TakeSuggestion("next"); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.Current().Hotkeys.Next; got != "Ctrl+Shift+Alt+C" {
+		t.Errorf("next holds %q after taking the offer", got)
+	}
+	if got := form.Screen().Hotkeys[4].Taken; got != "" {
+		t.Errorf("next still reads taken by %q", got)
+	}
+}
+
+func TestAHotkeyIsCheckedBeforeItIsKept(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := form.SetHotkey("toggle", "Shift+X"); !errors.Is(err, hotkeys.ErrBadHotkey) || form.Screen().Problem != form.Word("error.bad-hotkey") {
+		t.Errorf("got %v reading %q", err, form.Screen().Problem)
+	}
+	if err := form.SetHotkey("toggle", "Ctrl+Shift+C"); !errors.Is(err, hotkeys.ErrSameHotkey) {
+		t.Errorf("got %v, want ErrSameHotkey", err)
+	}
+	if err := form.SetHotkey("jump", "Ctrl+J"); !errors.Is(err, hotkeys.ErrNoField) {
+		t.Errorf("got %v, want ErrNoField", err)
+	}
+	if got := state.Current().Hotkeys.Toggle; got != "Ctrl+Shift+X" {
+		t.Errorf("toggle holds %q after the refusals", got)
+	}
+
+	if err := form.SetHotkey("toggle", "Ctrl+Alt+F9"); err != nil || state.Current().Hotkeys.Toggle != "Ctrl+Alt+F9" {
+		t.Errorf("got %v holding %q", err, state.Current().Hotkeys.Toggle)
+	}
+}

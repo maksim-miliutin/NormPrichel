@@ -36,8 +36,17 @@ type Screen struct {
 	Game      *GameView // nil while the list is empty
 	Saved     []string
 	FarStep   bool
+	Hotkeys   []HotkeyRow
 	Problem   string
 	Version   string
+}
+
+type HotkeyRow struct {
+	Field      string
+	Label      string
+	Text       string
+	Taken      string // the hotkey another program holds; empty while it is free
+	Suggestion string // a free one to take instead; empty when none is free
 }
 
 type GameRow struct {
@@ -82,8 +91,31 @@ func (f *Form) Screen() Screen {
 	for _, entry := range current.Saved {
 		screen.Saved = append(screen.Saved, entry.Name)
 	}
+	screen.Hotkeys = f.hotkeyRows(current.Hotkeys)
 
 	return screen
+}
+
+// Each field is named once, by the first of its hotkeys that another program holds.
+func (f *Form) hotkeyRows(keys profiles.Hotkeys) []HotkeyRow {
+	taken := map[string]string{}
+	bindings, _ := hotkeys.Bindings(keys)
+	for _, b := range f.Taken(bindings) {
+		if _, named := taken[b.Field]; !named {
+			taken[b.Field] = b.Text
+		}
+	}
+
+	var rows []HotkeyRow
+	for _, field := range hotkeys.Fields() {
+		row := HotkeyRow{Field: field, Label: f.Word("hotkey." + field), Text: hotkeys.Get(keys, field), Taken: taken[field]}
+		if row.Taken != "" {
+			row.Suggestion, _ = hotkeys.Suggest(keys, field, f.Taken)
+		}
+		rows = append(rows, row)
+	}
+
+	return rows
 }
 
 func (f *Form) gameView(game profiles.Game) *GameView {
@@ -306,6 +338,30 @@ func (f *Form) ForgetSaved(index int) error {
 	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
 		return s.WithoutSaved(index)
 	})
+}
+
+func (f *Form) SetHotkey(field, text string) error {
+	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
+		keys, err := hotkeys.Set(s.Hotkeys, field, text)
+		if err != nil {
+			return s, err
+		}
+		if _, err := hotkeys.Bindings(keys); err != nil {
+			return s, err
+		}
+		s.Hotkeys = keys
+		return s, nil
+	})
+}
+
+func (f *Form) TakeSuggestion(field string) error {
+	for _, row := range f.hotkeyRows(f.State.Current().Hotkeys) {
+		if row.Field == field && row.Suggestion != "" {
+			return f.SetHotkey(field, row.Suggestion)
+		}
+	}
+
+	return nil
 }
 
 func (f *Form) editCrosshair(change func(profiles.Crosshair) (profiles.Crosshair, error)) error {

@@ -3,6 +3,8 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
@@ -23,6 +25,7 @@ type Form struct {
 
 	chosen     string // the exe on show; one off the list shows the first game
 	pictureTab string // the exe whose picture tab is open, even before a picture is added
+	far        bool   // the arrows move the crosshair ten pixels rather than one
 	problem    error  // the last refusal, nil once a change went through
 }
 
@@ -32,6 +35,7 @@ type Screen struct {
 	Games     []GameRow
 	Game      *GameView // nil while the list is empty
 	Saved     []string
+	FarStep   bool
 	Problem   string
 	Version   string
 }
@@ -66,7 +70,7 @@ func (f *Form) Word(key string) string {
 
 func (f *Form) Screen() Screen {
 	current := f.State.Current()
-	screen := Screen{Visible: current.Visible, Autostart: f.starts(), Problem: f.worded(f.problem), Version: f.Version}
+	screen := Screen{Visible: current.Visible, Autostart: f.starts(), FarStep: f.far, Problem: f.worded(f.problem), Version: f.Version}
 
 	shown, ok := f.shown(current)
 	for _, game := range current.Games {
@@ -230,6 +234,77 @@ func (f *Form) SetScale(percent int) error {
 	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
 		c.Scale = min(max(percent, scale.Min), scale.Max)
 		return c, nil
+	})
+}
+
+func (f *Form) SetOffset(x, y int) error {
+	return f.edit(func(g profiles.Game) profiles.Game {
+		g.Offset = profiles.Offset{X: x, Y: y}
+		return g
+	})
+}
+
+func (f *Form) SetFarStep(far bool) {
+	f.far = far
+}
+
+func (f *Form) Nudge(dx, dy int) error {
+	step := 1
+	if f.far {
+		step = 10
+	}
+
+	return f.edit(func(g profiles.Game) profiles.Game {
+		g.Offset = profiles.Offset{X: g.Offset.X + dx*step, Y: g.Offset.Y + dy*step}
+		return g
+	})
+}
+
+func (f *Form) Centre() error {
+	return f.SetOffset(0, 0)
+}
+
+// A float past the range of int converts to garbage, so it is held near the offset limit first.
+func Whole(text string) (int, bool) {
+	value, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, false
+	}
+
+	return int(math.Round(min(max(value, -1e6), 1e6))), true
+}
+
+func (f *Form) Save(name string) error {
+	name = strings.TrimSpace(name)
+	game, ok := f.shown(f.State.Current())
+	if name == "" || !ok {
+		return nil
+	}
+
+	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
+		return s.WithSaved(profiles.Saved{Name: name, Crosshair: game.Crosshair}), nil
+	})
+}
+
+func (f *Form) UseSaved(index int) error {
+	exe := f.shownExe()
+	f.pictureTab = ""
+
+	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
+		if index < 0 || index >= len(s.Saved) {
+			return s, fmt.Errorf("%w: %d", profiles.ErrNoSaved, index)
+		}
+		entry := s.Saved[index].Crosshair
+		return s.Edited(exe, func(g profiles.Game) profiles.Game {
+			g.Crosshair = entry
+			return g
+		})
+	})
+}
+
+func (f *Form) ForgetSaved(index int) error {
+	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
+		return s.WithoutSaved(index)
 	})
 }
 

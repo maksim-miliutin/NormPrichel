@@ -398,3 +398,122 @@ func TestAGameThatNamesAPictureOpensOnThePictureTab(t *testing.T) {
 		t.Error("a game that names a picture opens on the ready-made shapes")
 	}
 }
+
+func TestTheOffsetIsSetNudgedByTheStepAndCentredForTheShownGame(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.Choose("other.exe")
+
+	offsetOf := func(exe string) profiles.Offset {
+		game, _ := state.Current().Game(exe)
+		return game.Offset
+	}
+
+	form.SetOffset(5, -7)
+	if got := offsetOf("other.exe"); got != (profiles.Offset{X: 5, Y: -7}) {
+		t.Fatalf("got %+v after setting it", got)
+	}
+	form.Nudge(1, 0)
+	if got := offsetOf("other.exe"); got != (profiles.Offset{X: 6, Y: -7}) {
+		t.Errorf("got %+v after a nudge by one", got)
+	}
+	form.SetFarStep(true)
+	form.Nudge(0, -1)
+	if got := offsetOf("other.exe"); got != (profiles.Offset{X: 6, Y: -17}) || !form.Screen().FarStep {
+		t.Errorf("got %+v after a nudge by ten", got)
+	}
+	form.Centre()
+	if got := offsetOf("other.exe"); got != (profiles.Offset{}) || offsetOf("stalzone.exe") != (profiles.Offset{}) {
+		t.Errorf("got %+v after centring", got)
+	}
+	if form.Screen().Game.Offset != offsetOf("other.exe") {
+		t.Error("the screen shows another offset than the settings hold")
+	}
+}
+
+func TestTheOffsetStaysWithin500PixelsOfTheCentre(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	form.SetOffset(900, -900)
+	form.SetFarStep(true)
+	form.Nudge(1, -1)
+	if game, _ := state.Current().Game("stalzone.exe"); game.Offset != (profiles.Offset{X: 500, Y: -500}) {
+		t.Errorf("got %+v", game.Offset)
+	}
+}
+
+func TestATypedOffsetIsReadAsAWholeNumber(t *testing.T) {
+	cases := map[string]struct {
+		want int
+		ok   bool
+	}{
+		"1.6":   {want: 2, ok: true},
+		" -3 ":  {want: -3, ok: true},
+		"-2.5":  {want: -3, ok: true},
+		"1e3":   {want: 1000, ok: true},
+		"1e300": {want: 1000000, ok: true},
+		"":      {ok: false},
+		"abc":   {ok: false},
+		"NaN":   {ok: false},
+		"Inf":   {ok: false},
+	}
+
+	for text, c := range cases {
+		if got, ok := settings.Whole(text); ok != c.ok || ok && got != c.want {
+			t.Errorf("%q reads %d, %v; want %d, %v", text, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestACrosshairIsSavedUnderANameUsedAndForgotten(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	shownBefore, _ := state.Current().Game("stalzone.exe")
+
+	if err := form.Save("  Мой  "); err != nil {
+		t.Fatal(err)
+	}
+	saved := state.Current().Saved
+	if len(saved) != 1 || saved[0].Name != "Мой" || saved[0].Crosshair != shownBefore.Crosshair {
+		t.Fatalf("saved %+v, want the shown crosshair under its trimmed name", saved)
+	}
+
+	form.SetShape(crosshair.Circle)
+	if err := form.UseSaved(0); err != nil {
+		t.Fatal(err)
+	}
+	if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair != shownBefore.Crosshair {
+		t.Errorf("got %+v back, want the saved one", game.Crosshair)
+	}
+
+	if err := form.ForgetSaved(0); err != nil || len(state.Current().Saved) != 0 {
+		t.Errorf("got %v with %d saved, want none", err, len(state.Current().Saved))
+	}
+	if err := form.UseSaved(0); !errors.Is(err, profiles.ErrNoSaved) || form.Screen().Problem != form.Word("error.no-saved") {
+		t.Errorf("got %v reading %q, want ErrNoSaved in words", err, form.Screen().Problem)
+	}
+}
+
+func TestABlankNameSavesNothing(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := form.Save("   "); err != nil || len(state.Current().Saved) != 0 {
+		t.Errorf("got %v with %+v saved", err, state.Current().Saved)
+	}
+}
+
+func TestASavedCrosshairBringsItsOwnTab(t *testing.T) {
+	s := listed()
+	pictured := profiles.DefaultCrosshair()
+	pictured.Image = strings.Repeat("cd", 32) + ".png"
+	s.Saved = []profiles.Saved{{Name: "Картинка", Crosshair: pictured}, {Name: "Готовый", Crosshair: profiles.DefaultCrosshair()}}
+	form, _, _ := newForm(t, s)
+
+	form.UseSaved(0)
+	if !form.Screen().Game.Picture {
+		t.Error("a saved picture opens on the ready-made shapes")
+	}
+	form.ShowPicture()
+	form.UseSaved(1)
+	if form.Screen().Game.Picture {
+		t.Error("a saved ready-made crosshair leaves the picture tab open")
+	}
+}

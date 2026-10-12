@@ -1,7 +1,13 @@
 package settings_test
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
 	"slices"
 	"strings"
 	"testing"
@@ -575,5 +581,132 @@ func TestAHotkeyIsCheckedBeforeItIsKept(t *testing.T) {
 
 	if err := form.SetHotkey("toggle", "Ctrl+Alt+F9"); err != nil || state.Current().Hotkeys.Toggle != "Ctrl+Alt+F9" {
 		t.Errorf("got %v holding %q", err, state.Current().Hotkeys.Toggle)
+	}
+}
+
+func pictureWithBlock(t *testing.T, side, block int) []byte {
+	t.Helper()
+
+	img := image.NewNRGBA(image.Rect(0, 0, side, side))
+	from := (side - block) / 2
+	for y := from; y < from+block; y++ {
+		for x := from; x < from+block; x++ {
+			img.SetNRGBA(x, y, color.NRGBA{R: 255, A: 255})
+		}
+	}
+	var file bytes.Buffer
+	if err := png.Encode(&file, img); err != nil {
+		t.Fatal(err)
+	}
+
+	return file.Bytes()
+}
+
+func rowRun(img *image.RGBA, y int, want color.RGBA) int {
+	run := 0
+	for x := img.Rect.Min.X; x < img.Rect.Max.X; x++ {
+		if img.RGBAAt(x, y) == want {
+			run++
+		}
+	}
+
+	return run
+}
+
+func TestThePreviewShowsTheCrosshairOnADarkAndALightSquare(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	dark, light, err := form.Preview(160)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !dark.Rect.Eq(image.Rect(0, 0, 160, 160)) || !light.Rect.Eq(dark.Rect) {
+		t.Fatalf("sizes %v and %v, want 160 by 160", dark.Rect, light.Rect)
+	}
+	if dark.RGBAAt(0, 0) != (color.RGBA{0x22, 0x22, 0x22, 0xFF}) || light.RGBAAt(0, 0) != (color.RGBA{0xDD, 0xDD, 0xDD, 0xFF}) {
+		t.Errorf("corners %v and %v, want the dark and the light backdrop", dark.RGBAAt(0, 0), light.RGBAAt(0, 0))
+	}
+
+	game, _ := state.Current().Game("stalzone.exe")
+	green := color.RGBA{game.Crosshair.Color.R, game.Crosshair.Color.G, game.Crosshair.Color.B, 0xFF}
+	if dark.RGBAAt(80, 80) != green || light.RGBAAt(80, 80) != green {
+		t.Errorf("centres %v and %v, want the crosshair's own colour", dark.RGBAAt(80, 80), light.RGBAAt(80, 80))
+	}
+
+	form.SetColor(crosshair.RGB{R: 255})
+	if dark, _, _ := form.Preview(160); dark.RGBAAt(80, 80) != (color.RGBA{0xFF, 0, 0, 0xFF}) {
+		t.Errorf("after a change of colour the centre is %v, want red", dark.RGBAAt(80, 80))
+	}
+}
+
+func TestASmallCrosshairIsEnlargedByWholePixels(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	game, _ := state.Current().Game("stalzone.exe")
+	natural, _ := profiles.Store{Disk: &disk{files: map[string][]byte{}}, Dir: "NormPrichel"}.Paint(game.Crosshair)
+	green := color.RGBA{game.Crosshair.Color.R, game.Crosshair.Color.G, game.Crosshair.Color.B, 0xFF}
+	dot := rowRun(natural, natural.Rect.Dy()/2, green)
+
+	for side, zoom := range map[int]int{160: 4, 16: 3, 12: 2, 8: 1, 5: 1} {
+		dark, _, _ := form.Preview(side)
+		if got := rowRun(dark, side/2, green); got != dot*zoom {
+			t.Errorf("in %d pixels the dot is %d wide, want %d times %d", side, got, zoom, dot)
+		}
+	}
+}
+
+func TestALargePictureIsShrunkToFitTheSquare(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+	if err := form.AddPicture(pictureWithBlock(t, 400, 40)); err != nil {
+		t.Fatal(err)
+	}
+
+	dark, _, err := form.Preview(160)
+	if err != nil {
+		t.Fatal(err)
+	}
+	red := color.RGBA{0xFF, 0, 0, 0xFF}
+	if got := rowRun(dark, 80, red); got < 14 || got > 18 {
+		t.Errorf("the 40 pixel block shrunk into 160 is %d wide, want about 16", got)
+	}
+}
+
+func TestAMissingPictureLeavesBareSquaresAndIsWordedBelowARefusal(t *testing.T) {
+	file := pngOf(t, 9)
+	sum := sha256.Sum256(file)
+	missing := listed()
+	missing.Games[0].Crosshair.Image = hex.EncodeToString(sum[:]) + ".png"
+	form, _, _ := newForm(t, missing)
+
+	dark, _, err := form.Preview(40)
+	if !errors.Is(err, profiles.ErrNoPicture) || dark.RGBAAt(20, 20) != (color.RGBA{0x22, 0x22, 0x22, 0xFF}) {
+		t.Errorf("got %v with the centre %v, want ErrNoPicture on a bare square", err, dark.RGBAAt(20, 20))
+	}
+	if got := form.Screen().Problem; got != form.Word("error.no-picture") {
+		t.Errorf("the problem reads %q", got)
+	}
+
+	form.SetHotkey("toggle", "Shift+X")
+	if got := form.Screen().Problem; got != form.Word("error.bad-hotkey") {
+		t.Errorf("a refusal reads %q, want it over the missing picture", got)
+	}
+	form.Rename("S")
+	if got := form.Screen().Problem; got != form.Word("error.no-picture") {
+		t.Errorf("after the refusal cleared the problem reads %q, want the missing picture again", got)
+	}
+
+	if err := form.AddPicture(file); err != nil {
+		t.Fatal(err)
+	}
+	if got := form.Screen().Problem; got != "" {
+		t.Errorf("the picture is back, yet the problem reads %q", got)
+	}
+}
+
+func TestWithNoGamesThePreviewIsBare(t *testing.T) {
+	form, _, _ := newForm(t, profiles.Defaults())
+
+	dark, light, err := form.Preview(20)
+	if err != nil || dark.RGBAAt(10, 10) != (color.RGBA{0x22, 0x22, 0x22, 0xFF}) || light.RGBAAt(10, 10) != (color.RGBA{0xDD, 0xDD, 0xDD, 0xFF}) {
+		t.Errorf("got %v with centres %v and %v", err, dark.RGBAAt(10, 10), light.RGBAAt(10, 10))
 	}
 }

@@ -27,6 +27,7 @@ type Form struct {
 	pictureTab string // the exe whose picture tab is open, even before a picture is added
 	far        bool   // the arrows move the crosshair ten pixels rather than one
 	problem    error  // the last refusal, nil once a change went through
+	painted    *painted
 }
 
 type Screen struct {
@@ -79,9 +80,14 @@ func (f *Form) Word(key string) string {
 
 func (f *Form) Screen() Screen {
 	current := f.State.Current()
-	screen := Screen{Visible: current.Visible, Autostart: f.starts(), FarStep: f.far, Problem: f.worded(f.problem), Version: f.Version}
+	screen := Screen{Visible: current.Visible, Autostart: f.starts(), FarStep: f.far, Version: f.Version}
 
 	shown, ok := f.shown(current)
+	problem := f.problem
+	if problem == nil && ok {
+		_, problem = f.paint(shown.Crosshair)
+	}
+	screen.Problem = f.worded(problem)
 	for _, game := range current.Games {
 		screen.Games = append(screen.Games, GameRow{Exe: game.Exe, Name: titleOf(game), Enabled: game.Enabled, Chosen: ok && game.Exe == shown.Exe})
 	}
@@ -253,6 +259,7 @@ func (f *Form) AddPicture(file []byte) error {
 		return err
 	}
 	f.pictureTab = f.shownExe()
+	f.painted = nil
 
 	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
 		c.Image = name

@@ -33,6 +33,7 @@ var (
 	procUpdateLayeredWindow           = user32.NewProc("UpdateLayeredWindow")
 	procGetMessageW                   = user32.NewProc("GetMessageW")
 	procTranslateMessage              = user32.NewProc("TranslateMessage")
+	procIsDialogMessageW              = user32.NewProc("IsDialogMessageW")
 	procDispatchMessageW              = user32.NewProc("DispatchMessageW")
 	procPostQuitMessage               = user32.NewProc("PostQuitMessage")
 	procPostMessageW                  = user32.NewProc("PostMessageW")
@@ -162,7 +163,8 @@ var (
 )
 
 type Window struct {
-	hwnd atomic.Uintptr
+	Dialog func() uintptr
+	hwnd   atomic.Uintptr
 }
 
 // DeclareDPIAwareness has to come before the first window of the process; without it Windows
@@ -206,7 +208,7 @@ func (w *Window) Run(refresh func()) error {
 
 	refresh()
 
-	return pump(hwnd, refresh)
+	return pump(hwnd, refresh, w.Dialog)
 }
 
 func (w *Window) Stop() {
@@ -329,7 +331,7 @@ func unhook(hooks []uintptr) {
 	}
 }
 
-func pump(hwnd uintptr, refresh func()) error {
+func pump(hwnd uintptr, refresh func(), dialog func() uintptr) error {
 	var m msg
 	for {
 		got, _, err := procGetMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
@@ -344,9 +346,27 @@ func pump(hwnd uintptr, refresh func()) error {
 			refresh()
 			continue
 		}
+		if dialogTook(dialog, &m) {
+			continue
+		}
 		procTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
 	}
+}
+
+// IsDialogMessage gives a plain window the keys of a dialog: Tab between its controls, Enter and
+// Esc. It takes only the messages of that window and its controls.
+func dialogTook(dialog func() uintptr, m *msg) bool {
+	if dialog == nil {
+		return false
+	}
+	window := dialog()
+	if window == 0 {
+		return false
+	}
+	took, _, _ := procIsDialogMessageW.Call(window, uintptr(unsafe.Pointer(m)))
+
+	return took != 0
 }
 
 func windowProc(hwnd, message, wparam, lparam uintptr) uintptr {

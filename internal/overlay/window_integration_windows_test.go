@@ -12,6 +12,8 @@ import (
 )
 
 var (
+	procGetFocus                     = user32.NewProc("GetFocus")
+	procSetFocus                     = user32.NewProc("SetFocus")
 	procGetWindowLongPtrW            = user32.NewProc("GetWindowLongPtrW")
 	procGetWindowRect                = user32.NewProc("GetWindowRect")
 	procWindowFromPoint              = user32.NewProc("WindowFromPoint")
@@ -33,8 +35,9 @@ func TestTheProcessBecomesPerMonitorAware(t *testing.T) {
 	}
 }
 
-func TestTheOverlayGoesWhereToldLetsClicksThroughAndNeverTakesTheFocus(t *testing.T) {
-	window := &Window{}
+// running starts the window's loop and hands back a way to run code on the loop's own thread,
+// where the windows it serves live.
+func running(window *Window) (func(action func() error) error, chan error) {
 	actions := make(chan func() error)
 	results := make(chan error)
 	stopped := make(chan error, 1)
@@ -47,10 +50,16 @@ func TestTheOverlayGoesWhereToldLetsClicksThroughAndNeverTakesTheFocus(t *testin
 			}
 		})
 	}()
-	onLoop := func(action func() error) error {
+
+	return func(action func() error) error {
 		actions <- action
 		return <-results
-	}
+	}, stopped
+}
+
+func TestTheOverlayGoesWhereToldLetsClicksThroughAndNeverTakesTheFocus(t *testing.T) {
+	window := &Window{}
+	onLoop, stopped := running(window)
 
 	red := Bitmap{Pixels: make([]byte, 4*4*4), Size: image.Pt(4, 4)}
 	for i := 0; i < len(red.Pixels); i += 4 {
@@ -117,4 +126,38 @@ func rectOf(hwnd uintptr) windows.Rect {
 	procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rect)))
 
 	return rect
+}
+
+func TestTheLoopGivesTheDialogWindowTabBetweenItsControls(t *testing.T) {
+	var dialog, first, second uintptr
+	window := &Window{Dialog: func() uintptr { return dialog }}
+	onLoop, stopped := running(window)
+	defer func() {
+		window.Stop()
+		<-stopped
+	}()
+
+	create := func(class string, style, x, parent uintptr) uintptr {
+		name, _ := windows.UTF16PtrFromString(class)
+		hwnd, _, _ := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(name)), 0, style|0x10000000, x, 0, 50, 20, parent, 0, 0, 0)
+		return hwnd
+	}
+	onLoop(func() error {
+		dialog = create("STATIC", 0x00CF0000, 0, 0)
+		first = create("BUTTON", 0x40010000, 0, dialog)
+		second = create("BUTTON", 0x40010000, 60, dialog)
+		procSetFocus.Call(first)
+		procPostMessageW.Call(first, 0x0100, 0x09, 0)
+		return nil
+	})
+
+	var focus uintptr
+	onLoop(func() error {
+		focus, _, _ = procGetFocus.Call()
+		procDestroyWindow.Call(dialog)
+		return nil
+	})
+	if focus != second || second == 0 {
+		t.Errorf("after Tab the keys are with %#x, want the second button %#x", focus, second)
+	}
 }

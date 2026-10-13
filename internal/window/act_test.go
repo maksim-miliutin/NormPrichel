@@ -120,6 +120,20 @@ func TestTheColourDialogStartsFromTheColourAndChangesItOnlyWhenChosen(t *testing
 	}
 }
 
+func TestASwatchSetsItsColourInOneClick(t *testing.T) {
+	a, state, _, _ := newActions(t, listed())
+	white := crosshair.RGB{R: 255, G: 255, B: 255}
+	red := control(t, a, func(c window.Control) bool { return c.Kind == window.Swatch && c.Colour == (crosshair.RGB{R: 255}) })
+	edging := control(t, a, nth(window.Swatch, 9))
+
+	a.Click(red)
+	a.Click(edging)
+
+	if got := first(t, state.Current()).Crosshair; got.Color != (crosshair.RGB{R: 255}) || got.Outline.Color != white {
+		t.Errorf("colour %v and outline %v, want red with a white outline", got.Color, got.Outline.Color)
+	}
+}
+
 func TestAPictureFileBecomesTheCrosshair(t *testing.T) {
 	a, state, _, p := newActions(t, listed())
 	p.picture = io.NopCloser(bytes.NewReader(pngOf(t, 16)))

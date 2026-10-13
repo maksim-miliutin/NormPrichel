@@ -12,7 +12,8 @@ const (
 	Button  Kind = "button"
 	Choice  Kind = "choice" // a button that stays down while its choice is made
 	Switch  Kind = "switch"
-	Colour  Kind = "colour"
+	Colour  Kind = "colour" // a square that opens the colour dialog
+	Swatch  Kind = "swatch" // a square of one ready colour
 	Edit    Kind = "edit"
 	Hotkey  Kind = "hotkey" // an edit that also takes a pressed combination
 	List    Kind = "list"
@@ -105,10 +106,12 @@ const (
 
 // Controls that come in rows count up from a base of their own, and so do the items of a menu.
 const (
-	idShape   = 200
-	idKnob    = 300
-	idHotkey  = 400
-	idAddMenu = 1000
+	idShape         = 200
+	idKnob          = 300
+	idHotkey        = 400
+	idSwatch        = 500
+	idOutlineSwatch = 520
+	idAddMenu       = 1000
 
 	shapeCount  = 12
 	knobSlots   = 6
@@ -190,16 +193,21 @@ func crosshairColumn() []Place {
 	for i := range shapeCount {
 		places = append(places, Place{idShape + i, Choice, "", ready, Rect{col2X + i%6*57, 180 + i/6*44, 53, 40}})
 	}
-	places = append(places,
-		Place{idColorLabel, Label, "color", ready, Rect{col2X, 276, 200, 18}},
-		Place{idColor, Colour, "", ready, Rect{col2X + col2W - 40, 272, 40, 24}},
-	)
+	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{col2X, 276, 60, 18}})
+	for i := range palette {
+		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{col2X + 64 + i*28, 272, 24, 24}})
+	}
+	places = append(places, Place{idColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 272, 24, 24}})
 	for i := range knobSlots {
 		places = append(places, knobSlot(i, 302+i*26, ready, "")...)
 	}
+	places = append(places, Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 468, 220, 18}})
+	for i := range outlinePalette {
+		x := col2X + 64 + (len(palette)-len(outlinePalette)+i)*28
+		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, 464, 24, 24}})
+	}
 	places = append(places,
-		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 468, 200, 18}},
-		Place{idOutlineColor, Colour, "", ready, Rect{col2X + col2W - 40, 464, 40, 24}},
+		Place{idOutlineColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 464, 24, 24}},
 		Place{idUploadHint, Hint, "uploadHint", picture, Rect{col2X, 180, col2W, 50}},
 		Place{idUpload, Button, "upload", picture, Rect{col2X, 236, 140, 26}},
 	)

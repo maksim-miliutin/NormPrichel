@@ -34,6 +34,12 @@ func (a Actions) Click(id int) error {
 	if shape, _, ok := rowPart(id, idShape, 1, shapeCount); ok {
 		return a.Form.SetShape(crosshair.Shapes()[shape])
 	}
+	if swatch, _, ok := rowPart(id, idSwatch, 1, len(palette)); ok {
+		return a.Form.SetColor(palette[swatch])
+	}
+	if swatch, _, ok := rowPart(id, idOutlineSwatch, 1, len(outlinePalette)); ok {
+		return a.Form.SetOutlineColor(outlinePalette[swatch])
+	}
 	if row, ok := hotkeyRow(screen, id, 2); ok {
 		return a.Form.TakeSuggestion(row.Field)
 	}

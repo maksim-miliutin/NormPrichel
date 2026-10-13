@@ -199,6 +199,44 @@ func TestEveryShapeHasAButtonThatDrawsIt(t *testing.T) {
 	}
 }
 
+func TestTheSwatchesOfferReadyColoursAndMarkTheOneInUse(t *testing.T) {
+	screen := gameScreen(crosshair.Dot)
+	controls := window.Controls(screen, words)
+	swatches, squares := ofKind(controls, window.Swatch), ofKind(controls, window.Colour)
+	if len(swatches) != 10 {
+		t.Fatalf("%d swatches, want eight colours for the crosshair and two for its outline", len(swatches))
+	}
+
+	seen := map[crosshair.RGB]bool{}
+	for i, c := range swatches[:8] {
+		if seen[c.Colour] || c.On != (i == 0) {
+			t.Errorf("swatch %d of %v: repeated %v, down %v", i, c.Colour, seen[c.Colour], c.On)
+		}
+		seen[c.Colour] = true
+	}
+	if swatches[0].Colour != crosshair.Default().Color || squares[0].On {
+		t.Errorf("the first swatch is %v and the own colour is down %v, want the default green down alone", swatches[0].Colour, squares[0].On)
+	}
+	white := crosshair.RGB{R: 255, G: 255, B: 255}
+	if edging := swatches[8:]; edging[0].Colour != (crosshair.RGB{}) || edging[1].Colour != white || !edging[0].On || edging[1].On || squares[1].On {
+		t.Errorf("outline swatches %v and %v, down %v and %v", edging[0].Colour, edging[1].Colour, edging[0].On, edging[1].On)
+	}
+
+	screen.Game.Crosshair.Color = crosshair.RGB{R: 1, G: 2, B: 3}
+	screen.Game.Crosshair.Outline.Color = crosshair.RGB{R: 255}
+	controls = window.Controls(screen, words)
+	for _, c := range ofKind(controls, window.Swatch) {
+		if c.On {
+			t.Errorf("the swatch of %v is down for a colour of the player's own", c.Colour)
+		}
+	}
+	for i, own := range ofKind(controls, window.Colour) {
+		if !own.On {
+			t.Errorf("own colour square %d is up while its colour is the player's own", i)
+		}
+	}
+}
+
 func TestTheChosenShapeTabAndStepAreTheOnesDown(t *testing.T) {
 	screen := gameScreen(crosshair.Circle)
 	screen.FarStep = true

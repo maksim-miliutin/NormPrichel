@@ -105,12 +105,8 @@ func (w *Window) draw(item *drawItem) {
 		text(dc, inner, c.Text, white, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	case c.Kind == Switch:
 		w.drawSwitch(item, c)
-	case c.Kind == Colour:
-		fill(dc, r, colourRef(c.Colour))
-		frame(dc, r, black)
-		if item.ItemState&(odsFocus|odsSelected) != 0 {
-			frame(dc, inset(r, int32(scaled(2, w.dpi))), white)
-		}
+	case c.Kind == Colour || c.Kind == Swatch:
+		w.drawSwatch(item, c)
 	default:
 		inverted := c.On || item.ItemState&odsSelected != 0
 		ink, paper := uint32(black), uint32(white)
@@ -177,6 +173,28 @@ func (w *Window) drawSwitch(item *drawItem, c Control) {
 	words := rect{box.Right + int32(scaled(6, w.dpi)), r.Top, r.Right, r.Bottom}
 	text(dc, words, c.Text, black, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	focusRing(dc, item, rect{words.Left - 2, words.Top + 2, words.Right, words.Bottom - 2})
+}
+
+// The square of the player's own colour shows that colour only while it is in use; until then it
+// offers the dialog with an ellipsis.
+func (w *Window) drawSwatch(item *drawItem, c Control) {
+	dc, r := item.DC, item.Rect
+	offer := c.Kind == Colour && !c.On
+	paper := colourRef(c.Colour)
+	if offer {
+		paper = white
+	}
+
+	fill(dc, r, paper)
+	frame(dc, r, black)
+	if offer {
+		text(dc, r, c.Text, black, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+	}
+	if c.On || item.ItemState&odsSelected != 0 {
+		frame(dc, inset(r, 1), white)
+		frame(dc, inset(r, 2), black)
+	}
+	focusRing(dc, item, inset(r, int32(scaled(4, w.dpi))))
 }
 
 func (w *Window) drawRow(item *drawItem, c Control) {

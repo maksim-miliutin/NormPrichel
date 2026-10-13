@@ -1,10 +1,26 @@
 package window
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 	"github.com/maksim-miliutin/NormPrichel/internal/settings"
+)
+
+// The colours a swatch gives in one click; the first is the crosshair's default green.
+var (
+	palette = []crosshair.RGB{
+		{R: 0x00, G: 0xFF, B: 0x66},
+		{R: 0xFF, G: 0x00, B: 0x00},
+		{R: 0xFF, G: 0xFF, B: 0x00},
+		{R: 0x00, G: 0xFF, B: 0xFF},
+		{R: 0xFF, G: 0x00, B: 0xFF},
+		{R: 0xFF, G: 0x80, B: 0x00},
+		{R: 0xFF, G: 0xFF, B: 0xFF},
+		{R: 0x00, G: 0x00, B: 0x00},
+	}
+	outlinePalette = []crosshair.RGB{{R: 0x00, G: 0x00, B: 0x00}, {R: 0xFF, G: 0xFF, B: 0xFF}}
 )
 
 type Control struct {
@@ -46,7 +62,13 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		hotkey, hotkeyPlace, isHotkey := rowPart(p.ID, idHotkey, 4, hotkeyCount)
 		slot, slotPlace, isKnob := rowPart(p.ID, idKnob, 3, knobSlots+1)
 		shapeIndex, _, isShape := rowPart(p.ID, idShape, 1, shapeCount)
+		swatch, _, isSwatch := rowPart(p.ID, idSwatch, 1, len(palette))
+		edging, _, isEdging := rowPart(p.ID, idOutlineSwatch, 1, len(outlinePalette))
 		switch {
+		case isSwatch:
+			c = swatchPart(c, palette[swatch], view.Crosshair.Color)
+		case isEdging:
+			c = swatchPart(c, outlinePalette[edging], view.Crosshair.Outline.Color)
 		case isHotkey:
 			c = hotkeyPart(c, hotkey, hotkeyPlace, screen.Hotkeys, word)
 		case isKnob:
@@ -97,9 +119,9 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 	case idPicture:
 		c.On = view.Picture
 	case idColor:
-		c.Colour = view.Crosshair.Color
+		c.Colour, c.On = view.Crosshair.Color, !slices.Contains(palette, view.Crosshair.Color)
 	case idOutlineColor:
-		c.Colour = view.Crosshair.Outline.Color
+		c.Colour, c.On = view.Crosshair.Outline.Color, !slices.Contains(outlinePalette, view.Crosshair.Outline.Color)
 	case idX:
 		c.Text = strconv.Itoa(view.Offset.X)
 	case idY:
@@ -116,15 +138,24 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 	return c
 }
 
+func swatchPart(c Control, colour, current crosshair.RGB) Control {
+	name, _ := colour.MarshalText()
+	c.Text, c.Colour, c.On = string(name), colour, colour == current
+
+	return c
+}
+
 var signs = map[int]string{
-	idXLabel: "X",
-	idYLabel: "Y",
-	idLeft:   "←",
-	idUp:     "↑",
-	idDown:   "↓",
-	idRight:  "→",
-	idNear:   "1 px",
-	idFar:    "10 px",
+	idColor:        "…",
+	idOutlineColor: "…",
+	idXLabel:       "X",
+	idYLabel:       "Y",
+	idLeft:         "←",
+	idUp:           "↑",
+	idDown:         "↓",
+	idRight:        "→",
+	idNear:         "1 px",
+	idFar:          "10 px",
 }
 
 func gameRow(row settings.GameRow, word func(string) string) string {

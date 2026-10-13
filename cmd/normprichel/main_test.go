@@ -34,6 +34,9 @@ func TestATaggedBuildShowsItsTagAndAnyOtherSaysDev(t *testing.T) {
 		want string
 	}{
 		{info: built("v0.1.0"), ok: true, want: "v0.1.0"},
+		{info: built("v0.1.0+dirty"), ok: true, want: "v0.1.0+dirty"},
+		{info: built("v0.0.0-20261011141603-abcdef123456+dirty"), ok: true, want: "dev"},
+		{info: built("v0.1.1-0.20261011141603-abcdef123456"), ok: true, want: "dev"},
 		{info: built("(devel)"), ok: true, want: "dev"},
 		{info: built(""), ok: true, want: "dev"},
 		{info: nil, ok: false, want: "dev"},

@@ -1,6 +1,10 @@
 package settings
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
+)
 
 func TestEveryRefusalIsWordedInBothLanguages(t *testing.T) {
 	codes := []string{"failed"}
@@ -12,6 +16,16 @@ func TestEveryRefusalIsWordedInBothLanguages(t *testing.T) {
 		for _, code := range codes {
 			if words["error."+code] == "" {
 				t.Errorf("%s: no words for the refusal %q", language, code)
+			}
+		}
+	}
+}
+
+func TestEveryShapeIsNamedInBothLanguages(t *testing.T) {
+	for language, words := range texts {
+		for _, shape := range crosshair.Shapes() {
+			if words["shape."+string(shape)] == "" {
+				t.Errorf("%s: no name for the shape %q", language, shape)
 			}
 		}
 	}

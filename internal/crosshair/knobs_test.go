@@ -19,12 +19,18 @@ func names(knobs []crosshair.Knob) []string {
 
 func TestEveryShapeOffersTheValuesItIsDrawnFrom(t *testing.T) {
 	want := map[crosshair.Shape][]string{
-		crosshair.Dot:       {"opacity", "dot", "outline"},
-		crosshair.Cross:     {"opacity", "length", "thickness", "gap", "outline"},
-		crosshair.CrossDot:  {"opacity", "length", "thickness", "gap", "dot", "outline"},
-		crosshair.Circle:    {"opacity", "thickness", "radius", "outline"},
-		crosshair.CircleDot: {"opacity", "thickness", "radius", "dot", "outline"},
-		crosshair.Tee:       {"opacity", "length", "thickness", "gap", "outline"},
+		crosshair.Dot:         {"opacity", "dot", "outline"},
+		crosshair.Cross:       {"opacity", "length", "thickness", "gap", "outline"},
+		crosshair.CrossDot:    {"opacity", "length", "thickness", "gap", "dot", "outline"},
+		crosshair.Circle:      {"opacity", "thickness", "radius", "outline"},
+		crosshair.CircleDot:   {"opacity", "thickness", "radius", "dot", "outline"},
+		crosshair.Tee:         {"opacity", "length", "thickness", "gap", "outline"},
+		crosshair.X:           {"opacity", "length", "thickness", "gap", "outline"},
+		crosshair.XDot:        {"opacity", "length", "thickness", "gap", "dot", "outline"},
+		crosshair.Square:      {"opacity", "thickness", "radius", "outline"},
+		crosshair.SquareDot:   {"opacity", "thickness", "radius", "dot", "outline"},
+		crosshair.Chevron:     {"opacity", "length", "thickness", "outline"},
+		crosshair.CircleCross: {"opacity", "length", "thickness", "gap", "radius", "outline"},
 	}
 
 	for _, shape := range crosshair.Shapes() {

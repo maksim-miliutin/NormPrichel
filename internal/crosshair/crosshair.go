@@ -12,12 +12,18 @@ import (
 type Shape string
 
 const (
-	Dot       Shape = "dot"
-	Cross     Shape = "cross"
-	CrossDot  Shape = "cross-dot"
-	Circle    Shape = "circle"
-	CircleDot Shape = "circle-dot"
-	Tee       Shape = "t"
+	Dot         Shape = "dot"
+	Cross       Shape = "cross"
+	CrossDot    Shape = "cross-dot"
+	Circle      Shape = "circle"
+	CircleDot   Shape = "circle-dot"
+	Tee         Shape = "t"
+	X           Shape = "x"
+	XDot        Shape = "x-dot"
+	Square      Shape = "square"
+	SquareDot   Shape = "square-dot"
+	Chevron     Shape = "chevron"
+	CircleCross Shape = "circle-cross"
 )
 
 type RGB struct {
@@ -57,7 +63,20 @@ var shapes = []struct {
 	{Circle, func(s Style) parts { return withRing(s) }, []string{"opacity", "thickness", "radius", "outline"}},
 	{CircleDot, func(s Style) parts { return withDot(withRing(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Tee, func(s Style) parts { return withArms(s, false) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
+	{X, func(s Style) parts { return withDiagonals(s, s.Gap, corners) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
+	{XDot, func(s Style) parts { return withDot(withDiagonals(s, s.Gap, corners), s) }, []string{"opacity", "length", "thickness", "gap", "dot", "outline"}},
+	{Square, func(s Style) parts { return withSquare(s) }, []string{"opacity", "thickness", "radius", "outline"}},
+	{SquareDot, func(s Style) parts { return withDot(withSquare(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
+	{Chevron, func(s Style) parts { return withDiagonals(s, 0, lowerCorners) }, []string{"opacity", "length", "thickness", "outline"}},
+	{CircleCross, func(s Style) parts { return joined(withRing(s), withArms(s, true)) }, []string{"opacity", "length", "thickness", "gap", "radius", "outline"}},
 }
+
+// Directions of diagonal arms, x right and y down: all four corners for the diagonal cross, the
+// two lower ones for the chevron, whose tip then points up at the aim.
+var (
+	corners      = [][2]int{{1, 1}, {-1, 1}, {1, -1}, {-1, -1}}
+	lowerCorners = [][2]int{{1, 1}, {-1, 1}}
+)
 
 type limit struct {
 	min, max int
@@ -209,6 +228,41 @@ func withArms(s Style, up bool) parts {
 	return parts{parity: parity, rects: rects}
 }
 
+// A diagonal arm steps a square brush one pixel across and one down at a time, so it stays as
+// crisp as a straight arm and its outline is the brushes' outlines.
+func withDiagonals(s Style, from int, directions [][2]int) parts {
+	parity := s.Thickness % 2
+	brush := centred(s.Thickness, parity)
+
+	var rects []rect
+	for _, d := range directions {
+		for step := from; step < from+s.Length; step++ {
+			rects = append(rects, rect{x: brush.shifted(d[0] * step), y: brush.shifted(d[1] * step)})
+		}
+	}
+
+	return parts{parity: parity, rects: rects}
+}
+
+// The radius runs from the centre to the middle of the square's sides, as it does to the middle
+// of a ring.
+func withSquare(s Style) parts {
+	parity := s.Thickness % 2
+	band := centred(s.Thickness, parity)
+	side := span{lo: band.lo - s.Radius, hi: band.hi + s.Radius}
+
+	return parts{parity: parity, rects: []rect{
+		{x: side, y: band.shifted(-s.Radius)},
+		{x: side, y: band.shifted(s.Radius)},
+		{x: band.shifted(-s.Radius), y: side},
+		{x: band.shifted(s.Radius), y: side},
+	}}
+}
+
+func joined(a, b parts) parts {
+	return parts{parity: a.parity, rects: slices.Concat(a.rects, b.rects), rings: slices.Concat(a.rings, b.rings)}
+}
+
 func withRing(s Style) parts {
 	band := ring{inner: max(0, 2*s.Radius-s.Thickness), outer: 2*s.Radius + s.Thickness}
 
@@ -242,6 +296,10 @@ func (ps parts) grown(width int) parts {
 	}
 
 	return parts{parity: ps.parity, rects: rects, rings: rings}
+}
+
+func (s span) shifted(by int) span {
+	return span{lo: s.lo + by, hi: s.hi + by}
 }
 
 func (s span) widened(width int) span {

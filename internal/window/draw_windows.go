@@ -1,6 +1,7 @@
 package window
 
 import (
+	"image/color"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -118,9 +119,46 @@ func (w *Window) draw(item *drawItem) {
 		}
 		fill(dc, r, paper)
 		frame(dc, r, black)
-		text(dc, r, c.Text, ink, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+		if c.Shape != "" {
+			w.drawIcon(dc, r, c.Shape, inverted)
+		} else {
+			text(dc, r, c.Text, ink, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+		}
 		focusRing(dc, item, inset(r, int32(scaled(3, w.dpi))))
 	}
+}
+
+type iconKey struct {
+	shape    crosshair.Shape
+	side     int
+	inverted bool
+}
+
+func (w *Window) drawIcon(dc uintptr, r rect, shape crosshair.Shape, inverted bool) {
+	side := int(min(r.Right-r.Left, r.Bottom-r.Top)) - 2*scaled(5, w.dpi)
+	key := iconKey{shape: shape, side: side, inverted: inverted}
+	pixels, ok := w.shapeIcons[key]
+	if !ok && side > 0 {
+		ink, paper := color.RGBA{A: 255}, color.RGBA{R: 255, G: 255, B: 255, A: 255}
+		if inverted {
+			ink, paper = paper, ink
+		}
+		icon, err := Icon(shape, side, ink, paper)
+		if err != nil {
+			return
+		}
+		pixels = bgra(icon)
+		w.shapeIcons[key] = pixels
+	}
+	if len(pixels) == 0 {
+		return
+	}
+
+	x, y := r.Left+(r.Right-r.Left-int32(side))/2, r.Top+(r.Bottom-r.Top-int32(side))/2
+	header := bitmapInfoHeader{Width: int32(side), Height: -int32(side), Planes: 1, BitCount: 32, Compression: biRGB}
+	header.Size = uint32(unsafe.Sizeof(header))
+	procSetDIBitsToDevice.Call(dc, uintptr(x), uintptr(y), uintptr(side), uintptr(side), 0, 0, 0, uintptr(side),
+		uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), dibRGBColors)
 }
 
 func (w *Window) drawSwitch(item *drawItem, c Control) {

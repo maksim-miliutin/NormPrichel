@@ -181,6 +181,24 @@ func TestAPictureShowsItsScaleInsteadOfTheShapes(t *testing.T) {
 	}
 }
 
+func TestEveryShapeHasAButtonThatDrawsIt(t *testing.T) {
+	controls := window.Controls(gameScreen(crosshair.Dot), words)
+
+	var drawn []crosshair.Shape
+	for _, c := range shownOnly(ofKind(controls, window.Choice)) {
+		if c.Shape == "" {
+			continue
+		}
+		drawn = append(drawn, c.Shape)
+		if c.Text != words("shape."+string(c.Shape)) {
+			t.Errorf("the %s button is named %q", c.Shape, c.Text)
+		}
+	}
+	if !slices.Equal(drawn, crosshair.Shapes()) {
+		t.Errorf("buttons draw %v, want every shape %v", drawn, crosshair.Shapes())
+	}
+}
+
 func TestTheChosenShapeTabAndStepAreTheOnesDown(t *testing.T) {
 	screen := gameScreen(crosshair.Circle)
 	screen.FarStep = true

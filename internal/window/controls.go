@@ -15,6 +15,7 @@ type Control struct {
 	Rows   []string
 	Row    int // the chosen row of a list; -1 leaves the choice to the player
 	Colour crosshair.RGB
+	Shape  crosshair.Shape // the shape a button draws instead of words
 	Knob   settings.KnobView
 	Typed  bool // the player's own words, which no change of the settings overwrites
 }
@@ -52,7 +53,7 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 			c = knobPart(c, slot, slotPlace, view)
 		case isShape:
 			shape := crosshair.Shapes()[shapeIndex]
-			c.Text, c.On = word("shape."+string(shape)), view.Crosshair.Shape == shape
+			c.Text, c.Shape, c.On = word("shape."+string(shape)), shape, view.Crosshair.Shape == shape
 		default:
 			c = filled(c, screen, view, word)
 		}

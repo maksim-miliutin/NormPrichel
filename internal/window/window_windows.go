@@ -226,21 +226,22 @@ type Window struct {
 	changed func()
 	fail    func(error)
 
-	hwnd      uintptr
-	dpi       int
-	font      uintptr
-	bold      uintptr
-	children  map[int]uintptr
-	ids       map[uintptr]int
-	places    map[int]Place
-	shown     map[int]Control
-	ownProcs  map[uintptr]uintptr // the hotkey fields' own procedures, under ours
-	focus     uintptr             // the control that had the keys when the window went to the back
-	previews  *previews
-	custom    [16]uint32 // the colour dialog's own colours, kept for the run
-	icons     []uintptr
-	closing   bool
-	apartment bool
+	hwnd       uintptr
+	dpi        int
+	font       uintptr
+	bold       uintptr
+	children   map[int]uintptr
+	ids        map[uintptr]int
+	places     map[int]Place
+	shown      map[int]Control
+	ownProcs   map[uintptr]uintptr // the hotkey fields' own procedures, under ours
+	focus      uintptr             // the control that had the keys when the window went to the back
+	previews   *previews
+	shapeIcons map[iconKey][]byte
+	custom     [16]uint32 // the colour dialog's own colours, kept for the run
+	icons      []uintptr
+	closing    bool
+	apartment  bool
 }
 
 func New(form *settings.Form, changed func(), fail func(error)) (*Window, error) {
@@ -254,14 +255,15 @@ func New(form *settings.Form, changed func(), fail func(error)) (*Window, error)
 	apartment := windows.CoInitializeEx(0, windows.COINIT_APARTMENTTHREADED|windows.COINIT_DISABLE_OLE1DDE) == nil
 
 	w := &Window{
-		apartment: apartment,
-		changed:   changed,
-		fail:      fail,
-		children:  map[int]uintptr{},
-		ids:       map[uintptr]int{},
-		places:    map[int]Place{},
-		shown:     map[int]Control{},
-		ownProcs:  map[uintptr]uintptr{},
+		apartment:  apartment,
+		changed:    changed,
+		fail:       fail,
+		children:   map[int]uintptr{},
+		ids:        map[uintptr]int{},
+		places:     map[int]Place{},
+		shown:      map[int]Control{},
+		ownProcs:   map[uintptr]uintptr{},
+		shapeIcons: map[iconKey][]byte{},
 	}
 	w.actions = Actions{Form: form, Inputs: w}
 	running = w

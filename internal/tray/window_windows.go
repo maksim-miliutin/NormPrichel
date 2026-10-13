@@ -219,7 +219,7 @@ func (w *Window) Handle() uintptr {
 // or take it and still report a timeout, so a modify follows a failed add and a timer tries again.
 func (w *Window) ShowIcon() error {
 	if w.icon == 0 {
-		icon, err := makeIcon()
+		icon, err := NewIcon(smallSide())
 		if err != nil {
 			return err
 		}
@@ -344,14 +344,18 @@ func windowProc(hwnd, message, wparam, lparam uintptr) uintptr {
 	return result
 }
 
-func makeIcon() (uintptr, error) {
+func smallSide() int {
 	dpi, _, _ := procGetDpiForSystem.Call()
 	side, _, _ := procGetSystemMetricsForDpi.Call(smCxSmIcon, dpi)
 	if side == 0 {
-		side = 16
+		return 16
 	}
 
-	pixels, err := Icon(int(side))
+	return int(side)
+}
+
+func NewIcon(side int) (uintptr, error) {
+	pixels, err := Icon(side)
 	if err != nil {
 		return 0, fmt.Errorf("%w: %w", ErrIcon, err)
 	}
@@ -367,8 +371,8 @@ func makeIcon() (uintptr, error) {
 	copy(unsafe.Slice((*byte)(bits), len(pixels)), pixels)
 
 	// The colour bitmap carries alpha, so the mask only has to exist: all zero, rows padded to words.
-	mask := make([]byte, int(side)*((int(side)+15)/16*2))
-	monochrome, _, err := procCreateBitmap.Call(side, side, 1, 1, uintptr(unsafe.Pointer(&mask[0])))
+	mask := make([]byte, side*((side+15)/16*2))
+	monochrome, _, err := procCreateBitmap.Call(uintptr(side), uintptr(side), 1, 1, uintptr(unsafe.Pointer(&mask[0])))
 	if monochrome == 0 {
 		return 0, fmt.Errorf("%w: %w", ErrIcon, err)
 	}

@@ -113,7 +113,7 @@ func TestTheLanguageOfWindowsIsReadAsRussianOrEnglish(t *testing.T) {
 	t.Logf("this Windows speaks %s", tray.SystemLanguage())
 }
 
-func TestASecondCopyFindsTheFirstAndAsksItToOpenThePage(t *testing.T) {
+func TestASecondCopyFindsTheFirstAndAsksItToShowItsSettings(t *testing.T) {
 	alone(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -146,7 +146,7 @@ func TestASecondCopyFindsTheFirstAndAsksItToOpenThePage(t *testing.T) {
 		}
 	}
 	if err := <-woken; err != nil || !opened {
-		t.Errorf("wake: %v, page opened %v; want the first copy asked to open its page", err, opened)
+		t.Errorf("wake: %v, settings shown %v; want the first copy asked to show them", err, opened)
 	}
 }
 

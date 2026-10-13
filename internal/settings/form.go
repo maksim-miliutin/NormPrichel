@@ -3,6 +3,7 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"image"
 	"math"
 	"strconv"
 	"strings"
@@ -12,6 +13,19 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
+
+var ErrAutostart = errors.New("settings: starting with Windows cannot be switched")
+
+type State interface {
+	Current() profiles.Settings
+	Last() profiles.Crosshair
+	Change(edit func(profiles.Settings) (profiles.Settings, error)) (profiles.Settings, error)
+}
+
+type Pictures interface {
+	AddPicture(file []byte) (string, error)
+	Paint(c profiles.Crosshair) (*image.RGBA, error)
+}
 
 type Form struct {
 	State           State

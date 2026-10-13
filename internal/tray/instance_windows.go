@@ -41,8 +41,8 @@ func Claim() (bool, error) {
 	return true, nil
 }
 
-// Wake asks the running copy to open its page. That copy may still be making its window, so it
-// is looked for a few times, and it is let come forward, which Windows allows only by leave.
+// Wake asks the running copy to show its settings. That copy may still be making its window, so
+// it is looked for a few times, and it is let come forward, which Windows allows only by leave.
 func Wake() error {
 	for range 30 {
 		hwnd, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(className)), 0)

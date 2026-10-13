@@ -130,7 +130,7 @@ func TestTheWindowWaitsHiddenShowsWhenAskedAndHidesOnClose(t *testing.T) {
 func TestEveryControlIsMadeOfItsKind(t *testing.T) {
 	o := open(t, listed())
 	classes := map[window.Kind]string{
-		window.Button: "Button", window.Choice: "Button", window.Switch: "Button", window.Colour: "Button",
+		window.Button: "Button", window.Choice: "Button", window.Switch: "Button", window.Colour: "Button", window.Swatch: "Button",
 		window.Edit: "Edit", window.Hotkey: "Edit", window.List: "ListBox", window.Label: "Static",
 		window.Heading: "Static", window.Hint: "Static", window.Problem: "Static", window.Preview: "Static",
 		window.Slider: "NormPrichelSlider",
@@ -280,5 +280,16 @@ func TestAFieldBeingTypedInKeepsItsWordsWhileSomethingElseChanges(t *testing.T) 
 
 	if got := textOf(name); got != "STAL" {
 		t.Errorf("the name field reads %q while the player types, want STAL", got)
+	}
+}
+
+func TestAClickOnASwatchTakesItsColour(t *testing.T) {
+	o := open(t, listed())
+	swatch, _ := o.child(t, func(c window.Control) bool { return c.Kind == window.Swatch && c.Colour == (crosshair.RGB{R: 255}) })
+
+	procSendMessageW.Call(swatch, bmClick, 0, 0)
+
+	if got := first(t, o.state.Current()).Crosshair.Color; got != (crosshair.RGB{R: 255}) {
+		t.Errorf("colour %v after the click, want red", got)
 	}
 }

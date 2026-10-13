@@ -361,7 +361,7 @@ func (w *Window) SetIcon(newIcon func(side int) (uintptr, error)) error {
 func (w *Window) makeChild(p Place, instance windows.Handle) error {
 	class, style := "STATIC", uintptr(ssNoPrefix)
 	switch p.Kind {
-	case Button, Choice, Switch, Colour:
+	case Button, Choice, Switch, Colour, Swatch:
 		class, style = "BUTTON", bsOwnerDraw|wsTabStop|wsGroup
 	case Edit, Hotkey:
 		class, style = "EDIT", wsBorder|esAutoHScroll|wsTabStop|wsGroup
@@ -527,7 +527,7 @@ func (w *Window) command(id, code int, child uintptr) {
 	}
 
 	switch w.places[id].Kind {
-	case Button, Choice, Switch, Colour:
+	case Button, Choice, Switch, Colour, Swatch:
 		// A second click soon after the first comes as a double click, and the arrows would
 		// move the crosshair at half the rate the player clicks.
 		if code == bnClicked || code == bnDoubleClicked {

@@ -149,3 +149,41 @@ func TestASecondCopyFindsTheFirstAndAsksItToOpenThePage(t *testing.T) {
 		t.Errorf("wake: %v, page opened %v; want the first copy asked to open its page", err, opened)
 	}
 }
+
+func TestAnIconComesAtTheSizeAskedFor(t *testing.T) {
+	getIconInfo := user32.NewProc("GetIconInfo")
+	destroyIcon := user32.NewProc("DestroyIcon")
+	gdi32 := windows.NewLazySystemDLL("gdi32.dll")
+	getObject, deleteObject := gdi32.NewProc("GetObjectW"), gdi32.NewProc("DeleteObject")
+
+	for _, side := range []int{16, 24, 32, 48} {
+		icon, err := tray.NewIcon(side)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var info struct {
+			IsIcon      int32
+			XHotspot    uint32
+			YHotspot    uint32
+			Mask, Color uintptr
+		}
+		getIconInfo.Call(icon, uintptr(unsafe.Pointer(&info)))
+		for name, part := range map[string]uintptr{"colour": info.Color, "mask": info.Mask} {
+			var bitmap struct {
+				Type, Width, Height, WidthBytes int32
+				Planes, BitsPixel               uint16
+				Bits                            uintptr
+			}
+			getObject.Call(part, unsafe.Sizeof(bitmap), uintptr(unsafe.Pointer(&bitmap)))
+			deleteObject.Call(part)
+			if bitmap.Width != int32(side) || bitmap.Height != int32(side) {
+				t.Errorf("asked for %d, got a %s of %d by %d", side, name, bitmap.Width, bitmap.Height)
+			}
+		}
+		destroyIcon.Call(icon)
+
+		if info.IsIcon == 0 {
+			t.Errorf("asked for %d, got a cursor", side)
+		}
+	}
+}

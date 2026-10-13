@@ -7,7 +7,7 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
 
-// The page carries no words of its own: every label comes from here, in the language of
+// The window carries no words of its own: every label comes from here, in the language of
 // Windows, and a test checks that both languages name the same things.
 var texts = map[string]map[string]string{
 	"ru": {
@@ -15,10 +15,7 @@ var texts = map[string]map[string]string{
 		"autostart":     "Запускать вместе с Windows",
 		"games":         "Игры",
 		"addGame":       "Добавить игру",
-		"chooseWindow":  "Выберите окно игры: она должна быть запущена.",
-		"noWindows":     "Подходящих окон нет. Запустите игру и нажмите «Обновить».",
-		"refresh":       "Обновить",
-		"cancel":        "Отмена",
+		"noWindows":     "Подходящих окон нет: запустите игру в режиме «окно без рамки».",
 		"noGames":       "Список пуст. Запустите игру в режиме «окно без рамки» и нажмите «Добавить игру».",
 		"gameOff":       "выкл",
 		"name":          "Название",
@@ -52,7 +49,6 @@ var texts = map[string]map[string]string{
 		"preview":      "Превью",
 		"position":     "Положение",
 		"positionHint": "Сдвиг от центра окна игры, не больше 500 px по каждой оси.",
-		"step":         "Шаг, px",
 		"centre":       "В центр",
 
 		"saved":       "Сохранённые прицелы",
@@ -72,7 +68,6 @@ var texts = map[string]map[string]string{
 		"taken":           "занято другой программой.",
 		"take":            "Взять",
 
-		"about":      "О программе",
 		"version":    "Версия",
 		"risk":       "Правила игры могут запрещать сторонний прицел. Риск бана несёт тот, кто запускает NormPrichel.",
 		"borderless": "Игра должна идти в режиме «окно без рамки» или в окне: поверх эксклюзивного полного экрана прицела не видно.",
@@ -89,10 +84,7 @@ var texts = map[string]map[string]string{
 		"error.no-game":       "Этой игры уже нет в списке.",
 		"error.no-saved":      "Такого сохранённого прицела нет.",
 		"error.refused":       "Программа не приняла изменение.",
-		"error.bad-request":   "Программа не поняла страницу. Обновите её.",
 		"error.failed":        "Не получилось:",
-		"error.offline":       "Программа не отвечает: возможно, она закрыта.",
-		"error.stale":         "Эта страница от прошлого запуска программы. Откройте настройки заново из значка в трее.",
 		"error.autostart":     "Не получилось переключить запуск вместе с Windows.",
 	},
 	"en": {
@@ -100,10 +92,7 @@ var texts = map[string]map[string]string{
 		"autostart":     "Start with Windows",
 		"games":         "Games",
 		"addGame":       "Add a game",
-		"chooseWindow":  "Pick the game's window: the game has to be running.",
-		"noWindows":     "No suitable windows. Start the game and press Refresh.",
-		"refresh":       "Refresh",
-		"cancel":        "Cancel",
+		"noWindows":     "No suitable windows: start the game in borderless window mode.",
 		"noGames":       "The list is empty. Start a game in borderless window mode and press Add a game.",
 		"gameOff":       "off",
 		"name":          "Name",
@@ -137,7 +126,6 @@ var texts = map[string]map[string]string{
 		"preview":      "Preview",
 		"position":     "Position",
 		"positionHint": "Offset from the centre of the game window, up to 500 px each way.",
-		"step":         "Step, px",
 		"centre":       "Centre",
 
 		"saved":       "Saved crosshairs",
@@ -157,7 +145,6 @@ var texts = map[string]map[string]string{
 		"taken":           "is held by another program.",
 		"take":            "Use",
 
-		"about":      "About",
 		"version":    "Version",
 		"risk":       "A game's rules may forbid a third-party crosshair. The risk of a ban lies with whoever runs NormPrichel.",
 		"borderless": "The game has to run in a borderless window or a window: the crosshair cannot show over exclusive full screen.",
@@ -174,10 +161,7 @@ var texts = map[string]map[string]string{
 		"error.no-game":       "This game is no longer on the list.",
 		"error.no-saved":      "There is no such saved crosshair.",
 		"error.refused":       "The program refused the change.",
-		"error.bad-request":   "The program could not read the page. Reload it.",
 		"error.failed":        "That did not work:",
-		"error.offline":       "The program does not answer: it may have been closed.",
-		"error.stale":         "This page is from an earlier run of the program. Open the settings again from the tray icon.",
 		"error.autostart":     "Starting with Windows could not be switched.",
 	},
 }
@@ -207,6 +191,5 @@ var reasons = []struct {
 	{profiles.ErrNoGame, "no-game"},
 	{profiles.ErrNoSaved, "no-saved"},
 	{live.ErrRefused, "refused"},
-	{ErrBadRequest, "bad-request"},
 	{ErrAutostart, "autostart"},
 }

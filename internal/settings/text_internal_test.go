@@ -3,7 +3,7 @@ package settings
 import "testing"
 
 func TestEveryRefusalIsWordedInBothLanguages(t *testing.T) {
-	codes := []string{"failed", "offline", "stale"}
+	codes := []string{"failed"}
 	for _, reason := range reasons {
 		codes = append(codes, reason.code)
 	}

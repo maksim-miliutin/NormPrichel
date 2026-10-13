@@ -46,7 +46,7 @@ func TestATaggedBuildShowsItsTagAndAnyOtherSaysDev(t *testing.T) {
 	}
 }
 
-func TestEveryStartByHandShowsThePageAndASignInStartDoesNot(t *testing.T) {
+func TestEveryStartByHandShowsTheSettingsAndASignInStartDoesNot(t *testing.T) {
 	cases := []struct {
 		args []string
 		want bool
@@ -58,7 +58,7 @@ func TestEveryStartByHandShowsThePageAndASignInStartDoesNot(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := pageAtStart(c.args); got != c.want {
+		if got := settingsAtStart(c.args); got != c.want {
 			t.Errorf("args %q: got %v, want %v", c.args, got, c.want)
 		}
 	}

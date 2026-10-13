@@ -1,14 +1,11 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"runtime/debug"
-	"time"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/app"
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
@@ -18,6 +15,7 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 	"github.com/maksim-miliutin/NormPrichel/internal/settings"
 	"github.com/maksim-miliutin/NormPrichel/internal/tray"
+	"github.com/maksim-miliutin/NormPrichel/internal/window"
 )
 
 func run() error {
@@ -26,7 +24,7 @@ func run() error {
 		return err
 	}
 	if !first {
-		fmt.Fprintln(os.Stderr, "normprichel: another copy is running; it opens its settings page, and this one ends")
+		fmt.Fprintln(os.Stderr, "normprichel: another copy is running; it shows its settings, and this one ends")
 		return tray.Wake()
 	}
 
@@ -55,14 +53,14 @@ func run() error {
 	loop := &app.Loop{State: state, Overlay: overlay.NewController(screen, watcher, store.Paint), Games: watcher}
 	tick := func() { report(loop.Tick()) }
 
-	address := ""
+	var panel *window.Window
 	acted := reporter(os.Stderr)
 	shell, err := tray.New(language, tray.Handlers{
 		Hotkey: func(action int) {
 			acted(loop.Hotkey(action))
 			tick()
 		},
-		Open: func() { acted(tray.Open(address)) },
+		Open: func() { panel.Show() },
 		Toggle: func() {
 			acted(loop.Toggle())
 			tick()
@@ -79,24 +77,26 @@ func run() error {
 	defer keys.Hold(nil)
 	loop.Keys = keys
 
-	address, server, err := serve(settings.Page{
-		State:        state,
-		Pictures:     store,
-		Windows:      func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
-		Taken:        func(bindings []hotkeys.Binding) []hotkeys.Binding { return hotkeys.Taken(keys.Others(bindings)) },
-		Autostart:    tray.Autostart,
-		SetAutostart: tray.SetAutostart,
-		Version:      versionOf(debug.ReadBuildInfo()),
-		Language:     language,
-	})
+	panel, err = window.New(&settings.Form{
+		State:           state,
+		Pictures:        store,
+		Windows:         func() ([]foreground.Choice, error) { return foreground.System{}.Choices(uint32(os.Getpid())) },
+		Taken:           func(bindings []hotkeys.Binding) []hotkeys.Binding { return hotkeys.Taken(keys.Others(bindings)) },
+		Autostart:       tray.Autostart,
+		SwitchAutostart: tray.SetAutostart,
+		Version:         versionOf(debug.ReadBuildInfo()),
+		Language:        language,
+	}, tick, acted)
 	if err != nil {
 		return err
 	}
-	defer server.Close()
+	defer panel.Close()
+	report(panel.SetIcon(tray.NewIcon))
+	screen.Dialog = panel.Handle
 
 	report(shell.ShowIcon())
-	if pageAtStart(os.Args[1:]) {
-		report(tray.Open(address))
+	if settingsAtStart(os.Args[1:]) {
+		panel.Show()
 	}
 
 	interrupt := make(chan os.Signal, 1)
@@ -107,21 +107,4 @@ func run() error {
 	}()
 
 	return screen.Run(tick)
-}
-
-func serve(page settings.Page) (string, *http.Server, error) {
-	key, err := settings.NewKey(rand.Reader)
-	if err != nil {
-		return "", nil, err
-	}
-	listener, err := settings.Listen()
-	if err != nil {
-		return "", nil, err
-	}
-
-	host := listener.Addr().String()
-	server := &http.Server{Handler: settings.Guard(key, host, page.Handler()), ReadHeaderTimeout: 10 * time.Second}
-	go server.Serve(listener)
-
-	return "http://" + host + "/" + key + "/", server, nil
 }

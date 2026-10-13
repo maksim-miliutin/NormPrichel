@@ -43,8 +43,8 @@ func versionOf(info *debug.BuildInfo, ok bool) string {
 	return info.Main.Version
 }
 
-// A start by hand always shows the page: the program has no window of its own, and with its icon
-// tucked away it would look as if it never started. At sign-in it keeps to the tray.
-func pageAtStart(args []string) bool {
+// A start by hand always shows the settings: with its icon tucked away the program would look as
+// if it never started. At sign-in it keeps to the tray.
+func settingsAtStart(args []string) bool {
 	return !slices.Contains(args, tray.Background)
 }

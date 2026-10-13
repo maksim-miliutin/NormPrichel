@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -145,6 +146,125 @@ var references = []reference{
 			".###",
 			".###",
 			".###",
+		},
+	},
+	{
+		name:  "diagonal cross steps one pixel across and one down",
+		style: crosshair.Style{Shape: crosshair.X, Color: white, Opacity: 100, Length: 2, Thickness: 1, Gap: 1},
+		want: []string{
+			"#...#",
+			".#.#.",
+			".....",
+			".#.#.",
+			"#...#",
+		},
+	},
+	{
+		name:  "even diagonal cross steps a brush two pixels wide",
+		style: crosshair.Style{Shape: crosshair.X, Color: white, Opacity: 100, Length: 2, Thickness: 2, Gap: 2},
+		want: []string{
+			"##....##",
+			"###..###",
+			".##..##.",
+			"........",
+			"........",
+			".##..##.",
+			"###..###",
+			"##....##",
+		},
+	},
+	{
+		name:  "dot inside the gap of a diagonal cross",
+		style: crosshair.Style{Shape: crosshair.XDot, Color: white, Opacity: 100, Length: 1, Thickness: 1, Gap: 2, DotSize: 1},
+		want: []string{
+			"#...#",
+			".....",
+			"..#..",
+			".....",
+			"#...#",
+		},
+	},
+	{
+		name:  "outline of a diagonal cross fills between its steps",
+		style: crosshair.Style{Shape: crosshair.X, Color: white, Opacity: 100, Length: 1, Thickness: 1, Gap: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
+		want: []string{
+			"ooooo",
+			"o#o#o",
+			"ooooo",
+			"o#o#o",
+			"ooooo",
+		},
+	},
+	{
+		name:  "odd square centred on one pixel",
+		style: crosshair.Style{Shape: crosshair.Square, Color: white, Opacity: 100, Radius: 2, Thickness: 1},
+		want: []string{
+			"#####",
+			"#...#",
+			"#...#",
+			"#...#",
+			"#####",
+		},
+	},
+	{
+		name:  "even square centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Square, Color: white, Opacity: 100, Radius: 2, Thickness: 2},
+		want: []string{
+			"######",
+			"######",
+			"##..##",
+			"##..##",
+			"######",
+			"######",
+		},
+	},
+	{
+		name:  "dot in the middle of a square",
+		style: crosshair.Style{Shape: crosshair.SquareDot, Color: white, Opacity: 100, Radius: 3, Thickness: 1, DotSize: 1},
+		want: []string{
+			"#######",
+			"#.....#",
+			"#.....#",
+			"#..#..#",
+			"#.....#",
+			"#.....#",
+			"#######",
+		},
+	},
+	{
+		name:  "chevron points its tip at the centre",
+		style: crosshair.Style{Shape: crosshair.Chevron, Color: white, Opacity: 100, Length: 3, Thickness: 1},
+		want: []string{
+			".....",
+			".....",
+			"..#..",
+			".#.#.",
+			"#...#",
+		},
+	},
+	{
+		name:  "even chevron keeps its tip whole",
+		style: crosshair.Style{Shape: crosshair.Chevron, Color: white, Opacity: 100, Length: 3, Thickness: 2},
+		want: []string{
+			"......",
+			"......",
+			"..##..",
+			".####.",
+			"######",
+			"##..##",
+		},
+	},
+	{
+		name:  "cross inside a ring, both centred on one pixel",
+		style: crosshair.Style{Shape: crosshair.CircleCross, Color: white, Opacity: 100, Radius: 3, Thickness: 1, Gap: 1, Length: 1},
+		want: []string{
+			".+++++.",
+			"+++++++",
+			"++.#.++",
+			"++#.#++",
+			"++.#.++",
+			"+++++++",
+			".+++++.",
 		},
 	},
 	{
@@ -545,9 +665,12 @@ func TestAnUnknownShapeIsRefused(t *testing.T) {
 }
 
 func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
-	for _, shape := range []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee} {
+	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross}
+	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot}
+	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron}
+	for _, shape := range shapes {
 		for _, style := range styles(shape) {
-			if shape == crosshair.CrossDot && style.DotSize%2 != style.Thickness%2 {
+			if slices.Contains(withDot, shape) && style.DotSize%2 != style.Thickness%2 {
 				continue
 			}
 
@@ -559,7 +682,7 @@ func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
 			if !same(img, mirrored(img)) {
 				t.Errorf("%+v is not symmetric left to right", style)
 			}
-			if shape != crosshair.Tee && !same(img, transposed(img)) {
+			if !slices.Contains(pointing, shape) && !same(img, transposed(img)) {
 				t.Errorf("%+v is not symmetric along the diagonal", style)
 			}
 		}

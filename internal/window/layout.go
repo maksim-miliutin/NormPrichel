@@ -110,7 +110,7 @@ const (
 	idHotkey  = 400
 	idAddMenu = 1000
 
-	shapeCount  = 6
+	shapeCount  = 12
 	knobSlots   = 6
 	hotkeyCount = 5
 )
@@ -188,23 +188,23 @@ func crosshairColumn() []Place {
 		{idPicture, Choice, "picture", game, Rect{col2X + 124, 148, 140, 26}},
 	}
 	for i := range shapeCount {
-		places = append(places, Place{idShape + i, Choice, "", ready, Rect{col2X + i%3*115, 180 + i/3*30, 110, 26}})
+		places = append(places, Place{idShape + i, Choice, "", ready, Rect{col2X + i%6*57, 180 + i/6*44, 53, 40}})
 	}
 	places = append(places,
-		Place{idColorLabel, Label, "color", ready, Rect{col2X, 246, 200, 18}},
-		Place{idColor, Colour, "", ready, Rect{col2X + col2W - 40, 242, 40, 24}},
+		Place{idColorLabel, Label, "color", ready, Rect{col2X, 276, 200, 18}},
+		Place{idColor, Colour, "", ready, Rect{col2X + col2W - 40, 272, 40, 24}},
 	)
 	for i := range knobSlots {
-		places = append(places, knobSlot(i, i, ready, "")...)
+		places = append(places, knobSlot(i, 302+i*26, ready, "")...)
 	}
 	places = append(places,
-		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 438, 200, 18}},
-		Place{idOutlineColor, Colour, "", ready, Rect{col2X + col2W - 40, 434, 40, 24}},
+		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 468, 200, 18}},
+		Place{idOutlineColor, Colour, "", ready, Rect{col2X + col2W - 40, 464, 40, 24}},
 		Place{idUploadHint, Hint, "uploadHint", picture, Rect{col2X, 180, col2W, 50}},
 		Place{idUpload, Button, "upload", picture, Rect{col2X, 236, 140, 26}},
 	)
 
-	return append(places, knobSlot(knobSlots, 0, picture, "scale")...)
+	return append(places, knobSlot(knobSlots, 268, picture, "scale")...)
 }
 
 func positionColumn() []Place {
@@ -254,9 +254,9 @@ func bottomRow() []Place {
 }
 
 // The knobs a shape is drawn from fill the slots from the top, so a shape with fewer knobs
-// leaves no gaps; the picture's scale takes the first slot, which the shapes then leave.
-func knobSlot(slot, row int, group, word string) []Place {
-	y, id := 272+row*26, idKnob+3*slot
+// leaves no gaps; the picture's scale has a slot of its own under the upload button.
+func knobSlot(slot, y int, group, word string) []Place {
+	id := idKnob + 3*slot
 
 	return []Place{
 		{id, Label, word, group, Rect{col2X, y + 4, 150, 18}},

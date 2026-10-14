@@ -80,6 +80,8 @@ func (a Actions) Click(id int) error {
 		a.Form.SetFarStep(id == idFar)
 	case idCentre:
 		return a.Form.Centre()
+	case idAimHide:
+		return a.Form.HideWhileAiming(!game.HideWhileAiming)
 	case idUseSaved:
 		if row := a.Inputs.Row(idSaved); row >= 0 {
 			return a.Form.UseSaved(row)

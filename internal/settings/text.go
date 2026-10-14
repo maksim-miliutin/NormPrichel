@@ -57,6 +57,10 @@ var texts = map[string]map[string]string{
 		"positionHint": "Сдвиг от центра окна игры, не больше 500 px по каждой оси.",
 		"centre":       "В центр",
 
+		"aiming":          "Прицеливание",
+		"hideWhileAiming": "Прятать, пока зажата ПКМ",
+		"aimingHint":      "Пока зажата правая кнопка мыши, прицела не видно: он не мешает оптике и мушке.",
+
 		"saved":       "Сохранённые прицелы",
 		"saveAs":      "Название для текущего",
 		"saveCurrent": "Сохранить",
@@ -139,6 +143,10 @@ var texts = map[string]map[string]string{
 		"position":     "Position",
 		"positionHint": "Offset from the centre of the game window, up to 500 px each way.",
 		"centre":       "Centre",
+
+		"aiming":          "Aiming",
+		"hideWhileAiming": "Hide while RMB is held",
+		"aimingHint":      "While the right mouse button is held, the crosshair is hidden and stays off scopes and sights.",
 
 		"saved":       "Saved crosshairs",
 		"saveAs":      "Name for the current one",

@@ -170,6 +170,30 @@ func TestTheShownGameIsRenamedSwitchedOffAndRemoved(t *testing.T) {
 	}
 }
 
+func TestHidingWhileAimingIsSwitchedForTheShownGameAlone(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.Choose("other.exe")
+
+	if err := form.HideWhileAiming(true); err != nil {
+		t.Fatal(err)
+	}
+	other, _ := state.Current().Game("other.exe")
+	stalzone, _ := state.Current().Game("stalzone.exe")
+	if !other.HideWhileAiming || stalzone.HideWhileAiming {
+		t.Errorf("hiding while aiming is %v for the shown game and %v for the other, want on and off", other.HideWhileAiming, stalzone.HideWhileAiming)
+	}
+	if !form.Screen().Game.HideWhileAiming {
+		t.Error("the form shows the shown game without hiding while aiming")
+	}
+
+	if err := form.HideWhileAiming(false); err != nil {
+		t.Fatal(err)
+	}
+	if form.Screen().Game.HideWhileAiming {
+		t.Error("switched off, hiding while aiming still shows as on")
+	}
+}
+
 func TestARefusalIsWordedUntilAChangeGoesThrough(t *testing.T) {
 	form, _, _ := newForm(t, listed())
 

@@ -98,6 +98,9 @@ const (
 	idRight
 	idNear
 	idFar
+	idAimHeading
+	idAimHide
+	idAimHint
 	idHotkeysHeading
 	idHotkeysHint
 	idRisk
@@ -233,6 +236,9 @@ func positionColumn() []Place {
 		{idRight, Button, "", game, Rect{col3X + 90, 380, 26, 26}},
 		{idNear, Choice, "", game, Rect{col3X + 128, 380, 60, 26}},
 		{idFar, Choice, "", game, Rect{col3X + 192, 380, 68, 26}},
+		{idAimHeading, Heading, "aiming", game, Rect{col3X, 422, col3W, 18}},
+		{idAimHide, Switch, "hideWhileAiming", game, Rect{col3X, 444, col3W, 24}},
+		{idAimHint, Hint, "aimingHint", game, Rect{col3X, 472, col3W, 48}},
 	}
 }
 

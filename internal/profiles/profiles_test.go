@@ -140,6 +140,26 @@ func TestOmittedFieldsTakeTheirDefaults(t *testing.T) {
 	}
 }
 
+func TestAimHidingIsOffUntilTheFileTurnsItOn(t *testing.T) {
+	got, err := profiles.Parse([]byte(`{ "games": [ { "exe": "on.exe", "hideWhileAiming": true }, { "exe": "off.exe" } ] }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !got.Games[0].HideWhileAiming || got.Games[1].HideWhileAiming {
+		t.Errorf("hiding while aiming is %v and %v, want on where the file says so and off where it is silent",
+			got.Games[0].HideWhileAiming, got.Games[1].HideWhileAiming)
+	}
+
+	text, err := got.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(text), `"hideWhileAiming": true`) {
+		t.Errorf("the file keeps the option under another name:\n%s", text)
+	}
+}
+
 func TestOffsetsStayWithin500PixelsOfTheCentre(t *testing.T) {
 	got, err := profiles.Parse([]byte(`{ "games": [ { "exe": "game.exe", "offset": { "x": 900, "y": -501 } } ] }`))
 	if err != nil {
@@ -206,7 +226,7 @@ func TestSettingsSurviveARoundTrip(t *testing.T) {
 	settings.Visible = false
 	settings.Hotkeys.Center = "Ctrl+Shift+End"
 	settings.Games = []profiles.Game{
-		{Exe: "stalzone.exe", Name: "STALZONE", Enabled: true, Crosshair: profiles.Crosshair{Style: circle, Scale: 100}, Offset: profiles.Offset{X: -3, Y: 12}},
+		{Exe: "stalzone.exe", Name: "STALZONE", Enabled: true, Crosshair: profiles.Crosshair{Style: circle, Scale: 100}, Offset: profiles.Offset{X: -3, Y: 12}, HideWhileAiming: true},
 		{Exe: "other.exe", Name: "Другая", Enabled: false, Crosshair: profiles.Crosshair{Style: specStyle, Image: picture, Scale: 250}},
 	}
 	settings.Saved = []profiles.Saved{{Name: "Красный круг", Crosshair: profiles.Crosshair{Style: circle, Scale: 100}}}

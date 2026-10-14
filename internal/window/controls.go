@@ -130,6 +130,8 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 		c.On = !screen.FarStep
 	case idFar:
 		c.On = screen.FarStep
+	case idAimHide:
+		c.On = view.HideWhileAiming
 	}
 	if text, ok := signs[c.ID]; ok {
 		c.Text = text

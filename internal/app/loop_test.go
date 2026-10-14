@@ -53,6 +53,18 @@ func (k *keys) last() []hotkeys.Binding {
 	return k.held[len(k.held)-1]
 }
 
+// mouse holds the right button down or not and counts how often it was asked.
+type mouse struct {
+	aiming bool
+	asked  int
+}
+
+func (m *mouse) Aiming() bool {
+	m.asked++
+
+	return m.aiming
+}
+
 type nowhere struct{}
 
 func (nowhere) Save(profiles.Settings) error { return nil }
@@ -67,20 +79,29 @@ func settings() profiles.Settings {
 	return s
 }
 
+// hiding has stalzone.exe hide the crosshair while the player aims, and other.exe keep it.
+func hiding() profiles.Settings {
+	s := settings()
+	s.Games[0].HideWhileAiming = true
+
+	return s
+}
+
 type world struct {
 	loop    *app.Loop
 	state   *live.State
 	overlay *overlay
 	games   *games
 	keys    *keys
+	mouse   *mouse
 }
 
 func newWorld(t *testing.T, s profiles.Settings) world {
 	t.Helper()
 
-	w := world{state: live.New(s, nowhere{}, func(error) {}), overlay: &overlay{}, games: &games{}, keys: &keys{}}
+	w := world{state: live.New(s, nowhere{}, func(error) {}), overlay: &overlay{}, games: &games{}, keys: &keys{}, mouse: &mouse{}}
 	t.Cleanup(w.state.Close)
-	w.loop = &app.Loop{State: w.state, Overlay: w.overlay, Games: w.games, Keys: w.keys}
+	w.loop = &app.Loop{State: w.state, Overlay: w.overlay, Games: w.games, Keys: w.keys, Mouse: w.mouse}
 
 	return w
 }
@@ -277,5 +298,71 @@ func TestAnotherGameInFrontStartsFromTheSwitch(t *testing.T) {
 	w.loop.Tick()
 	if !w.lastDrawn().Visible {
 		t.Error("the toggle in one game hides the crosshair in another")
+	}
+}
+
+func TestHoldingTheRightButtonHidesTheCrosshairOfAGameThatAsksForIt(t *testing.T) {
+	w := newWorld(t, hiding())
+	w.games.exe = "stalzone.exe"
+
+	for _, aiming := range []bool{true, false} {
+		w.mouse.aiming = aiming
+		if err := w.loop.Tick(); err != nil {
+			t.Fatal(err)
+		}
+		if got := w.lastDrawn().Visible; got == aiming {
+			t.Errorf("with the right button held %v the crosshair is drawn %v", aiming, got)
+		}
+	}
+	if !w.state.Current().Visible {
+		t.Error("aiming reached the settings, and the crosshair would stay hidden for good")
+	}
+}
+
+func TestHoldingTheRightButtonLeavesTheCrosshairOfOtherGamesAlone(t *testing.T) {
+	w := newWorld(t, hiding())
+	w.games.exe = "other.exe"
+	w.mouse.aiming = true
+
+	w.loop.Tick()
+	if !w.lastDrawn().Visible {
+		t.Error("the right button hides the crosshair of a game that keeps it while aiming")
+	}
+}
+
+func TestTheButtonIsReadOnlyWhileAGameThatHidesIsInFront(t *testing.T) {
+	w := newWorld(t, hiding())
+	for _, exe := range []string{"", "other.exe"} {
+		w.games.exe = exe
+		w.loop.Tick()
+	}
+
+	if w.mouse.asked != 0 {
+		t.Errorf("the button was read %d times with no game in front that hides while aiming", w.mouse.asked)
+	}
+}
+
+func TestTheLoopWatchesTheAimOnlyWhileTheCrosshairOfAGameThatHidesIsUp(t *testing.T) {
+	w := newWorld(t, hiding())
+	toggle := actionOf(t, "Ctrl+Shift+X")
+	for _, c := range []struct {
+		exe      string
+		press    bool
+		watching bool
+	}{
+		{"stalzone.exe", false, true},
+		{"other.exe", false, false},
+		{"stalzone.exe", false, true},
+		{"stalzone.exe", true, false},
+		{"", false, false},
+	} {
+		w.games.exe = c.exe
+		if c.press {
+			w.loop.Hotkey(toggle)
+		}
+		w.loop.Tick()
+		if got := w.loop.Watching(); got != c.watching {
+			t.Errorf("with %q in front, toggle pressed %v, the loop watches the aim %v, want %v", c.exe, c.press, got, c.watching)
+		}
 	}
 }

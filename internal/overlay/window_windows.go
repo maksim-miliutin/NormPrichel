@@ -80,6 +80,7 @@ const (
 
 	tickTimer = 1
 	tick      = 100 // milliseconds between looks at the game window
+	oftenTick = 15  // milliseconds; under the 15.6 ms tick of the Windows clock, so no tick is skipped
 )
 
 // Both handles are small negative numbers in the Windows headers: HWND_TOPMOST is -1 and
@@ -164,6 +165,7 @@ var (
 
 type Window struct {
 	Dialog func() uintptr
+	Often  func() bool
 	hwnd   atomic.Uintptr
 }
 
@@ -208,7 +210,7 @@ func (w *Window) Run(refresh func()) error {
 
 	refresh()
 
-	return pump(hwnd, refresh, w.Dialog)
+	return w.pump(hwnd, refresh)
 }
 
 func (w *Window) Stop() {
@@ -331,8 +333,9 @@ func unhook(hooks []uintptr) {
 	}
 }
 
-func pump(hwnd uintptr, refresh func(), dialog func() uintptr) error {
+func (w *Window) pump(hwnd uintptr, refresh func()) error {
 	var m msg
+	every := uintptr(tick)
 	for {
 		got, _, err := procGetMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
 		switch int32(got) {
@@ -344,14 +347,30 @@ func pump(hwnd uintptr, refresh func(), dialog func() uintptr) error {
 
 		if m.Message == wmTimer && m.Hwnd == hwnd {
 			refresh()
+			every = w.pace(hwnd, every)
 			continue
 		}
-		if dialogTook(dialog, &m) {
+		if dialogTook(w.Dialog, &m) {
 			continue
 		}
 		procTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
 	}
+}
+
+func (w *Window) pace(hwnd, every uintptr) uintptr {
+	wanted := uintptr(tick)
+	if w.Often != nil && w.Often() {
+		wanted = oftenTick
+	}
+	if wanted == every {
+		return every
+	}
+	if ok, _, _ := procSetTimer.Call(hwnd, tickTimer, wanted, 0); ok == 0 {
+		return every
+	}
+
+	return wanted
 }
 
 // IsDialogMessage gives a plain window the keys of a dialog: Tab between its controls, Enter and

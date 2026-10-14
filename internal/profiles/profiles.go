@@ -36,11 +36,12 @@ type Hotkeys struct {
 }
 
 type Game struct {
-	Exe       string    `json:"exe"`
-	Name      string    `json:"name"`
-	Enabled   bool      `json:"enabled"`
-	Crosshair Crosshair `json:"crosshair"`
-	Offset    Offset    `json:"offset"`
+	Exe             string    `json:"exe"`
+	Name            string    `json:"name"`
+	Enabled         bool      `json:"enabled"`
+	Crosshair       Crosshair `json:"crosshair"`
+	Offset          Offset    `json:"offset"`
+	HideWhileAiming bool      `json:"hideWhileAiming"`
 }
 
 type Offset struct {

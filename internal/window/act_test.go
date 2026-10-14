@@ -25,14 +25,16 @@ func first(t *testing.T, s profiles.Settings) profiles.Game {
 func TestClickingASwitchFlipsWhatItShows(t *testing.T) {
 	a, state, m, _ := newActions(t, listed())
 
-	for _, word := range []string{"visible", "enabled", "autostart"} {
+	for _, word := range []string{"visible", "enabled", "autostart", "hideWhileAiming"} {
 		if err := a.Click(control(t, a, worded(word))); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if s := state.Current(); s.Visible || first(t, s).Enabled || !m.starts {
-		t.Errorf("visible %v, enabled %v, autostart %v: want off, off, on", s.Visible, first(t, s).Enabled, m.starts)
+	s := state.Current()
+	if s.Visible || first(t, s).Enabled || !m.starts || !first(t, s).HideWhileAiming {
+		t.Errorf("visible %v, enabled %v, autostart %v, hiding while aiming %v: want off, off, on, on",
+			s.Visible, first(t, s).Enabled, m.starts, first(t, s).HideWhileAiming)
 	}
 }
 

@@ -25,6 +25,10 @@ type Keys interface {
 	Hold(bindings []hotkeys.Binding) error
 }
 
+type Mouse interface {
+	Aiming() bool
+}
+
 // Loop is what the program does on every tick of the overlay and on every hotkey; all of it
 // runs on the thread that owns the windows, so none of it needs a lock.
 type Loop struct {
@@ -32,9 +36,11 @@ type Loop struct {
 	Overlay Overlay
 	Games   Games
 	Keys    Keys
+	Mouse   Mouse
 
-	front   string
-	flipped bool // the toggle hotkey turned the crosshair over until the game leaves the front
+	front    string
+	flipped  bool // the toggle hotkey turned the crosshair over until the game leaves the front
+	watching bool
 }
 
 func (l *Loop) Tick() error {
@@ -47,6 +53,10 @@ func (l *Loop) Tick() error {
 
 	shown := current
 	shown.Visible = current.Visible != l.flipped
+	l.watching = shown.Visible && target.Game.HideWhileAiming
+	if l.watching && l.Mouse.Aiming() {
+		shown.Visible = false
+	}
 	drawn := l.Overlay.Refresh(shown)
 
 	var wanted []hotkeys.Binding
@@ -56,6 +66,12 @@ func (l *Loop) Tick() error {
 	}
 
 	return errors.Join(drawn, err, unread, l.Keys.Hold(wanted))
+}
+
+// Ten looks a second would leave the crosshair over the scope for up to a tenth of a second, so
+// while the aim decides, the overlay is asked to look every frame.
+func (l *Loop) Watching() bool {
+	return l.watching
 }
 
 func (l *Loop) Hotkey(action int) error {

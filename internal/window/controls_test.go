@@ -120,7 +120,7 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 			t.Errorf("%q is hidden", word)
 		}
 	}
-	for _, word := range []string{"remove", "crosshair", "preview", "position", "saved", "saveCurrent", "color", "upload"} {
+	for _, word := range []string{"remove", "crosshair", "preview", "position", "aiming", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
 		if withWord(t, controls, word).Shown {
 			t.Errorf("%q shows with no game to apply it to", word)
 		}
@@ -359,6 +359,7 @@ func TestEveryShownButtonAndHeadingSaysWhatItIs(t *testing.T) {
 func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 	screen := gameScreen(crosshair.Dot)
 	screen.Game.Enabled = false
+	screen.Game.HideWhileAiming = true
 	controls := window.Controls(screen, words)
 
 	if c := withWord(t, controls, "visible"); !c.On || !c.Shown {
@@ -366,6 +367,9 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 	}
 	if withWord(t, controls, "enabled").On {
 		t.Error("the game shows as on")
+	}
+	if c := withWord(t, controls, "hideWhileAiming"); !c.On || !c.Shown {
+		t.Errorf("hiding while aiming: %+v, want shown and on", c)
 	}
 	for _, text := range []string{"STALZONE", "stalzone.exe", "3", "-7", words("version") + " v1.2.3"} {
 		if !withText(t, controls, text).Shown {

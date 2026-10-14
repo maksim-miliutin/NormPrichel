@@ -4,6 +4,7 @@ package overlay
 
 import (
 	"image"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -118,6 +119,40 @@ func TestTheOverlayGoesWhereToldLetsClicksThroughAndNeverTakesTheFocus(t *testin
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return within 5 s of Stop")
+	}
+}
+
+func TestTheOverlayLooksAboutEveryFrameWhileAskedAndTenTimesASecondOtherwise(t *testing.T) {
+	var often atomic.Bool
+	var looks atomic.Int64
+	window := &Window{Often: often.Load}
+	stopped := make(chan error, 1)
+	go func() { stopped <- window.Run(func() { looks.Add(1) }) }()
+	time.Sleep(300 * time.Millisecond)
+	defer func() {
+		window.Stop()
+		<-stopped
+	}()
+
+	perSecond := func() int64 {
+		start := looks.Load()
+		time.Sleep(time.Second)
+		return looks.Load() - start
+	}
+	slow := perSecond()
+	often.Store(true)
+	time.Sleep(300 * time.Millisecond)
+	fast := perSecond()
+	often.Store(false)
+	time.Sleep(300 * time.Millisecond)
+	again := perSecond()
+
+	t.Logf("%d looks in a second unasked, %d asked, %d unasked again", slow, fast, again)
+	if slow > 15 || again > 15 {
+		t.Errorf("unasked, the overlay looked %d and then %d times in a second, want about 10", slow, again)
+	}
+	if fast < 30 {
+		t.Errorf("asked, the overlay looked %d times in a second, want about 64", fast)
 	}
 }
 

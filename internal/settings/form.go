@@ -72,14 +72,15 @@ type GameRow struct {
 }
 
 type GameView struct {
-	Exe       string
-	Name      string
-	Enabled   bool
-	Crosshair profiles.Crosshair
-	Picture   bool       // the picture is on show rather than the ready-made shapes
-	Knobs     []KnobView // the values the shape is drawn from
-	Scale     KnobView
-	Offset    profiles.Offset
+	Exe             string
+	Name            string
+	Enabled         bool
+	Crosshair       profiles.Crosshair
+	Picture         bool       // the picture is on show rather than the ready-made shapes
+	Knobs           []KnobView // the values the shape is drawn from
+	Scale           KnobView
+	Offset          profiles.Offset
+	HideWhileAiming bool
 }
 
 type KnobView struct {
@@ -141,13 +142,14 @@ func (f *Form) hotkeyRows(keys profiles.Hotkeys) []HotkeyRow {
 func (f *Form) gameView(game profiles.Game) *GameView {
 	c := game.Crosshair
 	view := &GameView{
-		Exe:       game.Exe,
-		Name:      game.Name,
-		Enabled:   game.Enabled,
-		Crosshair: c,
-		Picture:   c.Image != "" || strings.EqualFold(f.pictureTab, game.Exe),
-		Scale:     KnobView{Knob: crosshair.PictureScale(), Label: f.Word("scale"), Value: c.Scale},
-		Offset:    game.Offset,
+		Exe:             game.Exe,
+		Name:            game.Name,
+		Enabled:         game.Enabled,
+		Crosshair:       c,
+		Picture:         c.Image != "" || strings.EqualFold(f.pictureTab, game.Exe),
+		Scale:           KnobView{Knob: crosshair.PictureScale(), Label: f.Word("scale"), Value: c.Scale},
+		Offset:          game.Offset,
+		HideWhileAiming: game.HideWhileAiming,
 	}
 	for _, knob := range crosshair.Knobs(c.Shape) {
 		view.Knobs = append(view.Knobs, KnobView{Knob: knob, Label: f.Word(knob.Name), Value: c.Value(knob.Name)})
@@ -195,6 +197,13 @@ func (f *Form) Rename(name string) error {
 func (f *Form) Enable(on bool) error {
 	return f.edit(func(g profiles.Game) profiles.Game {
 		g.Enabled = on
+		return g
+	})
+}
+
+func (f *Form) HideWhileAiming(on bool) error {
+	return f.edit(func(g profiles.Game) profiles.Game {
+		g.HideWhileAiming = on
 		return g
 	})
 }

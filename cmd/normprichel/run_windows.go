@@ -11,6 +11,7 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
 	"github.com/maksim-miliutin/NormPrichel/internal/live"
+	"github.com/maksim-miliutin/NormPrichel/internal/mouse"
 	"github.com/maksim-miliutin/NormPrichel/internal/overlay"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 	"github.com/maksim-miliutin/NormPrichel/internal/settings"
@@ -50,7 +51,8 @@ func run() error {
 
 	screen := &overlay.Window{}
 	watcher := foreground.NewWatcher(foreground.System{}, uint32(os.Getpid()))
-	loop := &app.Loop{State: state, Overlay: overlay.NewController(screen, watcher, store.Paint), Games: watcher}
+	loop := &app.Loop{State: state, Overlay: overlay.NewController(screen, watcher, store.Paint), Games: watcher, Mouse: mouse.System{}}
+	screen.Often = loop.Watching
 	tick := func() { report(loop.Tick()) }
 
 	var panel *window.Window

@@ -3,6 +3,8 @@
 package window_test
 
 import (
+	"fmt"
+	"image"
 	"runtime"
 	"strings"
 	"testing"
@@ -142,12 +144,17 @@ func TestTheWindowWaitsHiddenShowsWhenAskedAndHidesOnClose(t *testing.T) {
 	}
 }
 
-// pixel reads what a window shows at a point of its client area; a negative x counts from the right.
-func pixel(hwnd uintptr, x, y int32) crosshair.RGB {
+func clientOf(hwnd uintptr) image.Point {
 	var client struct{ Left, Top, Right, Bottom int32 }
 	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&client)))
+
+	return image.Pt(int(client.Right), int(client.Bottom))
+}
+
+// pixel reads what a window shows at a point of its client area; a negative x counts from the right.
+func pixel(hwnd uintptr, x, y int32) crosshair.RGB {
 	if x < 0 {
-		x += client.Right
+		x += int32(clientOf(hwnd).X)
 	}
 	dc, _, _ := procGetDC.Call(hwnd)
 	defer procReleaseDC.Call(hwnd, dc)
@@ -169,14 +176,13 @@ func TestTheWindowIsDarkAndWhatIsChosenGlowsAmber(t *testing.T) {
 	ground, chosen, idle, typed := pixel(o.window.Handle(), 4, 4), pixel(tab, 3, 3), pixel(button, 3, 3), pixel(name, -4, 3)
 	refusal := pixel(problem, 3, 3)
 
-	brightness := func(c crosshair.RGB) int { return int(c.R) + int(c.G) + int(c.B) }
 	if brightness(ground) > 0x90 || brightness(ground) < 0x30 {
 		t.Errorf("the window is %v, want it dark graphite rather than light or black", ground)
 	}
 	if refusal.R <= refusal.G || refusal.R <= refusal.B || brightness(refusal) <= brightness(ground) {
 		t.Errorf("the refusal is %v, want it rust red", refusal)
 	}
-	if chosen.R < 0xC0 || chosen.R <= chosen.G || chosen.G <= chosen.B {
+	if !amber(chosen) {
 		t.Errorf("the chosen tab is %v, want it amber", chosen)
 	}
 	if brightness(idle) <= brightness(ground) || brightness(idle) > 0xA0 {
@@ -388,7 +394,6 @@ func TestAFieldSitsInARoundFrameThatGlowsWhileItHasTheKeys(t *testing.T) {
 		return pixel(o.window.Handle(), int32(r.X), int32(r.Y+r.H/2))
 	}
 	edge := func() crosshair.RGB { return edgeOf(frame) }
-	amber := func(c crosshair.RGB) bool { return c.R >= 0xC0 && c.R > c.G && c.G > c.B }
 
 	procSetFocus.Call(button)
 	idle, ground := edge(), pixel(o.window.Handle(), 4, 4)
@@ -432,5 +437,84 @@ func TestAClickOnAFieldsFrameGivesTheFieldTheKeys(t *testing.T) {
 	procSendMessageW.Call(o.window.Handle(), wmLButtonDown, 0, uintptr(uint16(at.X))|uintptr(uint16(at.Y))<<16)
 	if focus, _, _ := procGetFocus.Call(); focus != name {
 		t.Errorf("after a click on the frame the keys are with %#x, want the field %#x", focus, name)
+	}
+}
+
+// differences lists the points where a window shows something other than the picture drawn for it.
+func differences(hwnd uintptr, picture *image.RGBA, points ...image.Point) []string {
+	var found []string
+	for _, p := range points {
+		if got, want := pixel(hwnd, int32(p.X), int32(p.Y)), at(picture, p.X, p.Y); got != want {
+			found = append(found, fmt.Sprintf("%v shows %v, want %v", p, got, want))
+		}
+	}
+
+	return found
+}
+
+func shownOf(o opened, kind window.Kind) []window.Control {
+	var found []window.Control
+	for _, c := range window.Controls(o.actions.Form.Screen(), o.actions.Form.Word) {
+		if c.Kind == kind && c.Shown {
+			found = append(found, c)
+		}
+	}
+
+	return found
+}
+
+func TestASwitchShowsThePictureOfItsState(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	button, _ := o.child(t, worded("addGame"))
+	procSetFocus.Call(button)
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+	dpi, _, _ := procGetDpiForWindow.Call(o.window.Handle())
+
+	states := map[bool]int{}
+	for _, c := range shownOf(o, window.Switch) {
+		hwnd, _, _ := procGetDlgItem.Call(o.window.Handle(), uintptr(c.ID))
+		look := window.Toggle{Size: clientOf(hwnd), DPI: int(dpi), On: c.On}
+		track, knob := look.Track(), look.Knob()
+		middle := track.Min.Y + track.Dy()/2
+		probes := []image.Point{
+			{track.Min.X + 1, middle}, {track.Min.X + 3, middle}, {knob.Min.X - 2, middle},
+			{knob.Min.X + knob.Dx()/2, middle}, {knob.Max.X + 1, middle}, {track.Max.X - 3, middle},
+		}
+		for _, wrong := range differences(hwnd, look.Image(), probes...) {
+			t.Errorf("the switch %q, on %v: %s", c.Word, c.On, wrong)
+		}
+		states[c.On]++
+	}
+	if states[true] == 0 || states[false] == 0 {
+		t.Errorf("the screen has %d switches on and %d off, want both kinds to look at", states[true], states[false])
+	}
+}
+
+func TestASliderShowsThePictureOfItsValue(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	button, _ := o.child(t, worded("addGame"))
+	procSetFocus.Call(button)
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+	dpi, _, _ := procGetDpiForWindow.Call(o.window.Handle())
+
+	sliders := shownOf(o, window.Slider)
+	if len(sliders) == 0 {
+		t.Fatal("no slider on the screen")
+	}
+	for _, c := range sliders {
+		hwnd, _, _ := procGetDlgItem.Call(o.window.Handle(), uintptr(c.ID))
+		size := clientOf(hwnd)
+		track := window.NewTrack(size.X, int(dpi))
+		left := track.ThumbAt(c.Knob.Knob, c.Knob.Value)
+		centre, middle := left+track.Thumb/2, size.Y/2
+		probes := []image.Point{
+			{track.Thumb/2 + 2, middle}, {centre, middle}, {centre + track.Thumb/4, middle},
+			{centre, middle - track.Thumb/2 + 1}, {size.X - track.Thumb/2 - 2, middle},
+		}
+		for _, wrong := range differences(hwnd, track.Image(size.Y, left, false), probes...) {
+			t.Errorf("the slider %q at %d: %s", c.Knob.Name, c.Knob.Value, wrong)
+		}
 	}
 }

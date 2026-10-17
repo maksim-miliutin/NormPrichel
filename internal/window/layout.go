@@ -283,6 +283,20 @@ func knobSlot(slot, y int, group, word string) []Place {
 	}
 }
 
+// Fields and lists are drawn borderless inside a frame the window paints around them; a field
+// keeps sixteen pixels of height, a line of text.
+func Interior(p Place) Rect {
+	r := p.Rect
+	switch p.Kind {
+	case Edit, Hotkey:
+		return Rect{r.X + 7, r.Y + (r.H-16)/2, r.W - 14, 16}
+	case List:
+		return Rect{r.X + 2, r.Y + 2, r.W - 4, r.H - 4}
+	}
+
+	return r
+}
+
 // Edges scale rather than sizes, so controls that touch at 100% still touch at any scale.
 func Scale(r Rect, dpi int) Rect {
 	x, y := scaled(r.X, dpi), scaled(r.Y, dpi)

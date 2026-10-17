@@ -20,6 +20,7 @@ var (
 	gdi32    = windows.NewLazySystemDLL("gdi32.dll")
 	comdlg32 = windows.NewLazySystemDLL("comdlg32.dll")
 	dwmapi   = windows.NewLazySystemDLL("dwmapi.dll")
+	uxtheme  = windows.NewLazySystemDLL("uxtheme.dll")
 
 	procRegisterClassExW         = user32.NewProc("RegisterClassExW")
 	procCreateWindowExW          = user32.NewProc("CreateWindowExW")
@@ -56,6 +57,7 @@ var (
 	procSetTextColor             = gdi32.NewProc("SetTextColor")
 	procSetBkColor               = gdi32.NewProc("SetBkColor")
 	procDwmSetWindowAttribute    = dwmapi.NewProc("DwmSetWindowAttribute")
+	procSetWindowTheme           = uxtheme.NewProc("SetWindowTheme")
 )
 
 const (
@@ -67,7 +69,6 @@ const (
 	wsClipChildren = 0x02000000
 	wsTabStop      = 0x00010000
 	wsGroup        = 0x00020000
-	wsBorder       = 0x00800000
 	wsVScroll      = 0x00200000
 
 	bsOwnerDraw         = 0x0000000B
@@ -108,9 +109,12 @@ const (
 
 	bnClicked       = 0
 	bnDoubleClicked = 5
+	enSetFocus      = 0x0100
 	enKillFocus     = 0x0200
 	lbnSelChange    = 1
 	lbnDblClk       = 2
+	lbnSetFocus     = 4
+	lbnKillFocus    = 5
 
 	emSetLimitText  = 0x00C5
 	lbAddString     = 0x0180
@@ -366,9 +370,9 @@ func (w *Window) makeChild(p Place, instance windows.Handle) error {
 	case Button, Choice, Switch, Colour, Swatch:
 		class, style = "BUTTON", bsOwnerDraw|wsTabStop|wsGroup
 	case Edit, Hotkey:
-		class, style = "EDIT", wsBorder|esAutoHScroll|wsTabStop|wsGroup
+		class, style = "EDIT", esAutoHScroll|wsTabStop|wsGroup
 	case List:
-		class, style = "LISTBOX", wsBorder|wsVScroll|lbsNotify|lbsOwnerDrawFixed|lbsHasStrings|lbsNoIntegralHeight|wsTabStop|wsGroup
+		class, style = "LISTBOX", wsVScroll|lbsNotify|lbsOwnerDrawFixed|lbsHasStrings|lbsNoIntegralHeight|wsTabStop|wsGroup
 	case Problem, Preview:
 		style = ssOwnerDraw
 	case Slider:
@@ -376,7 +380,7 @@ func (w *Window) makeChild(p Place, instance windows.Handle) error {
 	}
 
 	name, _ := windows.UTF16PtrFromString(class)
-	r := Scale(p.Rect, w.dpi)
+	r := Scale(Interior(p), w.dpi)
 	hwnd, _, err := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(name)), 0, wsChild|style,
 		uintptr(r.X), uintptr(r.Y), uintptr(r.W), uintptr(r.H), w.hwnd, uintptr(p.ID), uintptr(instance), 0)
 	if hwnd == 0 {
@@ -392,8 +396,63 @@ func (w *Window) makeChild(p Place, instance windows.Handle) error {
 		own, _, _ := procSetWindowLongPtrW.Call(hwnd, gwlpWndProc, procedures().hotkey)
 		w.ownProcs[hwnd] = own
 	}
+	if p.Kind == List && procSetWindowTheme.Find() == nil {
+		// The theme Explorer itself uses in dark mode; it darkens the list's scroll bar.
+		dark, _ := windows.UTF16PtrFromString("DarkMode_Explorer")
+		procSetWindowTheme.Call(hwnd, uintptr(unsafe.Pointer(dark)), 0)
+	}
 
 	return nil
+}
+
+func framed(kind Kind) bool {
+	return kind == Edit || kind == Hotkey || kind == List
+}
+
+// Fields and lists have no border of their own: the window paints a round frame around each,
+// amber while the field has the keys.
+func (w *Window) paintFrames() {
+	var paint paintStruct
+	dc, _, _ := procBeginPaint.Call(w.hwnd, uintptr(unsafe.Pointer(&paint)))
+	defer procEndPaint.Call(w.hwnd, uintptr(unsafe.Pointer(&paint)))
+
+	focus, _, _ := procGetFocus.Call()
+	for id, p := range w.places {
+		c := w.shown[id]
+		if !framed(p.Kind) || !c.Shown {
+			continue
+		}
+		plate := Plate{Radius: scaled(4, w.dpi), Fill: field, Edge: seam, Width: 1, Back: ground}
+		if p.Kind == Hotkey && c.On {
+			plate.Fill = rust
+		}
+		if focus == w.children[id] {
+			plate.Edge, plate.Width = signal, scaled(2, w.dpi)
+		}
+		w.plate(dc, w.frameOf(p), plate)
+	}
+}
+
+func (w *Window) frameOf(p Place) rect {
+	r := Scale(p.Rect, w.dpi)
+
+	return rect{int32(r.X), int32(r.Y), int32(r.X + r.W), int32(r.Y + r.H)}
+}
+
+func (w *Window) reframe(id int) {
+	r := w.frameOf(w.places[id])
+	procInvalidateRect.Call(w.hwnd, uintptr(unsafe.Pointer(&r)), 1)
+}
+
+// A click on the margin of a frame lands on the window, not the field, so it is passed on.
+func (w *Window) focusFieldAt(x, y int) {
+	for id, p := range w.places {
+		r := Scale(p.Rect, w.dpi)
+		if framed(p.Kind) && w.shown[id].Shown && x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H {
+			procSetFocus.Call(w.children[id])
+			return
+		}
+	}
 }
 
 // Characters a field takes: a game's name, the name to save under, an offset.
@@ -459,6 +518,9 @@ func (w *Window) refresh(everyField bool) {
 		if !seen || old.Shown != c.Shown {
 			procShowWindow.Call(hwnd, showing(c.Shown))
 		}
+		if framed(c.Kind) && (!seen || old.Shown != c.Shown || old.On != c.On) {
+			w.reframe(c.ID)
+		}
 	}
 	w.previews = nil
 
@@ -495,7 +557,7 @@ func (w *Window) rescale(dpi int, suggested *rect) {
 	w.font, w.bold = makeFont(dpi, fwNormal), makeFont(dpi, fwSemiBold)
 	for id, hwnd := range w.children {
 		p := w.places[id]
-		r := Scale(p.Rect, dpi)
+		r := Scale(Interior(p), dpi)
 		procMoveWindow.Call(hwnd, uintptr(r.X), uintptr(r.Y), uintptr(r.W), uintptr(r.H), 1)
 		procSendMessageW.Call(hwnd, wmSetFont, w.fontOf(p.Kind), 1)
 		if p.Kind == List {
@@ -536,7 +598,11 @@ func (w *Window) command(id, code int, child uintptr) {
 			w.act(w.actions.Click(id), false)
 		}
 	case Edit, Hotkey:
-		if code == enKillFocus {
+		switch code {
+		case enSetFocus:
+			w.reframe(id)
+		case enKillFocus:
+			w.reframe(id)
 			w.act(w.actions.Leave(id), false)
 		}
 	case List:
@@ -545,6 +611,8 @@ func (w *Window) command(id, code int, child uintptr) {
 			w.act(w.actions.Select(id), false)
 		case lbnDblClk:
 			w.act(w.actions.Open(id), false)
+		case lbnSetFocus, lbnKillFocus:
+			w.reframe(id)
 		}
 	}
 }
@@ -601,6 +669,12 @@ func windowProc(hwnd, message, wparam, lparam uintptr) uintptr {
 		return 1
 	case wmCtlColorStatic, wmCtlColorEdit, wmCtlColorListbox:
 		return w.colours(wparam, lparam)
+	case wmPaint:
+		w.paintFrames()
+		return 0
+	case wmLButtonDown:
+		w.focusFieldAt(int(int16(lparam&0xFFFF)), int(int16(lparam>>16&0xFFFF)))
+		return 0
 	case wmEraseBkgnd:
 		var client rect
 		procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&client)))

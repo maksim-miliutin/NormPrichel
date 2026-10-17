@@ -23,8 +23,10 @@ var texts = map[string]map[string]string{
 		"remove":        "Удалить игру",
 		"confirm":       "Удалить игру из списка? Её прицел и сдвиг пропадут.",
 		"confirmForget": "Удалить этот сохранённый прицел?",
+		"confirmReset":  "Вернуть прицел этой игры к заводскому? Форма, цвет и размеры сбросятся, сдвиг останется.",
 
 		"crosshair":          "Прицел",
+		"resetCrosshair":     "Сбросить прицел",
 		"readyMade":          "Готовый",
 		"picture":            "Своя картинка",
 		"shape.dot":          "Точка",
@@ -110,8 +112,10 @@ var texts = map[string]map[string]string{
 		"remove":        "Remove the game",
 		"confirm":       "Remove the game from the list? Its crosshair and offset will be lost.",
 		"confirmForget": "Delete this saved crosshair?",
+		"confirmReset":  "Bring this game's crosshair back to the default? Its shape, colour and sizes reset; the offset stays.",
 
 		"crosshair":          "Crosshair",
+		"resetCrosshair":     "Reset crosshair",
 		"readyMade":          "Ready-made",
 		"picture":            "Own picture",
 		"shape.dot":          "Dot",

@@ -12,7 +12,9 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/window"
 )
 
-var words = (&settings.Form{Language: "ru"}).Word
+func words(key string) string {
+	return settings.Word("ru", key)
+}
 
 func gameScreen(shape crosshair.Shape) settings.Screen {
 	c := profiles.DefaultCrosshair()

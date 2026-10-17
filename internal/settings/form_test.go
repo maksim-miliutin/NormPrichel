@@ -74,7 +74,7 @@ func newForm(t *testing.T, s profiles.Settings) (*settings.Form, *live.State, *m
 		Autostart:       m.autostart,
 		SwitchAutostart: m.switchAutostart,
 		Version:         "v0.1.0",
-		Language:        "ru",
+		WindowsLanguage: "ru",
 	}, state, m
 }
 
@@ -191,6 +191,51 @@ func TestHidingWhileAimingIsSwitchedForTheShownGameAlone(t *testing.T) {
 	}
 	if form.Screen().Game.HideWhileAiming {
 		t.Error("switched off, hiding while aiming still shows as on")
+	}
+}
+
+func TestTheChosenLanguageWinsOverTheOneWindowsSpeaks(t *testing.T) {
+	for _, c := range []struct{ chosen, windows, want string }{
+		{"", "ru", "ru"},
+		{"", "en", "en"},
+		{"en", "ru", "en"},
+		{"ru", "en", "ru"},
+		{"de", "ru", "ru"},
+	} {
+		if got := settings.Language(c.chosen, c.windows); got != c.want {
+			t.Errorf("chosen %q with Windows in %q speaks %q, want %q", c.chosen, c.windows, got, c.want)
+		}
+	}
+	if settings.Word("de", "visible") != settings.Word("en", "visible") {
+		t.Error("a language without words does not fall back to English")
+	}
+}
+
+func TestTheFormSpeaksTheChosenLanguageEverywhere(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	if got := form.Screen().Language; got != "ru" {
+		t.Fatalf("before a choice the form speaks %q, want Windows' ru", got)
+	}
+
+	if err := form.SetLanguage("en"); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.Current().Language; got != "en" {
+		t.Errorf("the settings keep %q, want en", got)
+	}
+	screen := form.Screen()
+	knob := screen.Game.Knobs[0]
+	for _, c := range []struct{ got, key string }{
+		{form.Word("visible"), "visible"},
+		{knob.Label, knob.Name},
+		{screen.Hotkeys[0].Label, "hotkey." + screen.Hotkeys[0].Field},
+	} {
+		if c.got != settings.Word("en", c.key) || c.got == settings.Word("ru", c.key) {
+			t.Errorf("%q reads %q, want the English %q", c.key, c.got, settings.Word("en", c.key))
+		}
+	}
+	if screen.Language != "en" {
+		t.Errorf("the screen says the form speaks %q, want en", screen.Language)
 	}
 }
 

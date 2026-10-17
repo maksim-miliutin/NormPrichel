@@ -185,7 +185,7 @@ func newActions(t *testing.T, s profiles.Settings) (window.Actions, *changes, *m
 		Autostart:       m.autostart,
 		SwitchAutostart: m.switchAutostart,
 		Version:         "v0.1.0",
-		Language:        "ru",
+		WindowsLanguage: "ru",
 	}
 
 	return window.Actions{Form: form, Inputs: p}, state, m, p

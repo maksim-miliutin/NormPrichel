@@ -53,9 +53,8 @@ func TestTheWindowFitsA1280By720Screen(t *testing.T) {
 
 func TestEveryFixedWordIsThereInBothLanguages(t *testing.T) {
 	for _, language := range []string{"ru", "en"} {
-		form := &settings.Form{Language: language}
 		for _, p := range window.Places() {
-			if p.Word != "" && strings.TrimSpace(form.Word(p.Word)) == "" {
+			if p.Word != "" && strings.TrimSpace(settings.Word(language, p.Word)) == "" {
 				t.Errorf("%s: control %d shows %q, which has no words", language, p.ID, p.Word)
 			}
 		}

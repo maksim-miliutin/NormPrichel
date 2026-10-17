@@ -61,7 +61,7 @@ func TestEveryFixedWordIsThereInBothLanguages(t *testing.T) {
 	}
 }
 
-func TestTheKnobsSitBetweenTheColourAndTheOutlineColour(t *testing.T) {
+func TestTheOutlineColourSitsUnderTheColourAndTheKnobsFollowWithoutGaps(t *testing.T) {
 	var colour, outline window.Rect
 	var sliders []window.Rect
 	for _, p := range window.Places() {
@@ -79,11 +79,42 @@ func TestTheKnobsSitBetweenTheColourAndTheOutlineColour(t *testing.T) {
 	if len(sliders) != 6 {
 		t.Fatalf("got %d slots for the knobs, want one for each of the six a shape may have", len(sliders))
 	}
-	if gap := sliders[0].Y - (colour.Y + colour.H); gap < 0 || gap > 12 {
-		t.Errorf("the first knob starts %d pixels below the colour", gap)
+	if gap := outline.Y - (colour.Y + colour.H); gap < 0 || gap > 12 {
+		t.Errorf("the outline colour starts %d pixels below the colour", gap)
 	}
-	if gap := outline.Y - (sliders[5].Y + sliders[5].H); gap < 0 || gap > 12 {
-		t.Errorf("the outline colour starts %d pixels below the last knob", gap)
+	if gap := sliders[0].Y - (outline.Y + outline.H); gap < 0 || gap > 12 {
+		t.Errorf("the first knob starts %d pixels below the outline colour", gap)
+	}
+	for i := 1; i < len(sliders); i++ {
+		if gap := sliders[i].Y - (sliders[i-1].Y + sliders[i-1].H); gap != 0 {
+			t.Errorf("knob %d starts %d pixels below the one above it, want them touching", i, gap)
+		}
+	}
+}
+
+func TestEverySwatchLinesUpWithTheColourOrTheOutlineColour(t *testing.T) {
+	labels := map[string]window.Rect{}
+	var swatches []window.Rect
+	for _, p := range window.Places() {
+		switch {
+		case p.Word == "color" || p.Word == "outlineColor":
+			labels[p.Word] = p.Rect
+		case (p.Kind == window.Swatch || p.Kind == window.Colour) && p.Group == "ready":
+			swatches = append(swatches, p.Rect)
+		}
+	}
+	middle := func(r window.Rect) int { return r.Y + r.H/2 }
+
+	rows := map[string]int{}
+	for _, swatch := range swatches {
+		for word, label := range labels {
+			if d := middle(swatch) - middle(label); d >= -3 && d <= 3 {
+				rows[word]++
+			}
+		}
+	}
+	if rows["color"]+rows["outlineColor"] != len(swatches) || rows["color"] == 0 || rows["outlineColor"] == 0 {
+		t.Errorf("of %d swatches %d line up with the colour and %d with the outline colour, want all of them, both rows taken", len(swatches), rows["color"], rows["outlineColor"])
 	}
 }
 

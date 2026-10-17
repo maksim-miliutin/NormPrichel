@@ -20,6 +20,7 @@ type State interface {
 	Current() profiles.Settings
 	Last() profiles.Crosshair
 	Change(edit func(profiles.Settings) (profiles.Settings, error)) (profiles.Settings, error)
+	Reset() (profiles.Settings, error)
 }
 
 type Pictures interface {
@@ -235,6 +236,16 @@ func (f *Form) SetLanguage(language string) error {
 		s.Language = language
 		return s, nil
 	})
+}
+
+func (f *Form) ResetAll() error {
+	_, err := f.State.Reset()
+	if err == nil {
+		f.chosen, f.pictureTab, f.far, f.painted = "", "", false, nil
+	}
+	f.problem = err
+
+	return err
 }
 
 func (f *Form) StartWithWindows(on bool) error {

@@ -67,6 +67,23 @@ func (s *State) Change(edit func(profiles.Settings) (profiles.Settings, error)) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	return s.changed(edit)
+}
+
+// A reset forgets the crosshair chosen last as well, so a game added next starts from the default.
+func (s *State) Reset() (profiles.Settings, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	settings, err := s.changed(func(profiles.Settings) (profiles.Settings, error) { return profiles.Defaults(), nil })
+	if err == nil {
+		s.last = profiles.DefaultCrosshair()
+	}
+
+	return settings, err
+}
+
+func (s *State) changed(edit func(profiles.Settings) (profiles.Settings, error)) (profiles.Settings, error) {
 	if s.closed {
 		return copied(s.settings), ErrClosed
 	}

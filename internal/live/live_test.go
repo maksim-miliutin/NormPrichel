@@ -2,6 +2,7 @@ package live_test
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -256,6 +257,28 @@ func TestWithNoGamesTheDefaultCrosshairIsOffered(t *testing.T) {
 
 	if got := state.Last(); got != profiles.DefaultCrosshair() {
 		t.Errorf("got %+v, want the default crosshair", got)
+	}
+}
+
+func TestAResetBringsBackAFirstStartAndForgetsTheCrosshairChosenLast(t *testing.T) {
+	d := &disk{}
+	state := live.New(listed(), d, ignore)
+	state.Change(set(func(s *profiles.Settings) { s.Games[0].Crosshair = crosshairOf(crosshair.Circle) }))
+
+	got, err := state.Reset()
+	state.Close()
+
+	if err != nil || !reflect.DeepEqual(got, profiles.Defaults()) {
+		t.Errorf("the reset gives %+v, %v; want the settings of a first start", got, err)
+	}
+	if last := state.Last(); last != profiles.DefaultCrosshair() {
+		t.Errorf("a game added next would start from %+v, want the default crosshair", last)
+	}
+	if saves := d.saved(); len(saves) == 0 || !reflect.DeepEqual(saves[len(saves)-1], profiles.Defaults()) {
+		t.Errorf("the disk keeps %+v, want the settings of a first start", saves)
+	}
+	if _, err := state.Reset(); !errors.Is(err, live.ErrClosed) {
+		t.Errorf("a reset after close gives %v, want ErrClosed", err)
 	}
 }
 

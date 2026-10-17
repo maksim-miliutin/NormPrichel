@@ -35,6 +35,8 @@ var (
 	procGetDC             = user32.NewProc("GetDC")
 	procReleaseDC         = user32.NewProc("ReleaseDC")
 	procGetPixel          = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetPixel")
+	procGetDpiForWindow   = user32.NewProc("GetDpiForWindow")
+	procGetFocus          = user32.NewProc("GetFocus")
 
 	procDwmGetWindowAttribute = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmGetWindowAttribute")
 )
@@ -47,6 +49,7 @@ const (
 	bnDoubleClicked = 5
 	wmClose         = 0x0010
 	wmKeyDown       = 0x0100
+	wmLButtonDown   = 0x0201
 	wmCommand       = 0x0111
 	bmClick         = 0x00F5
 	lbSetCurSel     = 0x0186
@@ -363,5 +366,71 @@ func TestAClickOnASwatchTakesItsColour(t *testing.T) {
 
 	if got := first(t, o.state.Current()).Crosshair.Color; got != (crosshair.RGB{R: 255}) {
 		t.Errorf("colour %v after the click, want red", got)
+	}
+}
+
+func TestAFieldSitsInARoundFrameThatGlowsWhileItHasTheKeys(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+	name, id := o.child(t, func(c window.Control) bool { return c.Kind == window.Edit && c.Text == "STALZONE" })
+	_, saving := o.child(t, func(c window.Control) bool { return c.Kind == window.Edit && c.Typed })
+	button, _ := o.child(t, worded("addGame"))
+	dpi, _, _ := procGetDpiForWindow.Call(o.window.Handle())
+	frames := map[int]window.Rect{}
+	for _, p := range window.Places() {
+		frames[p.ID] = window.Scale(p.Rect, int(dpi))
+	}
+	frame := frames[id]
+	// Only what the window itself marks for painting is painted, so a frame it forgot shows stale.
+	edgeOf := func(r window.Rect) crosshair.RGB {
+		procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwAllChildren|rdwUpdateNow)
+		return pixel(o.window.Handle(), int32(r.X), int32(r.Y+r.H/2))
+	}
+	edge := func() crosshair.RGB { return edgeOf(frame) }
+	amber := func(c crosshair.RGB) bool { return c.R >= 0xC0 && c.R > c.G && c.G > c.B }
+
+	procSetFocus.Call(button)
+	idle, ground := edge(), pixel(o.window.Handle(), 4, 4)
+	procSetFocus.Call(name)
+	focused := edge()
+	corner := pixel(o.window.Handle(), int32(frame.X), int32(frame.Y))
+	o.actions.Form.RemoveGame()
+	o.actions.Form.RemoveGame()
+	o.window.Show()
+	gone := edgeOf(frames[saving])
+
+	if idle == ground || amber(idle) {
+		t.Errorf("the edge of an idle field is %v on a window of %v, want a quiet line", idle, ground)
+	}
+	if !amber(focused) {
+		t.Errorf("the edge of the field with the keys is %v, want it amber", focused)
+	}
+	if corner != ground {
+		t.Errorf("the corner of the frame is %v, want the window's %v past the rounding", corner, ground)
+	}
+	if gone != ground {
+		t.Errorf("with no game left the frame of the hidden field to save under still shows %v", gone)
+	}
+}
+
+func TestAClickOnAFieldsFrameGivesTheFieldTheKeys(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	name, id := o.child(t, func(c window.Control) bool { return c.Kind == window.Edit && c.Text == "STALZONE" })
+	button, _ := o.child(t, worded("addGame"))
+	var frame window.Rect
+	for _, p := range window.Places() {
+		if p.ID == id {
+			frame = p.Rect
+		}
+	}
+	procSetFocus.Call(button)
+
+	dpi, _, _ := procGetDpiForWindow.Call(o.window.Handle())
+	at := window.Scale(window.Rect{X: frame.X + 2, Y: frame.Y + frame.H/2}, int(dpi))
+	procSendMessageW.Call(o.window.Handle(), wmLButtonDown, 0, uintptr(uint16(at.X))|uintptr(uint16(at.Y))<<16)
+	if focus, _, _ := procGetFocus.Call(); focus != name {
+		t.Errorf("after a click on the frame the keys are with %#x, want the field %#x", focus, name)
 	}
 }

@@ -118,11 +118,30 @@ func TestEverySwatchLinesUpWithTheColourOrTheOutlineColour(t *testing.T) {
 	}
 }
 
+func TestAnEmptySavedListLeavesAFrameWhereTheListAndItsButtonsStand(t *testing.T) {
+	var list, use, empty window.Place
+	for _, p := range window.Places() {
+		switch {
+		case p.Kind == window.List && p.Group == "saved":
+			list = p
+		case p.Word == "use":
+			use = p
+		case p.Word == "noSaved":
+			empty = p
+		}
+	}
+
+	r, l, u := empty.Rect, list.Rect, use.Rect
+	if empty.Kind != window.Empty || r.X != l.X || r.Y != l.Y || r.W != l.W || r.Y+r.H != u.Y+u.H {
+		t.Errorf("the empty list is a %s at %+v, want a frame over the list %+v down to the foot of its buttons %+v", empty.Kind, r, l, u)
+	}
+}
+
 func TestAFieldsOwnWindowSitsInsideItsFrameWithRoomForALine(t *testing.T) {
 	for _, p := range window.Places() {
 		inner, outer := window.Interior(p), p.Rect
 		switch p.Kind {
-		case window.Edit, window.Hotkey, window.List:
+		case window.Edit, window.Hotkey, window.List, window.Empty:
 			inside := inner.X > outer.X && inner.Y > outer.Y && inner.X+inner.W < outer.X+outer.W && inner.Y+inner.H < outer.Y+outer.H
 			if !inside || inner.H < 16 {
 				t.Errorf("control %d: %+v within its frame %+v, want it inside with 16 pixels of height", p.ID, inner, outer)

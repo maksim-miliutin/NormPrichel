@@ -428,6 +428,35 @@ var references = []reference{
 		},
 	},
 	{
+		name:  "a horseshoe is a ring open below both diagonals, around a dot",
+		style: crosshair.Style{Shape: crosshair.Horseshoe, Color: white, Opacity: 100, Radius: 3, Thickness: 1, DotSize: 1},
+		want: []string{
+			".+++++.",
+			"+++++++",
+			"++...++",
+			"++.#.++",
+			"++...++",
+			"++...++",
+			".......",
+		},
+	},
+	{
+		name:  "even horseshoe centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Horseshoe, Color: white, Opacity: 100, Radius: 4, Thickness: 2, DotSize: 2},
+		want: []string{
+			"..++++++..",
+			".+######+.",
+			"+#++++++#+",
+			"+#+....+#+",
+			"+#+.##.+#+",
+			"+#+.##.+#+",
+			"+#+....+#+",
+			"+#+....+#+",
+			".+......+.",
+			"..........",
+		},
+	},
+	{
 		name:  "outline frames a dot on every side and corner",
 		style: crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
 		want: []string{
@@ -551,6 +580,28 @@ func circles() []crosshair.Style {
 	}
 
 	return out
+}
+
+// A point on the middle of the arc, a pixel past the cut into the opening: the fill stops short
+// of it, and the outline, kept a margin wider, closes the end over it.
+func TestTheOutlineClosesTheEndsOfAHorseshoe(t *testing.T) {
+	img, err := crosshair.Draw(crosshair.Style{Shape: crosshair.Horseshoe, Color: white, Opacity: 100, Radius: 10, Thickness: 4, DotSize: 2, Outline: crosshair.Outline{Width: 2, Color: black}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	centre := img.Bounds().Dx() / 2
+	for _, dx := range []int{6, -7} {
+		if got := img.RGBAAt(centre+dx, centre+7); got != (color.RGBA{A: 255}) {
+			t.Errorf("past the end of the arc at (%d, 7) the drawing is %v, want the outline", dx, got)
+		}
+		if got := img.RGBAAt(centre+dx, centre+8); got.A < 0xF0 || got.R > 0x10 {
+			t.Errorf("a row further, at (%d, 8), the drawing is %v, want nearly all outline", dx, got)
+		}
+	}
+	if got := img.RGBAAt(centre, centre+10); got.A != 0 {
+		t.Errorf("the bottom of the opening is %v, want it left open by the outline too", got)
+	}
 }
 
 func TestRingsSizeTheImageToTheirOuterEdge(t *testing.T) {
@@ -798,9 +849,9 @@ func TestAnUnknownShapeIsRefused(t *testing.T) {
 }
 
 func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
-	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle}
-	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle}
-	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle}
+	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle, crosshair.Horseshoe}
+	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle, crosshair.Horseshoe}
+	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle, crosshair.Horseshoe}
 	for _, shape := range shapes {
 		for _, style := range styles(shape) {
 			if slices.Contains(withDot, shape) && style.DotSize%2 != style.Thickness%2 {

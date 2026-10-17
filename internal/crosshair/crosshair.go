@@ -28,6 +28,7 @@ const (
 	Viewfinder  Shape = "viewfinder"
 	Diamond     Shape = "diamond"
 	Triangle    Shape = "triangle"
+	Horseshoe   Shape = "horseshoe"
 )
 
 type RGB struct {
@@ -64,19 +65,20 @@ var shapes = []struct {
 	{Dot, func(s Style) parts { return withDot(parts{parity: s.DotSize % 2}, s) }, []string{"opacity", "dot", "outline"}},
 	{Cross, func(s Style) parts { return withArms(s, true) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
 	{CrossDot, func(s Style) parts { return withDot(withArms(s, true), s) }, []string{"opacity", "length", "thickness", "gap", "dot", "outline"}},
-	{Circle, func(s Style) parts { return withRing(s) }, []string{"opacity", "thickness", "radius", "outline"}},
-	{CircleDot, func(s Style) parts { return withDot(withRing(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
+	{Circle, func(s Style) parts { return withRing(s, false) }, []string{"opacity", "thickness", "radius", "outline"}},
+	{CircleDot, func(s Style) parts { return withDot(withRing(s, false), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Tee, func(s Style) parts { return withArms(s, false) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
 	{X, func(s Style) parts { return withDiagonals(s, s.Gap, corners) }, []string{"opacity", "length", "thickness", "gap", "outline"}},
 	{XDot, func(s Style) parts { return withDot(withDiagonals(s, s.Gap, corners), s) }, []string{"opacity", "length", "thickness", "gap", "dot", "outline"}},
 	{Square, func(s Style) parts { return withSquare(s) }, []string{"opacity", "thickness", "radius", "outline"}},
 	{SquareDot, func(s Style) parts { return withDot(withSquare(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Chevron, func(s Style) parts { return withDiagonals(s, 0, lowerCorners) }, []string{"opacity", "length", "thickness", "outline"}},
-	{CircleCross, func(s Style) parts { return joined(withRing(s), withArms(s, true)) }, []string{"opacity", "length", "thickness", "gap", "radius", "outline"}},
+	{CircleCross, func(s Style) parts { return joined(withRing(s, false), withArms(s, true)) }, []string{"opacity", "length", "thickness", "gap", "radius", "outline"}},
 	{Brackets, func(s Style) parts { return withDot(withBrackets(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
 	{Viewfinder, func(s Style) parts { return withDot(withViewfinder(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
 	{Diamond, func(s Style) parts { return withDot(withDiamond(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Triangle, func(s Style) parts { return withDot(withTriangle(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
+	{Horseshoe, func(s Style) parts { return withDot(withRing(s, true), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 }
 
 // Directions of diagonal arms, x right and y down: all four corners for the diagonal cross, the
@@ -217,9 +219,12 @@ type span struct {
 	lo, hi int
 }
 
-// Radii in half pixels, so an odd thickness stays whole.
+// Radii in half pixels, so an odd thickness stays whole. An open ring leaves out what lies below
+// both diagonals through its centre, all but a margin in pixels by which an outline closes its ends.
 type ring struct {
 	inner, outer int
+	open         bool
+	margin       int
 }
 
 func withArms(s Style, up bool) parts {
@@ -340,8 +345,8 @@ func joined(a, b parts) parts {
 	return parts{parity: a.parity, rects: slices.Concat(a.rects, b.rects), rings: slices.Concat(a.rings, b.rings)}
 }
 
-func withRing(s Style) parts {
-	band := ring{inner: max(0, 2*s.Radius-s.Thickness), outer: 2*s.Radius + s.Thickness}
+func withRing(s Style, open bool) parts {
+	band := ring{inner: max(0, 2*s.Radius-s.Thickness), outer: 2*s.Radius + s.Thickness, open: open}
 
 	return parts{parity: s.Thickness % 2, rings: []ring{band}}
 }
@@ -369,7 +374,7 @@ func (ps parts) grown(width int) parts {
 
 	rings := make([]ring, len(ps.rings))
 	for i, r := range ps.rings {
-		rings[i] = ring{inner: max(0, r.inner-2*width), outer: r.outer + 2*width}
+		rings[i] = ring{inner: max(0, r.inner-2*width), outer: r.outer + 2*width, open: r.open, margin: r.margin + width}
 	}
 
 	return parts{parity: ps.parity, rects: rects, rings: rings}
@@ -407,7 +412,7 @@ func (ps parts) coverage(dx, dy int) int {
 	for i := 0; i < full; i++ {
 		x := 2*samples*dx - samples*ps.parity + 2*(i%samples) + 1
 		y := 2*samples*dy - samples*ps.parity + 2*(i/samples) + 1
-		if ps.inRing(x*x + y*y) {
+		if ps.inRing(x, y) {
 			count++
 		}
 	}
@@ -425,15 +430,24 @@ func (ps parts) inRect(dx, dy int) bool {
 	return false
 }
 
-func (ps parts) inRing(squared int) bool {
+func (ps parts) inRing(x, y int) bool {
+	squared := x*x + y*y
 	for _, r := range ps.rings {
 		inner, outer := r.inner*samples, r.outer*samples
-		if inner*inner <= squared && squared <= outer*outer {
+		if inner*inner <= squared && squared <= outer*outer && !(r.open && opened(x, y, r.margin)) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// The margin runs square to the diagonals, so squares compare a whole number with the root of two.
+func opened(x, y, margin int) bool {
+	depth := y - max(x, -x)
+	reach := 2 * samples * margin
+
+	return depth > 0 && depth*depth > 2*reach*reach
 }
 
 // The fill lies over the outline; both weights count in full*full parts of a pixel.

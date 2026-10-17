@@ -35,6 +35,7 @@ func TestEveryShapeOffersTheValuesItIsDrawnFrom(t *testing.T) {
 		crosshair.Viewfinder:  {"opacity", "thickness", "gap", "radius", "dot", "outline"},
 		crosshair.Diamond:     {"opacity", "thickness", "radius", "dot", "outline"},
 		crosshair.Triangle:    {"opacity", "thickness", "radius", "dot", "outline"},
+		crosshair.Horseshoe:   {"opacity", "thickness", "radius", "dot", "outline"},
 	}
 
 	for _, shape := range crosshair.Shapes() {

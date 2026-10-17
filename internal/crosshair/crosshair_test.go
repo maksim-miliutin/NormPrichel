@@ -333,6 +333,62 @@ var references = []reference{
 		},
 	},
 	{
+		name:  "a viewfinder keeps the corners of the square and opens every side by the gap",
+		style: crosshair.Style{Shape: crosshair.Viewfinder, Color: white, Opacity: 100, Radius: 3, Thickness: 1, Gap: 2, DotSize: 1},
+		want: []string{
+			"##...##",
+			"#.....#",
+			".......",
+			"...#...",
+			".......",
+			"#.....#",
+			"##...##",
+		},
+	},
+	{
+		name:  "even viewfinder centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Viewfinder, Color: white, Opacity: 100, Radius: 3, Thickness: 2, Gap: 1, DotSize: 2},
+		want: []string{
+			"###..###",
+			"###..###",
+			"##....##",
+			"...##...",
+			"...##...",
+			"##....##",
+			"###..###",
+			"###..###",
+		},
+	},
+	{
+		name:  "a diamond steps from corner to corner around a dot",
+		style: crosshair.Style{Shape: crosshair.Diamond, Color: white, Opacity: 100, Radius: 3, Thickness: 1, DotSize: 1},
+		want: []string{
+			"...#...",
+			"..#.#..",
+			".#...#.",
+			"#..#..#",
+			".#...#.",
+			"..#.#..",
+			"...#...",
+		},
+	},
+	{
+		name:  "even diamond centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Diamond, Color: white, Opacity: 100, Radius: 4, Thickness: 2, DotSize: 2},
+		want: []string{
+			"....##....",
+			"...####...",
+			"..######..",
+			".###..###.",
+			"###.##.###",
+			"###.##.###",
+			".###..###.",
+			"..######..",
+			"...####...",
+			"....##....",
+		},
+	},
+	{
 		name:  "outline frames a dot on every side and corner",
 		style: crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
 		want: []string{
@@ -703,8 +759,8 @@ func TestAnUnknownShapeIsRefused(t *testing.T) {
 }
 
 func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
-	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets}
-	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets}
+	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond}
+	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond}
 	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets}
 	for _, shape := range shapes {
 		for _, style := range styles(shape) {

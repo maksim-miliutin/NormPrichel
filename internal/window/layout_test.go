@@ -61,6 +61,23 @@ func TestEveryFixedWordIsThereInBothLanguages(t *testing.T) {
 	}
 }
 
+func TestTheColourRowStartsRightUnderTheLastRowOfShapes(t *testing.T) {
+	var colour window.Rect
+	bottom := 0
+	for _, p := range window.Places() {
+		switch {
+		case p.Word == "color":
+			colour = p.Rect
+		case p.Kind == window.Choice && p.Group == "ready":
+			bottom = max(bottom, p.Rect.Y+p.Rect.H)
+		}
+	}
+
+	if gap := colour.Y - bottom; gap < 0 || gap > 12 {
+		t.Errorf("the colour starts %d pixels below the last row of shapes", gap)
+	}
+}
+
 func TestTheOutlineColourSitsUnderTheColourAndTheKnobsFollowWithoutGaps(t *testing.T) {
 	var colour, outline window.Rect
 	var sliders []window.Rect

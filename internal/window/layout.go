@@ -1,5 +1,7 @@
 package window
 
+import "github.com/maksim-miliutin/NormPrichel/internal/crosshair"
+
 // Every size here is in pixels at 96 dpi, the scale Windows calls 100%.
 const (
 	width  = 1192
@@ -121,7 +123,6 @@ const (
 	idOutlineSwatch = 520
 	idAddMenu       = 1000
 
-	shapeCount  = 12
 	knobSlots   = 6
 	hotkeyCount = 5
 )
@@ -132,6 +133,8 @@ const (
 	col3X, col3W = 596, 260
 	col4X, col4W = 868, 312
 )
+
+var shapeCount = len(crosshair.Shapes())
 
 func rowPart(id, base, size, rows int) (row, place int, ok bool) {
 	if id < base || id >= base+size*rows {
@@ -204,21 +207,22 @@ func crosshairColumn() []Place {
 	for i := range shapeCount {
 		places = append(places, Place{idShape + i, Choice, "", ready, Rect{col2X + i%6*57, 180 + i/6*44, 53, 40}})
 	}
-	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{col2X, 276, 60, 18}})
+	colour := 180 + (shapeCount+5)/6*44 + 4
+	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{col2X, colour + 4, 60, 18}})
 	for i := range palette {
-		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{col2X + 64 + i*28, 272, 24, 24}})
+		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{col2X + 64 + i*28, colour, 24, 24}})
 	}
 	places = append(places,
-		Place{idColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 272, 24, 24}},
-		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 306, 220, 18}},
+		Place{idColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, colour, 24, 24}},
+		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, colour + 34, 220, 18}},
 	)
 	for i := range outlinePalette {
 		x := col2X + 64 + (len(palette)-len(outlinePalette)+i)*28
-		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, 302, 24, 24}})
+		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, colour + 30, 24, 24}})
 	}
-	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 302, 24, 24}})
+	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, colour + 30, 24, 24}})
 	for i := range knobSlots {
-		places = append(places, knobSlot(i, 332+i*26, ready, "")...)
+		places = append(places, knobSlot(i, colour+60+i*26, ready, "")...)
 	}
 	places = append(places,
 		Place{idUploadHint, Hint, "uploadHint", picture, Rect{col2X, 180, col2W, 50}},

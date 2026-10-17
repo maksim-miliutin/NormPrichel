@@ -204,17 +204,19 @@ func crosshairColumn() []Place {
 	for i := range palette {
 		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{col2X + 64 + i*28, 272, 24, 24}})
 	}
-	places = append(places, Place{idColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 272, 24, 24}})
-	for i := range knobSlots {
-		places = append(places, knobSlot(i, 302+i*26, ready, "")...)
-	}
-	places = append(places, Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 468, 220, 18}})
+	places = append(places,
+		Place{idColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 272, 24, 24}},
+		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, 306, 220, 18}},
+	)
 	for i := range outlinePalette {
 		x := col2X + 64 + (len(palette)-len(outlinePalette)+i)*28
-		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, 464, 24, 24}})
+		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, 302, 24, 24}})
+	}
+	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 302, 24, 24}})
+	for i := range knobSlots {
+		places = append(places, knobSlot(i, 332+i*26, ready, "")...)
 	}
 	places = append(places,
-		Place{idOutlineColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, 464, 24, 24}},
 		Place{idUploadHint, Hint, "uploadHint", picture, Rect{col2X, 180, col2W, 50}},
 		Place{idUpload, Button, "upload", picture, Rect{col2X, 236, 140, 26}},
 	)

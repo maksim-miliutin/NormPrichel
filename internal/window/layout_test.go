@@ -86,3 +86,20 @@ func TestTheKnobsSitBetweenTheColourAndTheOutlineColour(t *testing.T) {
 		t.Errorf("the outline colour starts %d pixels below the last knob", gap)
 	}
 }
+
+func TestAFieldsOwnWindowSitsInsideItsFrameWithRoomForALine(t *testing.T) {
+	for _, p := range window.Places() {
+		inner, outer := window.Interior(p), p.Rect
+		switch p.Kind {
+		case window.Edit, window.Hotkey, window.List:
+			inside := inner.X > outer.X && inner.Y > outer.Y && inner.X+inner.W < outer.X+outer.W && inner.Y+inner.H < outer.Y+outer.H
+			if !inside || inner.H < 16 {
+				t.Errorf("control %d: %+v within its frame %+v, want it inside with 16 pixels of height", p.ID, inner, outer)
+			}
+		default:
+			if inner != outer {
+				t.Errorf("control %d of kind %s takes %+v, want its whole place %+v", p.ID, p.Kind, inner, outer)
+			}
+		}
+	}
+}

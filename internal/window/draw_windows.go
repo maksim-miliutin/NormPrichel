@@ -1,6 +1,7 @@
 package window
 
 import (
+	"image"
 	"image/color"
 	"unsafe"
 
@@ -100,7 +101,7 @@ func (w *Window) draw(item *drawItem) {
 	case c.Kind == Preview:
 		w.drawPreview(dc, r, c)
 	case c.Kind == Problem:
-		fill(dc, r, rust)
+		w.plate(dc, r, Plate{Radius: scaled(4, w.dpi), Fill: rust, Back: ground})
 		inner := rect{r.Left + int32(scaled(8, w.dpi)), r.Top, r.Right, r.Bottom}
 		text(dc, inner, c.Text, ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	case c.Kind == Switch:
@@ -109,21 +110,46 @@ func (w *Window) draw(item *drawItem) {
 		w.drawSwatch(item, c)
 	default:
 		chosen := c.On || item.ItemState&odsSelected != 0
-		words, paper := ink, field
+		words, paper, edge := ink, field, seam
 		if chosen {
-			words, paper = onSignal, signal
+			words, paper, edge = onSignal, signal, signal
 		}
-		fill(dc, r, paper)
-		if !chosen {
-			frame(dc, r, seam)
-		}
+		w.plate(dc, r, w.focused(item, Plate{Radius: scaled(4, w.dpi), Fill: paper, Edge: edge, Width: 1, Back: ground}))
 		if c.Shape != "" {
 			w.drawIcon(dc, r, c.Shape, chosen)
 		} else {
 			text(dc, r, c.Text, words, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
 		}
-		focusRing(dc, item, inset(r, int32(scaled(3, w.dpi))))
 	}
+}
+
+// The keys' place shows as a light edge, but only once the keyboard is in use, as Windows asks.
+func (w *Window) focused(item *drawItem, p Plate) Plate {
+	if item.ItemState&odsFocus != 0 && item.ItemState&odsNoFocusRect == 0 {
+		p.Edge, p.Width = ink, scaled(2, w.dpi)
+	}
+
+	return p
+}
+
+func (w *Window) plate(dc uintptr, r rect, p Plate) {
+	p.Size = image.Pt(int(r.Right-r.Left), int(r.Bottom-r.Top))
+	pixels, ok := w.plates[p]
+	if !ok {
+		pixels = bgra(p.Image())
+		w.plates[p] = pixels
+	}
+	blit(dc, r.Left, r.Top, p.Size, pixels)
+}
+
+func blit(dc uintptr, x, y int32, size image.Point, pixels []byte) {
+	if len(pixels) == 0 {
+		return
+	}
+	header := bitmapInfoHeader{Width: int32(size.X), Height: -int32(size.Y), Planes: 1, BitCount: 32, Compression: biRGB}
+	header.Size = uint32(unsafe.Sizeof(header))
+	procSetDIBitsToDevice.Call(dc, uintptr(x), uintptr(y), uintptr(size.X), uintptr(size.Y), 0, 0, 0, uintptr(size.Y),
+		uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), dibRGBColors)
 }
 
 type iconKey struct {
@@ -153,10 +179,7 @@ func (w *Window) drawIcon(dc uintptr, r rect, shape crosshair.Shape, chosen bool
 	}
 
 	x, y := r.Left+(r.Right-r.Left-int32(side))/2, r.Top+(r.Bottom-r.Top-int32(side))/2
-	header := bitmapInfoHeader{Width: int32(side), Height: -int32(side), Planes: 1, BitCount: 32, Compression: biRGB}
-	header.Size = uint32(unsafe.Sizeof(header))
-	procSetDIBitsToDevice.Call(dc, uintptr(x), uintptr(y), uintptr(side), uintptr(side), 0, 0, 0, uintptr(side),
-		uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), dibRGBColors)
+	blit(dc, x, y, image.Pt(side, side), pixels)
 }
 
 func (w *Window) drawSwitch(item *drawItem, c Control) {
@@ -183,21 +206,18 @@ func (w *Window) drawSwitch(item *drawItem, c Control) {
 func (w *Window) drawSwatch(item *drawItem, c Control) {
 	dc, r := item.DC, item.Rect
 	offer := c.Kind == Colour && !c.On
-	paper := c.Colour
+	p := Plate{Radius: scaled(4, w.dpi), Fill: c.Colour, Edge: seam, Width: 1, Back: ground}
 	if offer {
-		paper = field
+		p.Fill = field
+	}
+	if c.On || item.ItemState&odsSelected != 0 {
+		p.Edge, p.Width = signal, scaled(2, w.dpi)
 	}
 
-	fill(dc, r, paper)
-	frame(dc, r, seam)
+	w.plate(dc, r, w.focused(item, p))
 	if offer {
 		text(dc, r, c.Text, ink, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
 	}
-	if c.On || item.ItemState&odsSelected != 0 {
-		frame(dc, inset(r, 1), ink)
-		frame(dc, inset(r, 2), ground)
-	}
-	focusRing(dc, item, inset(r, int32(scaled(4, w.dpi))))
 }
 
 func (w *Window) drawRow(item *drawItem, c Control) {
@@ -207,12 +227,14 @@ func (w *Window) drawRow(item *drawItem, c Control) {
 		return
 	}
 
-	words, paper := ink, field
+	words := ink
+	fill(dc, r, field)
 	if item.ItemState&odsSelected != 0 {
-		words, paper = onSignal, signal
+		words = onSignal
+		pill := rect{r.Left + int32(scaled(2, w.dpi)), r.Top + 1, r.Right - int32(scaled(2, w.dpi)), r.Bottom - 1}
+		w.plate(dc, pill, Plate{Radius: scaled(4, w.dpi), Fill: signal, Back: field})
 	}
-	fill(dc, r, paper)
-	inner := rect{r.Left + int32(scaled(6, w.dpi)), r.Top, r.Right - int32(scaled(4, w.dpi)), r.Bottom}
+	inner := rect{r.Left + int32(scaled(8, w.dpi)), r.Top, r.Right - int32(scaled(4, w.dpi)), r.Bottom}
 	text(dc, inner, c.Rows[item.ItemID], words, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	focusRing(dc, item, r)
 }
@@ -227,17 +249,14 @@ func (w *Window) drawPreview(dc uintptr, r rect, c Control) {
 	if c.ID == idPreviewDark {
 		pixels = w.previews.dark
 	}
-	header := bitmapInfoHeader{Width: int32(side), Height: -int32(side), Planes: 1, BitCount: 32, Compression: biRGB}
-	header.Size = uint32(unsafe.Sizeof(header))
-	procSetDIBitsToDevice.Call(dc, uintptr(r.Left), uintptr(r.Top), uintptr(side), uintptr(side), 0, 0, 0, uintptr(side),
-		uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), dibRGBColors)
-	frame(dc, r, seam)
+	blit(dc, r.Left, r.Top, image.Pt(side, side), pixels)
 }
 
 func (w *Window) paintPreviews(side int) *previews {
 	dark, light, _ := w.actions.Form.Preview(side)
+	tile := Plate{Radius: scaled(6, w.dpi), Edge: seam, Width: 1, Back: ground}
 
-	return &previews{side: side, dark: bgra(dark), light: bgra(light)}
+	return &previews{side: side, dark: bgra(tile.Around(dark)), light: bgra(tile.Around(light))}
 }
 
 // Windows hides focus rectangles until the keyboard is used, and the item says when.

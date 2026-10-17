@@ -87,3 +87,61 @@ func TestAValuePastTheRangeKeepsTheThumbOnTheTrack(t *testing.T) {
 		t.Errorf("the thumb sits at %d and %d, want 0 and 140", low, high)
 	}
 }
+
+func TestTheRailGlowsAmberUpToTheThumbAndStaysQuietPastIt(t *testing.T) {
+	track := window.Track{Width: 136, Thumb: 24}
+	img := track.Image(26, 50, false)
+
+	before, past, above := at(img, track.Thumb/2+3, 13), at(img, track.Width-track.Thumb/2-3, 13), at(img, track.Thumb/2+3, 3)
+	if !amber(before) {
+		t.Errorf("the rail before the thumb is %v, want amber", before)
+	}
+	if amber(past) || brightness(past) <= brightness(above) {
+		t.Errorf("the rail past the thumb is %v on a ground of %v, want a quiet line", past, above)
+	}
+}
+
+func TestTheThumbIsALightDiscWithAnAmberHeartWhereverItStands(t *testing.T) {
+	track := window.Track{Width: 136, Thumb: 24}
+	for _, left := range []int{0, 50, track.Width - track.Thumb} {
+		img := track.Image(26, left, false)
+		centre := left + track.Thumb/2
+
+		heart, rim := at(img, centre, 13), at(img, centre+track.Thumb/4, 13)
+		if !amber(heart) || amber(rim) || brightness(rim) < 0x240 {
+			t.Errorf("the thumb at %d has a heart of %v in a rim of %v, want amber in a light disc", left, heart, rim)
+		}
+	}
+}
+
+func TestTheThumbIsBigEnoughToGrabAndGrowsWithTheScale(t *testing.T) {
+	for dpi, want := range map[int]int{96: 16, 144: 24} {
+		height := 26 * dpi / 96
+		track := window.NewTrack(136*dpi/96, dpi)
+		img := track.Image(height, 0, false)
+
+		tall := 0
+		for y := range height {
+			if brightness(at(img, track.Thumb/2, y)) > 0x180 {
+				tall++
+			}
+		}
+		if tall < want {
+			t.Errorf("at %d dpi the thumb is %d pixels tall, want at least %d", dpi, tall, want)
+		}
+	}
+}
+
+func TestTheThumbWearsARingOnlyWhileItHasTheKeys(t *testing.T) {
+	track := window.Track{Width: 136, Thumb: 24}
+	centre := 50 + track.Thumb/2
+	plain, keyed := track.Image(26, 50, false), track.Image(26, 50, true)
+
+	ring, gap, bare := at(keyed, centre, 1), at(keyed, centre, 3), at(plain, centre, 1)
+	if brightness(ring) < 0x240 || brightness(gap)-brightness(bare) > 0x18 {
+		t.Errorf("with the keys the top of the thumb's room shows %v over %v, want a light ring over the ground %v", ring, gap, bare)
+	}
+	if bare != at(plain, 0, 0) {
+		t.Errorf("without the keys the top of the thumb's room shows %v, want the bare ground", bare)
+	}
+}

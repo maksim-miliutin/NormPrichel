@@ -1,6 +1,8 @@
 package window
 
 import (
+	"image"
+
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 )
 
@@ -18,6 +20,29 @@ const (
 
 type Track struct {
 	Width, Thumb int // device pixels
+}
+
+// The thumb's room is as wide as the ring it wears with the keys, so the ring stays whole at either end.
+func NewTrack(width, dpi int) Track {
+	return Track{Width: width, Thumb: scaled(24, dpi)}
+}
+
+func (t Track) Image(height, at int, keyed bool) *image.RGBA {
+	middle, centre, rail := height/2, at+t.Thumb/2, max(t.Thumb/6, 1)
+	disc := func(diameter int, colour crosshair.RGB) Layer {
+		corner := image.Pt(centre-diameter/2, middle-diameter/2)
+		return Layer{image.Rectangle{Min: corner, Max: corner.Add(image.Pt(diameter, diameter))}, pill, colour}
+	}
+	groove := image.Rect(t.Thumb/2, middle-rail/2, t.Width-t.Thumb/2, middle-rail/2+rail)
+	filled := groove
+	filled.Max.X = centre
+	layers := []Layer{{groove, pill, seam}, {filled, pill, signal}}
+	if keyed {
+		layers = append(layers, disc(t.Thumb, ink), disc(t.Thumb-2*max(t.Thumb/12, 1), ground))
+	}
+	layers = append(layers, disc(t.Thumb*2/3, ink), disc(t.Thumb/3, signal))
+
+	return Layered(image.Pt(t.Width, height), ground, layers...)
 }
 
 func (t Track) ThumbAt(knob crosshair.Knob, value int) int {

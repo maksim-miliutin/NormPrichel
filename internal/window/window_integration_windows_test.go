@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
+	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 	"github.com/maksim-miliutin/NormPrichel/internal/window"
 )
@@ -29,6 +30,13 @@ var (
 	procGetWindowLongPtrW = user32.NewProc("GetWindowLongPtrW")
 	procSetFocus          = user32.NewProc("SetFocus")
 	procLoadIconW         = user32.NewProc("LoadIconW")
+	procRedrawWindow      = user32.NewProc("RedrawWindow")
+	procGetClientRect     = user32.NewProc("GetClientRect")
+	procGetDC             = user32.NewProc("GetDC")
+	procReleaseDC         = user32.NewProc("ReleaseDC")
+	procGetPixel          = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetPixel")
+
+	procDwmGetWindowAttribute = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmGetWindowAttribute")
 )
 
 const (
@@ -47,6 +55,10 @@ const (
 	vkRight         = 0x27
 	vkControl       = 0x11
 	vkMenu          = 0x12
+	rdwInvalidate   = 0x0001
+	rdwErase        = 0x0004
+	rdwAllChildren  = 0x0080
+	rdwUpdateNow    = 0x0100
 )
 
 // GWL_EXSTYLE is -20 in the Windows headers.
@@ -124,6 +136,63 @@ func TestTheWindowWaitsHiddenShowsWhenAskedAndHidesOnClose(t *testing.T) {
 	style, _, _ := procGetWindowLongPtrW.Call(hwnd, gwlExStyle)
 	if style&0x80 != 0 {
 		t.Error("the settings window is a tool window, which keeps it out of the taskbar and Alt+Tab")
+	}
+}
+
+// pixel reads what a window shows at a point of its client area; a negative x counts from the right.
+func pixel(hwnd uintptr, x, y int32) crosshair.RGB {
+	var client struct{ Left, Top, Right, Bottom int32 }
+	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&client)))
+	if x < 0 {
+		x += client.Right
+	}
+	dc, _, _ := procGetDC.Call(hwnd)
+	defer procReleaseDC.Call(hwnd, dc)
+	ref, _, _ := procGetPixel.Call(dc, uintptr(x), uintptr(y))
+
+	return crosshair.RGB{R: uint8(ref), G: uint8(ref >> 8), B: uint8(ref >> 16)}
+}
+
+func TestTheWindowIsDarkAndWhatIsChosenGlowsAmber(t *testing.T) {
+	o := open(t, listed())
+	o.actions.Form.AddGame(foreground.Choice{Title: "STALZONE", Exe: "STALZONE.EXE"})
+	o.window.Show()
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+
+	tab, _ := o.child(t, worded("readyMade"))
+	button, _ := o.child(t, worded("addGame"))
+	name, _ := o.child(t, func(c window.Control) bool { return c.Kind == window.Edit && c.Text == "STALZONE" })
+	problem, _ := o.child(t, func(c window.Control) bool { return c.Kind == window.Problem })
+	ground, chosen, idle, typed := pixel(o.window.Handle(), 4, 4), pixel(tab, 3, 3), pixel(button, 3, 3), pixel(name, -4, 3)
+	refusal := pixel(problem, 3, 3)
+
+	brightness := func(c crosshair.RGB) int { return int(c.R) + int(c.G) + int(c.B) }
+	if brightness(ground) > 0x90 || brightness(ground) < 0x30 {
+		t.Errorf("the window is %v, want it dark graphite rather than light or black", ground)
+	}
+	if refusal.R <= refusal.G || refusal.R <= refusal.B || brightness(refusal) <= brightness(ground) {
+		t.Errorf("the refusal is %v, want it rust red", refusal)
+	}
+	if chosen.R < 0xC0 || chosen.R <= chosen.G || chosen.G <= chosen.B {
+		t.Errorf("the chosen tab is %v, want it amber", chosen)
+	}
+	if brightness(idle) <= brightness(ground) || brightness(idle) > 0xA0 {
+		t.Errorf("an idle button is %v on a window of %v, want it a dark shade lighter", idle, ground)
+	}
+	if typed != idle {
+		t.Errorf("a field is %v and an idle button %v, want them alike", typed, idle)
+	}
+}
+
+func TestTheTitleBarIsDarkWhereWindowsTellsIt(t *testing.T) {
+	o := open(t, listed())
+
+	var dark int32
+	if failed, _, _ := procDwmGetWindowAttribute.Call(o.window.Handle(), 20, uintptr(unsafe.Pointer(&dark)), unsafe.Sizeof(dark)); failed != 0 {
+		t.Skipf("this Windows does not tell whether a title bar is dark (%#x)", failed)
+	}
+	if dark == 0 {
+		t.Error("the title bar stays light over a dark window")
 	}
 }
 

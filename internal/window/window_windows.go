@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 	"github.com/maksim-miliutin/NormPrichel/internal/settings"
 )
 
@@ -18,6 +19,7 @@ var (
 	user32   = windows.NewLazySystemDLL("user32.dll")
 	gdi32    = windows.NewLazySystemDLL("gdi32.dll")
 	comdlg32 = windows.NewLazySystemDLL("comdlg32.dll")
+	dwmapi   = windows.NewLazySystemDLL("dwmapi.dll")
 
 	procRegisterClassExW         = user32.NewProc("RegisterClassExW")
 	procCreateWindowExW          = user32.NewProc("CreateWindowExW")
@@ -49,11 +51,11 @@ var (
 	procGetSystemMetricsForDpi   = user32.NewProc("GetSystemMetricsForDpi")
 	procDestroyIcon              = user32.NewProc("DestroyIcon")
 	procGetWindowRect            = user32.NewProc("GetWindowRect")
-	procGetStockObject           = gdi32.NewProc("GetStockObject")
 	procCreateFontW              = gdi32.NewProc("CreateFontW")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
 	procSetTextColor             = gdi32.NewProc("SetTextColor")
 	procSetBkColor               = gdi32.NewProc("SetBkColor")
+	procDwmSetWindowAttribute    = dwmapi.NewProc("DwmSetWindowAttribute")
 )
 
 const (
@@ -133,9 +135,6 @@ const (
 
 	monitorDefaultToNearest = 2
 
-	whiteBrush = 0
-	blackBrush = 4
-
 	fwNormal         = 400
 	fwSemiBold       = 600
 	defaultCharset   = 1
@@ -157,10 +156,6 @@ const (
 	iconBig    = 1
 	smCxIcon   = 11
 	smCxSmIcon = 49
-
-	white = 0xFFFFFF
-	black = 0x000000
-	grey  = 0x666666
 )
 
 const windowStyle = wsOverlapped | wsCaption | wsSysMenu | wsMinimizeBox | wsClipChildren
@@ -240,6 +235,7 @@ type Window struct {
 	shapeIcons map[iconKey][]byte
 	custom     [16]uint32 // the colour dialog's own colours, kept for the run
 	icons      []uintptr
+	brushes    map[crosshair.RGB]uintptr
 	closing    bool
 	apartment  bool
 }
@@ -264,6 +260,7 @@ func New(form *settings.Form, changed func(), fail func(error)) (*Window, error)
 		shown:      map[int]Control{},
 		ownProcs:   map[uintptr]uintptr{},
 		shapeIcons: map[iconKey][]byte{},
+		brushes:    map[crosshair.RGB]uintptr{},
 	}
 	w.actions = Actions{Form: form, Inputs: w}
 	running = w
@@ -278,6 +275,7 @@ func New(form *settings.Form, changed func(), fail func(error)) (*Window, error)
 		return nil, fmt.Errorf("%w: %w", ErrWindow, err)
 	}
 	w.hwnd = hwnd
+	darkTitle(hwnd)
 	dpi, _, _ := procGetDpiForWindow.Call(hwnd)
 	w.dpi = max(int(dpi), 96)
 	w.font, w.bold = makeFont(w.dpi, fwNormal), makeFont(w.dpi, fwSemiBold)
@@ -301,9 +299,8 @@ func register() (windows.Handle, error) {
 	}
 
 	arrow, _, _ := procLoadCursorW.Call(0, idcArrow)
-	background, _, _ := procGetStockObject.Call(whiteBrush)
 	for _, class := range []wndClassEx{
-		{WndProc: procedures().window, Instance: instance, Cursor: windows.Handle(arrow), Background: windows.Handle(background), ClassName: className},
+		{WndProc: procedures().window, Instance: instance, Cursor: windows.Handle(arrow), ClassName: className},
 		{WndProc: procedures().slider, Instance: instance, Cursor: windows.Handle(arrow), ClassName: sliderClassName},
 	} {
 		class.Size = uint32(unsafe.Sizeof(class))
@@ -335,6 +332,9 @@ func (w *Window) Close() {
 	procDestroyWindow.Call(w.hwnd)
 	procDeleteObject.Call(w.font)
 	procDeleteObject.Call(w.bold)
+	for _, brush := range w.brushes {
+		procDeleteObject.Call(brush)
+	}
 	for _, icon := range w.icons {
 		procDestroyIcon.Call(icon)
 	}
@@ -599,6 +599,11 @@ func windowProc(hwnd, message, wparam, lparam uintptr) uintptr {
 		return 1
 	case wmCtlColorStatic, wmCtlColorEdit, wmCtlColorListbox:
 		return w.colours(wparam, lparam)
+	case wmEraseBkgnd:
+		var client rect
+		procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&client)))
+		procFillRect.Call(wparam, uintptr(unsafe.Pointer(&client)), w.brush(ground))
+		return 1
 	case wmActivate:
 		w.activate(wparam&0xFFFF != waInactive)
 		return 0
@@ -623,18 +628,44 @@ func at[T any](lparam uintptr) *T {
 
 func (w *Window) colours(dc, child uintptr) uintptr {
 	c := w.shown[w.ids[child]]
-	text, back, brush := uintptr(black), uintptr(white), uintptr(whiteBrush)
+	words, paper := ink, ground
 	switch {
 	case c.Kind == Hint:
-		text = grey
+		words = ash
 	case c.Kind == Hotkey && c.On:
-		text, back, brush = white, black, blackBrush
+		paper = rust
+	case c.Kind == Edit || c.Kind == Hotkey || c.Kind == List:
+		paper = field
 	}
-	procSetTextColor.Call(dc, text)
-	procSetBkColor.Call(dc, back)
-	stock, _, _ := procGetStockObject.Call(brush)
+	procSetTextColor.Call(dc, uintptr(colourRef(words)))
+	procSetBkColor.Call(dc, uintptr(colourRef(paper)))
 
-	return stock
+	return w.brush(paper)
+}
+
+// A control's colours come back to Windows as brushes it does not free, so each one is made once
+// and lives as long as the window.
+func (w *Window) brush(colour crosshair.RGB) uintptr {
+	if brush, ok := w.brushes[colour]; ok {
+		return brush
+	}
+	brush, _, _ := procCreateSolidBrush.Call(uintptr(colourRef(colour)))
+	w.brushes[colour] = brush
+
+	return brush
+}
+
+// Windows 10 before version 2004 knew the dark title bar as attribute 19, later ones as 20.
+func darkTitle(hwnd uintptr) {
+	if procDwmSetWindowAttribute.Find() != nil {
+		return
+	}
+	on := int32(1)
+	for _, attribute := range []uintptr{20, 19} {
+		if failed, _, _ := procDwmSetWindowAttribute.Call(hwnd, attribute, uintptr(unsafe.Pointer(&on)), unsafe.Sizeof(on)); failed == 0 {
+			return
+		}
+	}
 }
 
 // The hotkey fields take a pressed combination whole. While Ctrl, Alt or Win is held they ask

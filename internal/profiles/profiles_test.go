@@ -160,6 +160,28 @@ func TestAimHidingIsOffUntilTheFileTurnsItOn(t *testing.T) {
 	}
 }
 
+func TestTheChosenLanguageIsKeptUnderItsKey(t *testing.T) {
+	chosen, err := profiles.Parse([]byte(`{ "language": "ru" }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	silent, err := profiles.Parse([]byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chosen.Language != "ru" || silent.Language != "" {
+		t.Errorf("the language reads %q from the file and %q without it, want ru and none", chosen.Language, silent.Language)
+	}
+
+	text, err := chosen.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(text), `"language": "ru"`) {
+		t.Errorf("the file keeps the language under another name:\n%s", text)
+	}
+}
+
 func TestOffsetsStayWithin500PixelsOfTheCentre(t *testing.T) {
 	got, err := profiles.Parse([]byte(`{ "games": [ { "exe": "game.exe", "offset": { "x": 900, "y": -501 } } ] }`))
 	if err != nil {
@@ -224,6 +246,7 @@ func TestSettingsSurviveARoundTrip(t *testing.T) {
 
 	settings := specDefaults
 	settings.Visible = false
+	settings.Language = "en"
 	settings.Hotkeys.Center = "Ctrl+Shift+End"
 	settings.Games = []profiles.Game{
 		{Exe: "stalzone.exe", Name: "STALZONE", Enabled: true, Crosshair: profiles.Crosshair{Style: circle, Scale: 100}, Offset: profiles.Offset{X: -3, Y: 12}, HideWhileAiming: true},

@@ -31,6 +31,7 @@ func TestEveryShapeOffersTheValuesItIsDrawnFrom(t *testing.T) {
 		crosshair.SquareDot:   {"opacity", "thickness", "radius", "dot", "outline"},
 		crosshair.Chevron:     {"opacity", "length", "thickness", "outline"},
 		crosshair.CircleCross: {"opacity", "length", "thickness", "gap", "radius", "outline"},
+		crosshair.Brackets:    {"opacity", "thickness", "gap", "radius", "dot", "outline"},
 	}
 
 	for _, shape := range crosshair.Shapes() {
@@ -40,6 +41,26 @@ func TestEveryShapeOffersTheValuesItIsDrawnFrom(t *testing.T) {
 	}
 	if got := crosshair.Knobs("star"); got != nil {
 		t.Errorf("an unknown shape offers %v, want nothing", names(got))
+	}
+}
+
+func TestEveryValueAShapeOffersChangesItsDrawingAndNoOtherDoes(t *testing.T) {
+	for _, shape := range crosshair.Shapes() {
+		base := crosshair.Default()
+		base.Shape = shape
+		before, err := crosshair.Draw(base)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		offered := names(crosshair.Knobs(shape))
+		for _, name := range []string{"opacity", "length", "thickness", "gap", "radius", "dot", "outline"} {
+			changed, _ := base.WithValue(name, base.Value(name)-1)
+			after, _ := crosshair.Draw(changed)
+			if differs := !same(before, after); differs != slices.Contains(offered, name) {
+				t.Errorf("%s: one step of %s changes the drawing %v, offered %v", shape, name, differs, offered)
+			}
+		}
 	}
 }
 

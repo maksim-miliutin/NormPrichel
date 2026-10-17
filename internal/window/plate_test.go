@@ -24,6 +24,15 @@ func at(img *image.RGBA, x, y int) crosshair.RGB {
 	return crosshair.RGB{R: c.R, G: c.G, B: c.B}
 }
 
+// Amber is red over green with little blue; a warm white has the first two but not the last.
+func amber(c crosshair.RGB) bool {
+	return c.R >= 0xC0 && c.R > c.G && int(c.R)-int(c.B) >= 0x60
+}
+
+func brightness(c crosshair.RGB) int {
+	return int(c.R) + int(c.G) + int(c.B)
+}
+
 func TestAPlateIsFilledInsideItsEdgeAndLeavesItsCornersToTheBackground(t *testing.T) {
 	img := window.Plate{Size: image.Pt(40, 20), Radius: 5, Fill: fillColour, Edge: edgeColour, Width: 1, Back: backColour}.Image()
 

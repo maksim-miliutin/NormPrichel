@@ -15,7 +15,6 @@ var (
 	procEndPaint          = user32.NewProc("EndPaint")
 	procGetClientRect     = user32.NewProc("GetClientRect")
 	procFillRect          = user32.NewProc("FillRect")
-	procFrameRect         = user32.NewProc("FrameRect")
 	procDrawTextW         = user32.NewProc("DrawTextW")
 	procDrawFocusRect     = user32.NewProc("DrawFocusRect")
 	procSetCapture        = user32.NewProc("SetCapture")
@@ -123,13 +122,17 @@ func (w *Window) draw(item *drawItem) {
 	}
 }
 
-// The keys' place shows as a light edge, but only once the keyboard is in use, as Windows asks.
 func (w *Window) focused(item *drawItem, p Plate) Plate {
-	if item.ItemState&odsFocus != 0 && item.ItemState&odsNoFocusRect == 0 {
+	if keyed(item) {
 		p.Edge, p.Width = ink, scaled(2, w.dpi)
 	}
 
 	return p
+}
+
+// Windows keeps the marks of the keys hidden until the keyboard is used, and the item says when.
+func keyed(item *drawItem) bool {
+	return item.ItemState&odsFocus != 0 && item.ItemState&odsNoFocusRect == 0
 }
 
 func (w *Window) plate(dc uintptr, r rect, p Plate) {
@@ -184,21 +187,11 @@ func (w *Window) drawIcon(dc uintptr, r rect, shape crosshair.Shape, chosen bool
 
 func (w *Window) drawSwitch(item *drawItem, c Control) {
 	dc, r := item.DC, item.Rect
-	side := int32(scaled(14, w.dpi))
-	box := rect{r.Left, r.Top + (r.Bottom-r.Top-side)/2, r.Left + side, r.Top + (r.Bottom-r.Top-side)/2 + side}
+	look := Toggle{Size: image.Pt(int(r.Right-r.Left), int(r.Bottom-r.Top)), DPI: w.dpi, On: c.On, Pressed: item.ItemState&odsSelected != 0, Keyed: keyed(item)}
+	blit(dc, r.Left, r.Top, look.Size, bgra(look.Image()))
 
-	fill(dc, r, ground)
-	fill(dc, box, field)
-	frame(dc, box, ash)
-	if c.On {
-		fill(dc, inset(box, int32(scaled(3, w.dpi))), signal)
-	}
-	if item.ItemState&odsSelected != 0 {
-		frame(dc, inset(box, 1), ash)
-	}
-	words := rect{box.Right + int32(scaled(6, w.dpi)), r.Top, r.Right, r.Bottom}
+	words := rect{r.Left + int32(look.Track().Max.X+scaled(8, w.dpi)), r.Top, r.Right, r.Bottom}
 	text(dc, words, c.Text, ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
-	focusRing(dc, item, rect{words.Left - 2, words.Top + 2, words.Right, words.Bottom - 2})
 }
 
 // The square of the player's own colour shows that colour only while it is in use; until then it
@@ -259,9 +252,8 @@ func (w *Window) paintPreviews(side int) *previews {
 	return &previews{side: side, dark: bgra(tile.Around(dark)), light: bgra(tile.Around(light))}
 }
 
-// Windows hides focus rectangles until the keyboard is used, and the item says when.
 func focusRing(dc uintptr, item *drawItem, r rect) {
-	if item.ItemState&odsFocus != 0 && item.ItemState&odsNoFocusRect == 0 {
+	if keyed(item) {
 		procDrawFocusRect.Call(dc, uintptr(unsafe.Pointer(&r)))
 	}
 }
@@ -272,20 +264,10 @@ func fill(dc uintptr, r rect, colour crosshair.RGB) {
 	procDeleteObject.Call(brush)
 }
 
-func frame(dc uintptr, r rect, colour crosshair.RGB) {
-	brush, _, _ := procCreateSolidBrush.Call(uintptr(colourRef(colour)))
-	procFrameRect.Call(dc, uintptr(unsafe.Pointer(&r)), brush)
-	procDeleteObject.Call(brush)
-}
-
 func text(dc uintptr, r rect, words string, colour crosshair.RGB, format uintptr) {
 	procSetTextColor.Call(dc, uintptr(colourRef(colour)))
 	line, _ := windows.UTF16FromString(words)
 	procDrawTextW.Call(dc, uintptr(unsafe.Pointer(&line[0])), uintptr(len(line)-1), uintptr(unsafe.Pointer(&r)), format)
-}
-
-func inset(r rect, by int32) rect {
-	return rect{r.Left + by, r.Top + by, r.Right - by, r.Bottom - by}
 }
 
 // A COLORREF holds red in its lowest byte.
@@ -351,7 +333,7 @@ func (w *Window) track(hwnd uintptr) (Track, rect) {
 	var client rect
 	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&client)))
 
-	return Track{Width: int(client.Right), Thumb: scaled(10, w.dpi)}, client
+	return NewTrack(int(client.Right), w.dpi), client
 }
 
 func (w *Window) slideTo(hwnd uintptr, id, x int) {
@@ -369,20 +351,8 @@ func (w *Window) paintSlider(hwnd uintptr, id int) {
 
 	knob := w.shown[id].Knob
 	track, client := w.track(hwnd)
-	fill(dc, client, ground)
-
-	line := max(int32(scaled(1, w.dpi)), 1)
-	middle := client.Bottom / 2
-	half := int32(track.Thumb / 2)
-	fill(dc, rect{half, middle - line/2, client.Right - half, middle - line/2 + line}, ash)
-
-	left := int32(track.ThumbAt(knob.Knob, knob.Value))
-	margin := int32(scaled(4, w.dpi))
-	fill(dc, rect{left, margin, left + int32(track.Thumb), client.Bottom - margin}, ink)
-
 	focus, _, _ := procGetFocus.Call()
 	state, _, _ := procSendMessageW.Call(hwnd, wmQueryUIState, 0, 0)
-	if focus == hwnd && state&uisfHideFocus == 0 {
-		procDrawFocusRect.Call(dc, uintptr(unsafe.Pointer(&client)))
-	}
+	picture := track.Image(int(client.Bottom), track.ThumbAt(knob.Knob, knob.Value), focus == hwnd && state&uisfHideFocus == 0)
+	blit(dc, 0, 0, picture.Rect.Size(), bgra(picture))
 }

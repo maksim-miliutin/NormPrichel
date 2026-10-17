@@ -27,6 +27,7 @@ const (
 	Brackets    Shape = "brackets"
 	Viewfinder  Shape = "viewfinder"
 	Diamond     Shape = "diamond"
+	Triangle    Shape = "triangle"
 )
 
 type RGB struct {
@@ -75,6 +76,7 @@ var shapes = []struct {
 	{Brackets, func(s Style) parts { return withDot(withBrackets(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
 	{Viewfinder, func(s Style) parts { return withDot(withViewfinder(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
 	{Diamond, func(s Style) parts { return withDot(withDiamond(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
+	{Triangle, func(s Style) parts { return withDot(withTriangle(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 }
 
 // Directions of diagonal arms, x right and y down: all four corners for the diagonal cross, the
@@ -311,6 +313,25 @@ func withDiamond(s Style) parts {
 			rects = append(rects, rect{x: brush.shifted(at[0]), y: brush.shifted(at[1])})
 		}
 	}
+
+	return parts{parity: parity, rects: rects}
+}
+
+// The sides fall two rows for every column they spread, near enough to an even triangle while
+// staying crisp; the centre is where the triangle balances, a third of the way up from its base.
+func withTriangle(s Style) parts {
+	parity := s.Thickness % 2
+	brush := centred(s.Thickness, parity)
+	base := s.Radius / 2
+
+	var rects []rect
+	for row := range s.Radius + base {
+		for _, x := range []int{-row / 2, row / 2} {
+			rects = append(rects, rect{x: brush.shifted(x), y: brush.shifted(row - s.Radius)})
+		}
+	}
+	half := (s.Radius + base) / 2
+	rects = append(rects, rect{x: span{lo: brush.lo - half, hi: brush.hi + half}, y: brush.shifted(base)})
 
 	return parts{parity: parity, rects: rects}
 }

@@ -389,6 +389,45 @@ var references = []reference{
 		},
 	},
 	{
+		name:  "a triangle balances on the dot: two rows down for every column out",
+		style: crosshair.Style{Shape: crosshair.Triangle, Color: white, Opacity: 100, Radius: 4, Thickness: 1, DotSize: 1},
+		want: []string{
+			"....#....",
+			"....#....",
+			"...#.#...",
+			"...#.#...",
+			"..#.#.#..",
+			"..#...#..",
+			".#######.",
+			".........",
+			".........",
+		},
+	},
+	{
+		name:  "even triangle centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Triangle, Color: white, Opacity: 100, Radius: 8, Thickness: 2, DotSize: 2},
+		want: []string{
+			"........##........",
+			"........##........",
+			".......####.......",
+			".......####.......",
+			"......######......",
+			"......##..##......",
+			".....###..###.....",
+			".....##....##.....",
+			"....###.##.###....",
+			"....##..##..##....",
+			"...###......###...",
+			"...##........##...",
+			"..##############..",
+			"..##############..",
+			"..................",
+			"..................",
+			"..................",
+			"..................",
+		},
+	},
+	{
 		name:  "outline frames a dot on every side and corner",
 		style: crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
 		want: []string{
@@ -759,9 +798,9 @@ func TestAnUnknownShapeIsRefused(t *testing.T) {
 }
 
 func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
-	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond}
-	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond}
-	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets}
+	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle}
+	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle}
+	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle}
 	for _, shape := range shapes {
 		for _, style := range styles(shape) {
 			if slices.Contains(withDot, shape) && style.DotSize%2 != style.Thickness%2 {

@@ -25,6 +25,8 @@ const (
 	Chevron     Shape = "chevron"
 	CircleCross Shape = "circle-cross"
 	Brackets    Shape = "brackets"
+	Viewfinder  Shape = "viewfinder"
+	Diamond     Shape = "diamond"
 )
 
 type RGB struct {
@@ -71,6 +73,8 @@ var shapes = []struct {
 	{Chevron, func(s Style) parts { return withDiagonals(s, 0, lowerCorners) }, []string{"opacity", "length", "thickness", "outline"}},
 	{CircleCross, func(s Style) parts { return joined(withRing(s), withArms(s, true)) }, []string{"opacity", "length", "thickness", "gap", "radius", "outline"}},
 	{Brackets, func(s Style) parts { return withDot(withBrackets(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
+	{Viewfinder, func(s Style) parts { return withDot(withViewfinder(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
+	{Diamond, func(s Style) parts { return withDot(withDiamond(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 }
 
 // Directions of diagonal arms, x right and y down: all four corners for the diagonal cross, the
@@ -277,6 +281,38 @@ func withBrackets(s Style) parts {
 		{x: left, y: top}, {x: right, y: top},
 		{x: left, y: bottom}, {x: right, y: bottom},
 	}}
+}
+
+func withViewfinder(s Style) parts {
+	parity := s.Thickness % 2
+	band := centred(s.Thickness, parity)
+	after := span{lo: s.Gap, hi: band.hi + s.Radius}
+	before := span{lo: parity - 1 - after.hi, hi: parity - 1 - after.lo}
+
+	var rects []rect
+	for _, edge := range []span{band.shifted(-s.Radius), band.shifted(s.Radius)} {
+		for _, piece := range []span{before, after} {
+			rects = append(rects, rect{x: piece, y: edge}, rect{x: edge, y: piece})
+		}
+	}
+
+	return parts{parity: parity, rects: rects}
+}
+
+// The sides run corner to corner the way the arms of the diagonal cross do; the radius reaches a
+// corner, where for the square it reaches the middle of a side.
+func withDiamond(s Style) parts {
+	parity := s.Thickness % 2
+	brush := centred(s.Thickness, parity)
+
+	var rects []rect
+	for k := range s.Radius {
+		for _, at := range [][2]int{{k, k - s.Radius}, {s.Radius - k, k}, {-k, s.Radius - k}, {k - s.Radius, -k}} {
+			rects = append(rects, rect{x: brush.shifted(at[0]), y: brush.shifted(at[1])})
+		}
+	}
+
+	return parts{parity: parity, rects: rects}
 }
 
 func joined(a, b parts) parts {

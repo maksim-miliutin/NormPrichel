@@ -182,6 +182,9 @@ func TestTheWindowIsDarkAndWhatIsChosenGlowsAmber(t *testing.T) {
 	if typed != idle {
 		t.Errorf("a field is %v and an idle button %v, want them alike", typed, idle)
 	}
+	if corner := pixel(button, 0, 0); corner != ground {
+		t.Errorf("the corner of a button is %v, want the window's %v showing past its rounding", corner, ground)
+	}
 }
 
 func TestTheTitleBarIsDarkWhereWindowsTellsIt(t *testing.T) {

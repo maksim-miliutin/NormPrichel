@@ -77,6 +77,7 @@ const (
 	idEnabled
 	idRemoveGame
 	idCrosshairHeading
+	idResetCrosshair
 	idReady
 	idPicture
 	idColorLabel
@@ -194,7 +195,8 @@ func gameHeader() []Place {
 
 func crosshairColumn() []Place {
 	places := []Place{
-		{idCrosshairHeading, Heading, "crosshair", game, Rect{col2X, 126, col2W, 18}},
+		{idCrosshairHeading, Heading, "crosshair", game, Rect{col2X, 126, col2W - 128, 18}},
+		{idResetCrosshair, Button, "resetCrosshair", game, Rect{col2X + col2W - 120, 122, 120, 22}},
 		{idReady, Choice, "readyMade", game, Rect{col2X, 148, 120, 26}},
 		{idPicture, Choice, "picture", game, Rect{col2X + 124, 148, 140, 26}},
 	}

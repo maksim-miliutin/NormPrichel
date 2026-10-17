@@ -78,6 +78,26 @@ func TestAGameIsRemovedOnlyOnceThePlayerAgrees(t *testing.T) {
 	}
 }
 
+func TestTheCrosshairIsResetOnlyOnceThePlayerAgrees(t *testing.T) {
+	a, state, _, p := newActions(t, listed())
+	a.Form.SetShape(crosshair.Circle)
+	reset := control(t, a, worded("resetCrosshair"))
+
+	a.Click(reset)
+	if first(t, state.Current()).Crosshair.Shape != crosshair.Circle {
+		t.Fatal("the crosshair went back to the default without the player agreeing")
+	}
+	p.agrees = true
+	a.Click(reset)
+
+	if got := first(t, state.Current()).Crosshair; got != profiles.DefaultCrosshair() {
+		t.Errorf("the crosshair is %+v after agreeing, want the default", got)
+	}
+	if want := a.Form.Word("confirmReset"); !slices.Equal(p.asked, []string{want, want}) {
+		t.Errorf("asked %q, want %q twice", p.asked, want)
+	}
+}
+
 func TestAGameIsAddedFromTheWindowThePlayerPicks(t *testing.T) {
 	a, state, m, p := newActions(t, profiles.Defaults())
 	m.windows = []foreground.Choice{{Exe: "notepad.exe", Title: "Блокнот"}, {Exe: "stalzone.exe", Title: "STALZONE"}}

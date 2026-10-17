@@ -779,3 +779,29 @@ func TestWithNoGamesThePreviewIsBare(t *testing.T) {
 		t.Errorf("got %v with centres %v and %v", err, dark.RGBAAt(10, 10), light.RGBAAt(10, 10))
 	}
 }
+
+func TestResettingTheCrosshairBringsBackTheDefaultAndLeavesTheRestOfTheGame(t *testing.T) {
+	s := listed()
+	s.Games[0].Offset, s.Games[0].HideWhileAiming = profiles.Offset{X: 4, Y: -2}, true
+	s.Games[0].Crosshair.Color = crosshair.RGB{R: 255}
+	form, state, _ := newForm(t, s)
+	form.ShowPicture()
+
+	if err := form.ResetCrosshair(); err != nil {
+		t.Fatal(err)
+	}
+
+	game, other := state.Current().Games[0], state.Current().Games[1]
+	if game.Crosshair != profiles.DefaultCrosshair() {
+		t.Errorf("the crosshair is %+v after the reset, want the default", game.Crosshair)
+	}
+	if game.Offset != (profiles.Offset{X: 4, Y: -2}) || !game.HideWhileAiming || game.Name != "STALZONE" || !game.Enabled {
+		t.Errorf("the reset touched the rest of the game: %+v", game)
+	}
+	if other.Crosshair != s.Games[1].Crosshair {
+		t.Errorf("the reset reached the other game: %+v", other.Crosshair)
+	}
+	if form.Screen().Game.Picture {
+		t.Error("the picture tab stays open over the ready-made crosshair the reset brought back")
+	}
+}

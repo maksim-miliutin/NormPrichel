@@ -66,6 +66,11 @@ func (a Actions) Click(id int) error {
 			return nil
 		}
 		return a.Form.RemoveGame()
+	case idResetCrosshair:
+		if !a.Inputs.Confirm(a.Form.Word("confirmReset")) {
+			return nil
+		}
+		return a.Form.ResetCrosshair()
 	case idReady:
 		return a.Form.ShowReady()
 	case idPicture:

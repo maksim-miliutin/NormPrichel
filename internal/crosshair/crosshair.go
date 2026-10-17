@@ -29,6 +29,7 @@ const (
 	Diamond     Shape = "diamond"
 	Triangle    Shape = "triangle"
 	Horseshoe   Shape = "horseshoe"
+	Dots        Shape = "dots"
 )
 
 type RGB struct {
@@ -79,6 +80,7 @@ var shapes = []struct {
 	{Diamond, func(s Style) parts { return withDot(withDiamond(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Triangle, func(s Style) parts { return withDot(withTriangle(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Horseshoe, func(s Style) parts { return withDot(withRing(s, true), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
+	{Dots, func(s Style) parts { return withDots(s) }, []string{"opacity", "gap", "dot", "outline"}},
 }
 
 // Directions of diagonal arms, x right and y down: all four corners for the diagonal cross, the
@@ -339,6 +341,16 @@ func withTriangle(s Style) parts {
 	rects = append(rects, rect{x: span{lo: brush.lo - half, hi: brush.hi + half}, y: brush.shifted(base)})
 
 	return parts{parity: parity, rects: rects}
+}
+
+// The dots sit where the arms of a cross would start, so the gap counts as it does for the arms.
+func withDots(s Style) parts {
+	parity := s.DotSize % 2
+	across := centred(s.DotSize, parity)
+	after := span{lo: s.Gap, hi: s.Gap + s.DotSize - 1}
+	before := span{lo: parity - 1 - after.hi, hi: parity - 1 - after.lo}
+
+	return parts{parity: parity, rects: []rect{{x: after, y: across}, {x: before, y: across}, {x: across, y: after}, {x: across, y: before}}}
 }
 
 func joined(a, b parts) parts {

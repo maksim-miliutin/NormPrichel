@@ -295,6 +295,44 @@ var references = []reference{
 		},
 	},
 	{
+		name:  "brackets open their top and bottom as wide as the gap, around a dot",
+		style: crosshair.Style{Shape: crosshair.Brackets, Color: white, Opacity: 100, Radius: 3, Thickness: 1, Gap: 2, DotSize: 1},
+		want: []string{
+			"##...##",
+			"#.....#",
+			"#.....#",
+			"#..#..#",
+			"#.....#",
+			"#.....#",
+			"##...##",
+		},
+	},
+	{
+		name:  "even brackets centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Brackets, Color: white, Opacity: 100, Radius: 3, Thickness: 2, Gap: 1, DotSize: 2},
+		want: []string{
+			"###..###",
+			"###..###",
+			"##....##",
+			"##.##.##",
+			"##.##.##",
+			"##....##",
+			"###..###",
+			"###..###",
+		},
+	},
+	{
+		name:  "brackets with no gap close into a square",
+		style: crosshair.Style{Shape: crosshair.Brackets, Color: white, Opacity: 100, Radius: 2, Thickness: 1, Gap: 0, DotSize: 1},
+		want: []string{
+			"#####",
+			"#...#",
+			"#.#.#",
+			"#...#",
+			"#####",
+		},
+	},
+	{
 		name:  "outline frames a dot on every side and corner",
 		style: crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
 		want: []string{
@@ -665,9 +703,9 @@ func TestAnUnknownShapeIsRefused(t *testing.T) {
 }
 
 func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
-	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross}
-	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot}
-	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron}
+	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets}
+	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets}
+	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets}
 	for _, shape := range shapes {
 		for _, style := range styles(shape) {
 			if slices.Contains(withDot, shape) && style.DotSize%2 != style.Thickness%2 {
@@ -721,6 +759,7 @@ func styles(shape crosshair.Shape) []crosshair.Style {
 			Thickness: 1 + i%thicknesses,
 			Gap:       i / thicknesses % gaps,
 			Length:    1 + i/(thicknesses*gaps)%lengths,
+			Radius:    2 + i%5,
 			DotSize:   1 + i/(thicknesses*gaps*lengths)%dots,
 			Outline:   crosshair.Outline{Width: i / (thicknesses * gaps * lengths * dots) % widths, Color: black},
 		})

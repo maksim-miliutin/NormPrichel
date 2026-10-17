@@ -170,12 +170,12 @@ var (
 type Window struct {
 	hwnd     uintptr
 	icon     uintptr
-	labels   Labels
+	language func() string
 	handlers Handlers
 	restart  uint32
 }
 
-func New(language string, h Handlers) (*Window, error) {
+func New(language func() string, h Handlers) (*Window, error) {
 	var instance windows.Handle
 	if err := windows.GetModuleHandleEx(0, nil, &instance); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrWindow, err)
@@ -190,7 +190,7 @@ func New(language string, h Handlers) (*Window, error) {
 
 	restart, _ := windows.UTF16PtrFromString("TaskbarCreated")
 	message, _, _ := procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(restart)))
-	w := &Window{labels: LabelsFor(language), handlers: h, restart: uint32(message)}
+	w := &Window{language: language, handlers: h, restart: uint32(message)}
 	running = w
 
 	hwnd, _, err := procCreateWindowExW.Call(
@@ -275,6 +275,7 @@ func (w *Window) showMenu() {
 
 	starts, err := Autostart()
 	w.fail(err)
+	labels := LabelsFor(w.language())
 	ticked := uintptr(mfString)
 	if starts {
 		ticked |= mfChecked
@@ -285,11 +286,11 @@ func (w *Window) showMenu() {
 		flags uintptr
 		text  string
 	}{
-		{commandSettings, mfString, w.labels.Settings},
-		{commandToggle, mfString, w.labels.Toggle},
-		{commandAutostart, ticked, w.labels.Autostart},
+		{commandSettings, mfString, labels.Settings},
+		{commandToggle, mfString, labels.Toggle},
+		{commandAutostart, ticked, labels.Autostart},
 		{0, mfSeparator, ""},
-		{commandExit, mfString, w.labels.Exit},
+		{commandExit, mfString, labels.Exit},
 	} {
 		text, _ := windows.UTF16PtrFromString(item.text)
 		procAppendMenuW.Call(menu, item.flags, item.id, uintptr(unsafe.Pointer(text)))

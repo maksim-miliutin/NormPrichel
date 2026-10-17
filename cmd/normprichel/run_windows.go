@@ -42,7 +42,8 @@ func run() error {
 	state := live.New(loaded, store, reporter(os.Stderr))
 	defer state.Close()
 
-	language := tray.SystemLanguage()
+	windowsLanguage := tray.SystemLanguage()
+	speaks := func() string { return settings.Language(state.Current().Language, windowsLanguage) }
 
 	// Windows gives a window, its timer and its hotkeys to the thread that made them, and the
 	// overlay's message loop serves every window of the thread it runs on.
@@ -57,7 +58,7 @@ func run() error {
 
 	var panel *window.Window
 	acted := reporter(os.Stderr)
-	shell, err := tray.New(language, tray.Handlers{
+	shell, err := tray.New(speaks, tray.Handlers{
 		Hotkey: func(action int) {
 			acted(loop.Hotkey(action))
 			tick()
@@ -87,7 +88,7 @@ func run() error {
 		Autostart:       tray.Autostart,
 		SwitchAutostart: tray.SetAutostart,
 		Version:         versionOf(debug.ReadBuildInfo()),
-		WindowsLanguage: language,
+		WindowsLanguage: windowsLanguage,
 	}, tick, acted)
 	if err != nil {
 		return err

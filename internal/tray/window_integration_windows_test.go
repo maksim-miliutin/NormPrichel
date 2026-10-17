@@ -16,17 +16,29 @@ import (
 var (
 	user32              = windows.NewLazySystemDLL("user32.dll")
 	procPostMessageW    = user32.NewProc("PostMessageW")
+	procSendMessageW    = user32.NewProc("SendMessageW")
 	procPeekMessageW    = user32.NewProc("PeekMessageW")
 	procDispatchMessage = user32.NewProc("DispatchMessageW")
 	procGetWindowLongW  = user32.NewProc("GetWindowLongPtrW")
 	procFindWindowW     = user32.NewProc("FindWindowW")
+	procGetMenuStringW  = user32.NewProc("GetMenuStringW")
 )
 
 const (
 	wmHotkey       = 0x0312
+	wmKeyDown      = 0x0100
+	wmRButtonUp    = 0x0205
+	wmTray         = 0x8000 + 1
+	mnGetHMenu     = 0x01E1
+	mfByPosition   = 0x0400
+	vkEscape       = 0x1B
 	pmRemove       = 0x0001
 	wsExToolWindow = 0x00000080
 )
+
+func speaking(language string) func() string {
+	return func() string { return language }
+}
 
 // GWL_EXSTYLE is -20 in the Windows headers.
 var gwlExStyle = ^uintptr(19)
@@ -57,7 +69,7 @@ func TestAHotkeyPressReachesItsHandlerAndTheWindowStaysOutOfSight(t *testing.T) 
 	defer runtime.UnlockOSThread()
 
 	pressed := -1
-	window, err := tray.New("en", tray.Handlers{Hotkey: func(action int) { pressed = action }})
+	window, err := tray.New(speaking("en"), tray.Handlers{Hotkey: func(action int) { pressed = action }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +105,7 @@ func TestTheIconGoesIntoTheNotificationAreaAndLeavesWithTheWindow(t *testing.T) 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	window, err := tray.New("ru", tray.Handlers{})
+	window, err := tray.New(speaking("ru"), tray.Handlers{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,6 +116,65 @@ func TestTheIconGoesIntoTheNotificationAreaAndLeavesWithTheWindow(t *testing.T) 
 	t.Log("the crosshair icon is in the notification area for two seconds")
 	time.Sleep(2 * time.Second)
 	window.Close()
+}
+
+func TestTheMenuSpeaksTheLanguageOfTheMomentItOpens(t *testing.T) {
+	alone(t)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	language := "ru"
+	window, err := tray.New(func() string { return language }, tray.Handlers{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer window.Close()
+
+	for _, language = range []string{"ru", "en"} {
+		if got, want := firstItemOfTheMenu(t, window.Handle()), tray.LabelsFor(language).Settings; got != want {
+			t.Errorf("speaking %s, the menu opens with %q, want %q", language, got, want)
+		}
+	}
+}
+
+// The menu holds this thread in a loop of its own while it is open, so another one reads it and
+// presses Esc.
+func firstItemOfTheMenu(t *testing.T, owner uintptr) string {
+	t.Helper()
+
+	read := make(chan string, 1)
+	go func() {
+		class, _ := windows.UTF16PtrFromString("#32768")
+		for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+			popup, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(class)), 0)
+			if popup == 0 {
+				continue
+			}
+			menu, _, _ := procSendMessageW.Call(popup, mnGetHMenu, 0, 0)
+			text := make([]uint16, 128)
+			procGetMenuStringW.Call(menu, 0, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)), mfByPosition)
+			procPostMessageW.Call(popup, wmKeyDown, vkEscape, 0)
+			read <- windows.UTF16ToString(text)
+			return
+		}
+		read <- ""
+	}()
+
+	procPostMessageW.Call(owner, wmTray, 0, wmRButtonUp)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		select {
+		case text := <-read:
+			return text
+		default:
+		}
+		var m msg
+		if got, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0, pmRemove); got != 0 {
+			procDispatchMessage.Call(uintptr(unsafe.Pointer(&m)))
+		}
+	}
+	t.Fatal("the menu did not open within 5 s")
+
+	return ""
 }
 
 func TestTheLanguageOfWindowsIsReadAsRussianOrEnglish(t *testing.T) {
@@ -130,7 +201,7 @@ func TestASecondCopyFindsTheFirstAndAsksItToShowItsSettings(t *testing.T) {
 	}
 
 	opened := false
-	window, err := tray.New("en", tray.Handlers{Open: func() { opened = true }})
+	window, err := tray.New(speaking("en"), tray.Handlers{Open: func() { opened = true }})
 	if err != nil {
 		t.Fatal(err)
 	}

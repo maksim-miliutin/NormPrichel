@@ -66,7 +66,7 @@ var texts = map[string]map[string]string{
 		"saveCurrent": "Сохранить",
 		"use":         "Выбрать",
 		"forget":      "Удалить",
-		"noSaved":     "Пока ничего не сохранено.",
+		"noSaved":     "Пока ничего не сохранено. Настройте прицел и сохраните его ниже под своим именем.",
 
 		"hotkeys":         "Горячие клавиши",
 		"hotkeysHint":     "Работают, только пока впереди окно игры из списка. Щёлкните поле и нажмите сочетание.",
@@ -153,7 +153,7 @@ var texts = map[string]map[string]string{
 		"saveCurrent": "Save",
 		"use":         "Use",
 		"forget":      "Delete",
-		"noSaved":     "Nothing saved yet.",
+		"noSaved":     "Nothing saved yet. Set up a crosshair, then save it below under a name.",
 
 		"hotkeys":         "Hotkeys",
 		"hotkeysHint":     "They work only while a listed game is in front. Click a field and press the keys.",

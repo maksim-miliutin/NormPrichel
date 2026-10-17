@@ -35,6 +35,7 @@ func TestEveryWordReadsOnWhatItIsWrittenOn(t *testing.T) {
 		{"text on the window", ink, ground},
 		{"text in a field", ink, field},
 		{"a hint on the window", ash, ground},
+		{"a hint in an empty list", ash, field},
 		{"words on what is on", onSignal, signal},
 		{"words on a refusal", ink, rust},
 	} {

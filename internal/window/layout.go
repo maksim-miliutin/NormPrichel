@@ -23,6 +23,7 @@ const (
 	Problem Kind = "problem"
 	Preview Kind = "preview"
 	Slider  Kind = "slider"
+	Empty   Kind = "empty" // a hint in a frame, where a list has nothing to show
 )
 
 const (
@@ -171,7 +172,7 @@ func gamesColumn() []Place {
 		{idAddGame, Button, "addGame", always, Rect{col1X, 272, col1W, 26}},
 		{idSavedHeading, Heading, "saved", game, Rect{col1X, 314, col1W, 18}},
 		{idSaved, List, "", saved, Rect{col1X, 336, col1W, 102}},
-		{idNoSaved, Hint, "noSaved", noSaved, Rect{col1X, 336, col1W, 34}},
+		{idNoSaved, Empty, "noSaved", noSaved, Rect{col1X, 336, col1W, 134}},
 		{idUseSaved, Button, "use", saved, Rect{col1X, 444, 108, 26}},
 		{idForgetSaved, Button, "forget", saved, Rect{col1X + 112, 444, 108, 26}},
 		{idSaveAs, Label, "saveAs", game, Rect{col1X, 480, col1W, 18}},
@@ -285,8 +286,8 @@ func knobSlot(slot, y int, group, word string) []Place {
 	}
 }
 
-// Fields and lists are drawn borderless inside a frame the window paints around them; a field
-// keeps sixteen pixels of height, a line of text.
+// Fields, lists and the hint of an empty list are drawn borderless inside a frame the window
+// paints around them; a field keeps sixteen pixels of height, a line of text.
 func Interior(p Place) Rect {
 	r := p.Rect
 	switch p.Kind {
@@ -294,6 +295,8 @@ func Interior(p Place) Rect {
 		return Rect{r.X + 7, r.Y + (r.H-16)/2, r.W - 14, 16}
 	case List:
 		return Rect{r.X + 2, r.Y + 2, r.W - 4, r.H - 4}
+	case Empty:
+		return Rect{r.X + 8, r.Y + 6, r.W - 16, r.H - 12}
 	}
 
 	return r

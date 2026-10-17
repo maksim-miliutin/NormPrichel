@@ -214,7 +214,7 @@ func TestEveryControlIsMadeOfItsKind(t *testing.T) {
 		window.Button: "Button", window.Choice: "Button", window.Switch: "Button", window.Colour: "Button", window.Swatch: "Button",
 		window.Edit: "Edit", window.Hotkey: "Edit", window.List: "ListBox", window.Label: "Static",
 		window.Heading: "Static", window.Hint: "Static", window.Problem: "Static", window.Preview: "Static",
-		window.Slider: "NormPrichelSlider",
+		window.Slider: "NormPrichelSlider", window.Empty: "Static",
 	}
 
 	for _, p := range window.Places() {
@@ -516,5 +516,36 @@ func TestASliderShowsThePictureOfItsValue(t *testing.T) {
 		for _, wrong := range differences(hwnd, track.Image(size.Y, left, false), probes...) {
 			t.Errorf("the slider %q at %d: %s", c.Knob.Name, c.Knob.Value, wrong)
 		}
+	}
+}
+
+func TestAnEmptySavedListShowsAQuietFrameThatTakesNoKeys(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	hint, id := o.child(t, worded("noSaved"))
+	button, _ := o.child(t, worded("addGame"))
+	procSetFocus.Call(button)
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+	dpi, _, _ := procGetDpiForWindow.Call(o.window.Handle())
+	var frame window.Rect
+	for _, p := range window.Places() {
+		if p.ID == id {
+			frame = window.Scale(p.Rect, int(dpi))
+		}
+	}
+
+	size := clientOf(hint)
+	ground, edge := pixel(o.window.Handle(), 4, 4), pixel(o.window.Handle(), int32(frame.X), int32(frame.Y+frame.H/2))
+	inside, idle := pixel(hint, int32(size.X-2), int32(size.Y-2)), pixel(button, 3, 3)
+	if edge == ground || amber(edge) {
+		t.Errorf("the edge of the empty list is %v on a window of %v, want a quiet line", edge, ground)
+	}
+	if inside != idle {
+		t.Errorf("inside the empty list is %v, want the shade of an idle button %v", inside, idle)
+	}
+
+	procSendMessageW.Call(o.window.Handle(), wmLButtonDown, 0, uintptr(uint16(frame.X+2))|uintptr(uint16(frame.Y+frame.H/2))<<16)
+	if focus, _, _ := procGetFocus.Call(); focus != button {
+		t.Errorf("a click on the empty list moved the keys to %#x, want them left with %#x", focus, button)
 	}
 }

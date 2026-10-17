@@ -406,7 +406,7 @@ func (w *Window) makeChild(p Place, instance windows.Handle) error {
 }
 
 func framed(kind Kind) bool {
-	return kind == Edit || kind == Hotkey || kind == List
+	return kind == Edit || kind == Hotkey || kind == List || kind == Empty
 }
 
 // Fields and lists have no border of their own: the window paints a round frame around each,
@@ -448,7 +448,8 @@ func (w *Window) reframe(id int) {
 func (w *Window) focusFieldAt(x, y int) {
 	for id, p := range w.places {
 		r := Scale(p.Rect, w.dpi)
-		if framed(p.Kind) && w.shown[id].Shown && x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H {
+		takes := framed(p.Kind) && p.Kind != Empty && w.shown[id].Shown
+		if takes && x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H {
 			procSetFocus.Call(w.children[id])
 			return
 		}
@@ -708,9 +709,11 @@ func (w *Window) colours(dc, child uintptr) uintptr {
 	switch {
 	case c.Kind == Hint:
 		words = ash
+	case c.Kind == Empty:
+		words, paper = ash, field
 	case c.Kind == Hotkey && c.On:
 		paper = rust
-	case c.Kind == Edit || c.Kind == Hotkey || c.Kind == List:
+	case framed(c.Kind):
 		paper = field
 	}
 	procSetTextColor.Call(dc, uintptr(colourRef(words)))

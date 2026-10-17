@@ -186,6 +186,18 @@ var texts = map[string]map[string]string{
 	},
 }
 
+func Language(chosen, windows string) string {
+	if _, ok := texts[chosen]; ok {
+		return chosen
+	}
+
+	return windows
+}
+
+func Word(language, key string) string {
+	return textFor(language)[key]
+}
+
 func textFor(language string) map[string]string {
 	if text, ok := texts[language]; ok {
 		return text

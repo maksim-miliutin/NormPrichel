@@ -87,7 +87,7 @@ func run() error {
 		Autostart:       tray.Autostart,
 		SwitchAutostart: tray.SetAutostart,
 		Version:         versionOf(debug.ReadBuildInfo()),
-		Language:        language,
+		WindowsLanguage: language,
 	}, tick, acted)
 	if err != nil {
 		return err

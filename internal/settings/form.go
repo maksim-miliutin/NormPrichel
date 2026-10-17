@@ -35,7 +35,7 @@ type Form struct {
 	Autostart       func() (bool, error)
 	SwitchAutostart func(on bool) error
 	Version         string
-	Language        string
+	WindowsLanguage string
 
 	chosen     string // the exe on show; one off the list shows the first game
 	pictureTab string // the exe whose picture tab is open, even before a picture is added
@@ -54,6 +54,7 @@ type Screen struct {
 	Hotkeys   []HotkeyRow
 	Problem   string
 	Version   string
+	Language  string
 }
 
 type HotkeyRow struct {
@@ -90,12 +91,18 @@ type KnobView struct {
 }
 
 func (f *Form) Word(key string) string {
-	return textFor(f.Language)[key]
+	return Word(Language(f.State.Current().Language, f.WindowsLanguage), key)
 }
 
 func (f *Form) Screen() Screen {
 	current := f.State.Current()
-	screen := Screen{Visible: current.Visible, Autostart: f.starts(), FarStep: f.far, Version: f.Version}
+	screen := Screen{
+		Visible:   current.Visible,
+		Autostart: f.starts(),
+		FarStep:   f.far,
+		Version:   f.Version,
+		Language:  Language(current.Language, f.WindowsLanguage),
+	}
 
 	shown, ok := f.shown(current)
 	problem := f.problem
@@ -219,6 +226,13 @@ func (f *Form) RemoveGame() error {
 func (f *Form) SetVisible(on bool) error {
 	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
 		s.Visible = on
+		return s, nil
+	})
+}
+
+func (f *Form) SetLanguage(language string) error {
+	return f.change(func(s profiles.Settings) (profiles.Settings, error) {
+		s.Language = language
 		return s, nil
 	})
 }

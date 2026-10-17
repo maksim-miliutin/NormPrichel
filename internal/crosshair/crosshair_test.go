@@ -457,6 +457,31 @@ var references = []reference{
 		},
 	},
 	{
+		name:  "four dots wait on the arms of an unseen cross, the gap away from the centre",
+		style: crosshair.Style{Shape: crosshair.Dots, Color: white, Opacity: 100, Gap: 2, DotSize: 1},
+		want: []string{
+			"..#..",
+			".....",
+			"#...#",
+			".....",
+			"..#..",
+		},
+	},
+	{
+		name:  "even dots centred on a pixel corner",
+		style: crosshair.Style{Shape: crosshair.Dots, Color: white, Opacity: 100, Gap: 2, DotSize: 2},
+		want: []string{
+			"...##...",
+			"...##...",
+			"........",
+			"##....##",
+			"##....##",
+			"........",
+			"...##...",
+			"...##...",
+		},
+	},
+	{
 		name:  "outline frames a dot on every side and corner",
 		style: crosshair.Style{Shape: crosshair.Dot, Color: white, Opacity: 100, DotSize: 1, Outline: crosshair.Outline{Width: 1, Color: black}},
 		want: []string{
@@ -849,7 +874,7 @@ func TestAnUnknownShapeIsRefused(t *testing.T) {
 }
 
 func TestSymmetricShapesMirrorAcrossTheCentre(t *testing.T) {
-	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle, crosshair.Horseshoe}
+	shapes := []crosshair.Shape{crosshair.Cross, crosshair.Dot, crosshair.CrossDot, crosshair.Tee, crosshair.X, crosshair.XDot, crosshair.Square, crosshair.SquareDot, crosshair.Chevron, crosshair.CircleCross, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle, crosshair.Horseshoe, crosshair.Dots}
 	withDot := []crosshair.Shape{crosshair.CrossDot, crosshair.XDot, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder, crosshair.Diamond, crosshair.Triangle, crosshair.Horseshoe}
 	pointing := []crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle, crosshair.Horseshoe}
 	for _, shape := range shapes {

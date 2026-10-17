@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -804,32 +803,5 @@ func TestResettingTheCrosshairBringsBackTheDefaultAndLeavesTheRestOfTheGame(t *t
 	}
 	if form.Screen().Game.Picture {
 		t.Error("the picture tab stays open over the ready-made crosshair the reset brought back")
-	}
-}
-
-func TestResettingEverythingLeavesAFirstStartAndANewGameTakesTheDefaultCrosshair(t *testing.T) {
-	s := listed()
-	s.Language, s.Hotkeys.Toggle = "en", "Ctrl+Alt+K"
-	s.Saved = []profiles.Saved{{Name: "T", Crosshair: crosshairOf(crosshair.Tee)}}
-	form, state, _ := newForm(t, s)
-	form.Choose("other.exe")
-	form.SetFarStep(true)
-	form.ShowPicture()
-
-	if err := form.ResetAll(); err != nil {
-		t.Fatal(err)
-	}
-
-	if got := state.Current(); !reflect.DeepEqual(got, profiles.Defaults()) {
-		t.Errorf("the settings are %+v after the reset, want those of a first start", got)
-	}
-	if screen := form.Screen(); screen.Game != nil || screen.FarStep || screen.Language != "ru" {
-		t.Errorf("the screen shows %+v, far step %v, language %q; want no game, one pixel, the language of Windows", screen.Game, screen.FarStep, screen.Language)
-	}
-	if err := form.AddGame(foreground.Choice{Exe: "other.exe", Title: "Other"}); err != nil {
-		t.Fatal(err)
-	}
-	if game := form.Screen().Game; game.Crosshair != profiles.DefaultCrosshair() || game.Picture {
-		t.Errorf("a game added after the reset shows %+v with the picture tab %v, want the default crosshair", game.Crosshair, game.Picture)
 	}
 }

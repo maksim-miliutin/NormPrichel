@@ -117,7 +117,7 @@ func TestShownControlsNeverOverlapWhateverTheScreen(t *testing.T) {
 func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 	controls := window.Controls(everyScreen()["no games"], words)
 
-	for _, word := range []string{"games", "addGame", "noGames", "hotkeys", "risk", "resetAll"} {
+	for _, word := range []string{"games", "addGame", "noGames", "hotkeys", "risk"} {
 		if !withWord(t, controls, word).Shown {
 			t.Errorf("%q is hidden", word)
 		}

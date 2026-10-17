@@ -109,7 +109,6 @@ const (
 	idHotkeysHint
 	idRisk
 	idBorderless
-	idResetAll
 )
 
 // Controls that come in rows count up from a base of their own, and so do the items of a menu.
@@ -272,9 +271,8 @@ func hotkeysColumn() []Place {
 
 func bottomRow() []Place {
 	return []Place{
-		{idRisk, Hint, "risk", always, Rect{12, 540, 980, 18}},
-		{idBorderless, Hint, "borderless", always, Rect{12, 560, 980, 18}},
-		{idResetAll, Button, "resetAll", always, Rect{1004, 546, 176, 26}},
+		{idRisk, Hint, "risk", always, Rect{12, 540, 1168, 18}},
+		{idBorderless, Hint, "borderless", always, Rect{12, 560, 1168, 18}},
 	}
 }
 

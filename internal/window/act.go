@@ -57,11 +57,6 @@ func (a Actions) Click(id int) error {
 		return a.Form.StartWithWindows(!*screen.Autostart)
 	case idGitHub:
 		return a.Inputs.Visit(repository)
-	case idResetAll:
-		if !a.Inputs.Confirm(a.Form.Word("confirmResetAll")) {
-			return nil
-		}
-		return a.Form.ResetAll()
 	case idAddGame:
 		return a.addGame()
 	case idEnabled:

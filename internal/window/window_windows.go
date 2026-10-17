@@ -233,6 +233,7 @@ type Window struct {
 	focus      uintptr             // the control that had the keys when the window went to the back
 	previews   *previews
 	shapeIcons map[iconKey][]byte
+	plates     map[Plate][]byte
 	custom     [16]uint32 // the colour dialog's own colours, kept for the run
 	icons      []uintptr
 	brushes    map[crosshair.RGB]uintptr
@@ -260,6 +261,7 @@ func New(form *settings.Form, changed func(), fail func(error)) (*Window, error)
 		shown:      map[int]Control{},
 		ownProcs:   map[uintptr]uintptr{},
 		shapeIcons: map[iconKey][]byte{},
+		plates:     map[Plate][]byte{},
 		brushes:    map[crosshair.RGB]uintptr{},
 	}
 	w.actions = Actions{Form: form, Inputs: w}

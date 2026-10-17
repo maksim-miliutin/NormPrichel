@@ -43,6 +43,9 @@ func (a Actions) Click(id int) error {
 	if row, ok := hotkeyRow(screen, id, 2); ok {
 		return a.Form.TakeSuggestion(row.Field)
 	}
+	if language, ok := languages[id]; ok {
+		return a.Form.SetLanguage(language)
+	}
 
 	switch id {
 	case idVisible:

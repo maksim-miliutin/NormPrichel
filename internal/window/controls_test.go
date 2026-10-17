@@ -127,8 +127,9 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 			t.Errorf("%q shows with no game to apply it to", word)
 		}
 	}
+	languages := func(c window.Control) bool { return c.Text == "Русский" || c.Text == "English" }
 	for _, kind := range []window.Kind{window.Preview, window.Slider, window.Colour, window.Choice} {
-		if shown := shownOnly(ofKind(controls, kind)); len(shown) != 0 {
+		if shown := slices.DeleteFunc(shownOnly(ofKind(controls, kind)), languages); len(shown) != 0 {
 			t.Errorf("%d controls of kind %s show with no game", len(shown), kind)
 		}
 	}
@@ -381,6 +382,20 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 	squares := ofKind(controls, window.Colour)
 	if squares[0].Colour != screen.Game.Crosshair.Color || squares[1].Colour != screen.Game.Crosshair.Outline.Color {
 		t.Errorf("the colour squares show %v and %v, want %v and %v", squares[0].Colour, squares[1].Colour, screen.Game.Crosshair.Color, screen.Game.Crosshair.Outline.Color)
+	}
+}
+
+func TestTheLanguageButtonsNameEachLanguageInItselfAndMarkTheOneSpoken(t *testing.T) {
+	screen := gameScreen(crosshair.Dot)
+	screen.Language = "en"
+	controls := window.Controls(screen, words)
+
+	russian, english := withText(t, controls, "Русский"), withText(t, controls, "English")
+	if russian.On || !english.On || !russian.Shown || !english.Shown {
+		t.Errorf("Русский %+v and English %+v, want both shown and English down", russian, english)
+	}
+	if !withText(t, window.Controls(everyScreen()["no games"], words), "Русский").Shown {
+		t.Error("the language cannot be chosen before a game is added")
 	}
 }
 

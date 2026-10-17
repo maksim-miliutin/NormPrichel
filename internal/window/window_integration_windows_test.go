@@ -5,7 +5,9 @@ package window_test
 import (
 	"fmt"
 	"image"
+	"maps"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"unsafe"
@@ -39,6 +41,9 @@ var (
 	procGetPixel          = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetPixel")
 	procGetDpiForWindow   = user32.NewProc("GetDpiForWindow")
 	procGetFocus          = user32.NewProc("GetFocus")
+	procSelectObject      = windows.NewLazySystemDLL("gdi32.dll").NewProc("SelectObject")
+	procGetTextFaceW      = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetTextFaceW")
+	procGetObjectW        = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetObjectW")
 
 	procDwmGetWindowAttribute = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmGetWindowAttribute")
 )
@@ -64,6 +69,7 @@ const (
 	rdwErase        = 0x0004
 	rdwAllChildren  = 0x0080
 	rdwUpdateNow    = 0x0100
+	wmGetFont       = 0x0031
 )
 
 // GWL_EXSTYLE is -20 in the Windows headers.
@@ -548,4 +554,48 @@ func TestAnEmptySavedListShowsAQuietFrameThatTakesNoKeys(t *testing.T) {
 	if focus, _, _ := procGetFocus.Call(); focus != button {
 		t.Errorf("a click on the empty list moved the keys to %#x, want them left with %#x", focus, button)
 	}
+}
+
+type logFont struct {
+	Height, Width, Escapement, Orientation, Weight int32
+	Italic, Underline, StrikeOut, CharSet          uint8
+	OutPrecision, ClipPrecision, Quality, Pitch    uint8
+	Face                                           [32]uint16
+}
+
+// faces tells the face a font asks for and the face Windows gave it when it was made.
+func faces(font uintptr) (asked logFont, given string) {
+	procGetObjectW.Call(font, unsafe.Sizeof(asked), uintptr(unsafe.Pointer(&asked)))
+	dc, _, _ := procGetDC.Call(0)
+	defer procReleaseDC.Call(0, dc)
+	previous, _, _ := procSelectObject.Call(dc, font)
+	defer procSelectObject.Call(dc, previous)
+	name := make([]uint16, 32)
+	procGetTextFaceW.Call(dc, uintptr(len(name)), uintptr(unsafe.Pointer(&name[0])))
+
+	return asked, windows.UTF16ToString(name)
+}
+
+func TestEveryControlWritesInAFaceWindowsHasAndHeadingsInSemibold(t *testing.T) {
+	o := open(t, listed())
+	known := map[string]bool{"Segoe UI": true, "Segoe UI Variable Text": true, "Segoe UI Variable Text Semibold": true}
+
+	seen := map[string]bool{}
+	for _, p := range window.Places() {
+		if p.Kind == window.Slider {
+			continue
+		}
+		hwnd, _, _ := procGetDlgItem.Call(o.window.Handle(), uintptr(p.ID))
+		font, _, _ := procSendMessageW.Call(hwnd, wmGetFont, 0, 0)
+		asked, given := faces(font)
+		face := windows.UTF16ToString(asked.Face[:])
+		seen[face] = true
+		if !known[face] || face != "Segoe UI" && face != given {
+			t.Errorf("control %d asks for %q and gets %q, want Segoe UI Variable only where Windows has it", p.ID, face, given)
+		}
+		if heading := p.Kind == window.Heading; heading != (asked.Weight >= 600) {
+			t.Errorf("control %d of kind %s writes at weight %d", p.ID, p.Kind, asked.Weight)
+		}
+	}
+	t.Logf("the window writes in %v", slices.Sorted(maps.Keys(seen)))
 }

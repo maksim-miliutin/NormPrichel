@@ -98,6 +98,25 @@ func TestTheCrosshairIsResetOnlyOnceThePlayerAgrees(t *testing.T) {
 	}
 }
 
+func TestEverythingIsResetOnlyOnceThePlayerAgrees(t *testing.T) {
+	a, state, _, p := newActions(t, listed())
+	reset := control(t, a, worded("resetAll"))
+
+	a.Click(reset)
+	if len(state.Current().Games) != 2 {
+		t.Fatal("the settings went back to a first start without the player agreeing")
+	}
+	p.agrees = true
+	a.Click(reset)
+
+	if got := state.Current(); len(got.Games) != 0 {
+		t.Errorf("games left after agreeing: %+v", got.Games)
+	}
+	if want := a.Form.Word("confirmResetAll"); !slices.Equal(p.asked, []string{want, want}) {
+		t.Errorf("asked %q, want %q twice", p.asked, want)
+	}
+}
+
 func TestAGameIsAddedFromTheWindowThePlayerPicks(t *testing.T) {
 	a, state, m, p := newActions(t, profiles.Defaults())
 	m.windows = []foreground.Choice{{Exe: "notepad.exe", Title: "Блокнот"}, {Exe: "stalzone.exe", Title: "STALZONE"}}

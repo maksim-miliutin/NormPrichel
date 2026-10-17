@@ -53,6 +53,8 @@ type Place struct {
 const (
 	idVisible = 100 + iota
 	idAutostart
+	idRussian
+	idEnglish
 	idVersion
 	idGitHub
 	idProblem
@@ -154,6 +156,8 @@ func topRow() []Place {
 	return []Place{
 		{idVisible, Switch, "visible", always, Rect{12, 12, 150, 24}},
 		{idAutostart, Switch, "autostart", autostart, Rect{170, 12, 260, 24}},
+		{idRussian, Choice, "", always, Rect{770, 12, 92, 24}},
+		{idEnglish, Choice, "", always, Rect{866, 12, 92, 24}},
 		{idVersion, Hint, "", always, Rect{968, 16, 128, 18}},
 		{idGitHub, Button, "", always, Rect{1104, 12, 76, 24}},
 		{idProblem, Problem, "", problem, Rect{12, 42, 1168, 22}},

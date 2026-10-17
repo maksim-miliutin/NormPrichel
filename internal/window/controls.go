@@ -23,6 +23,9 @@ var (
 	outlinePalette = []crosshair.RGB{{R: 0x00, G: 0x00, B: 0x00}, {R: 0xFF, G: 0xFF, B: 0xFF}}
 )
 
+// Each language is named in itself, so a player lost in the other one still finds their own.
+var languages = map[int]string{idRussian: "ru", idEnglish: "en"}
+
 type Control struct {
 	Place
 	Text   string
@@ -133,6 +136,9 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 	case idAimHide:
 		c.On = view.HideWhileAiming
 	}
+	if language, ok := languages[c.ID]; ok {
+		c.On = screen.Language == language
+	}
 	if text, ok := signs[c.ID]; ok {
 		c.Text = text
 	}
@@ -148,6 +154,8 @@ func swatchPart(c Control, colour, current crosshair.RGB) Control {
 }
 
 var signs = map[int]string{
+	idRussian:      "Русский",
+	idEnglish:      "English",
 	idColor:        "…",
 	idOutlineColor: "…",
 	idXLabel:       "X",

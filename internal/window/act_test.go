@@ -10,6 +10,7 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
+	"github.com/maksim-miliutin/NormPrichel/internal/settings"
 	"github.com/maksim-miliutin/NormPrichel/internal/window"
 )
 
@@ -36,6 +37,26 @@ func TestClickingASwitchFlipsWhatItShows(t *testing.T) {
 		t.Errorf("visible %v, enabled %v, autostart %v, hiding while aiming %v: want off, off, on, on",
 			s.Visible, first(t, s).Enabled, m.starts, first(t, s).HideWhileAiming)
 	}
+}
+
+func TestTheLanguageButtonsSwitchTheWordsOfTheWindow(t *testing.T) {
+	a, state, _, _ := newActions(t, listed())
+
+	if err := a.Click(control(t, a, reading("English"))); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.Current().Language; got != "en" {
+		t.Errorf("after English the settings keep %q", got)
+	}
+	control(t, a, reading(settings.Word("en", "addGame")))
+
+	if err := a.Click(control(t, a, reading("Русский"))); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.Current().Language; got != "ru" {
+		t.Errorf("after Русский the settings keep %q", got)
+	}
+	control(t, a, reading(settings.Word("ru", "addGame")))
 }
 
 func TestAGameIsRemovedOnlyOnceThePlayerAgrees(t *testing.T) {

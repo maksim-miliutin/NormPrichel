@@ -276,6 +276,14 @@ func (f *Form) SetOutlineColor(rgb crosshair.RGB) error {
 	})
 }
 
+func (f *Form) ResetCrosshair() error {
+	f.pictureTab = ""
+
+	return f.editCrosshair(func(profiles.Crosshair) (profiles.Crosshair, error) {
+		return profiles.DefaultCrosshair(), nil
+	})
+}
+
 func (f *Form) ShowPicture() {
 	f.pictureTab = f.shownExe()
 }

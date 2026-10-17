@@ -100,46 +100,48 @@ func (w *Window) draw(item *drawItem) {
 	case c.Kind == Preview:
 		w.drawPreview(dc, r, c)
 	case c.Kind == Problem:
-		fill(dc, r, black)
+		fill(dc, r, rust)
 		inner := rect{r.Left + int32(scaled(8, w.dpi)), r.Top, r.Right, r.Bottom}
-		text(dc, inner, c.Text, white, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
+		text(dc, inner, c.Text, ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	case c.Kind == Switch:
 		w.drawSwitch(item, c)
 	case c.Kind == Colour || c.Kind == Swatch:
 		w.drawSwatch(item, c)
 	default:
-		inverted := c.On || item.ItemState&odsSelected != 0
-		ink, paper := uint32(black), uint32(white)
-		if inverted {
-			ink, paper = white, black
+		chosen := c.On || item.ItemState&odsSelected != 0
+		words, paper := ink, field
+		if chosen {
+			words, paper = onSignal, signal
 		}
 		fill(dc, r, paper)
-		frame(dc, r, black)
+		if !chosen {
+			frame(dc, r, seam)
+		}
 		if c.Shape != "" {
-			w.drawIcon(dc, r, c.Shape, inverted)
+			w.drawIcon(dc, r, c.Shape, chosen)
 		} else {
-			text(dc, r, c.Text, ink, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+			text(dc, r, c.Text, words, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
 		}
 		focusRing(dc, item, inset(r, int32(scaled(3, w.dpi))))
 	}
 }
 
 type iconKey struct {
-	shape    crosshair.Shape
-	side     int
-	inverted bool
+	shape  crosshair.Shape
+	side   int
+	chosen bool
 }
 
-func (w *Window) drawIcon(dc uintptr, r rect, shape crosshair.Shape, inverted bool) {
+func (w *Window) drawIcon(dc uintptr, r rect, shape crosshair.Shape, chosen bool) {
 	side := int(min(r.Right-r.Left, r.Bottom-r.Top)) - 2*scaled(5, w.dpi)
-	key := iconKey{shape: shape, side: side, inverted: inverted}
+	key := iconKey{shape: shape, side: side, chosen: chosen}
 	pixels, ok := w.shapeIcons[key]
 	if !ok && side > 0 {
-		ink, paper := color.RGBA{A: 255}, color.RGBA{R: 255, G: 255, B: 255, A: 255}
-		if inverted {
-			ink, paper = paper, ink
+		lines, paper := ink, field
+		if chosen {
+			lines, paper = onSignal, signal
 		}
-		icon, err := Icon(shape, side, ink, paper)
+		icon, err := Icon(shape, side, opaque(lines), opaque(paper))
 		if err != nil {
 			return
 		}
@@ -162,16 +164,17 @@ func (w *Window) drawSwitch(item *drawItem, c Control) {
 	side := int32(scaled(14, w.dpi))
 	box := rect{r.Left, r.Top + (r.Bottom-r.Top-side)/2, r.Left + side, r.Top + (r.Bottom-r.Top-side)/2 + side}
 
-	fill(dc, r, white)
-	frame(dc, box, black)
+	fill(dc, r, ground)
+	fill(dc, box, field)
+	frame(dc, box, ash)
 	if c.On {
-		fill(dc, inset(box, int32(scaled(3, w.dpi))), black)
+		fill(dc, inset(box, int32(scaled(3, w.dpi))), signal)
 	}
 	if item.ItemState&odsSelected != 0 {
-		frame(dc, inset(box, 1), black)
+		frame(dc, inset(box, 1), ash)
 	}
 	words := rect{box.Right + int32(scaled(6, w.dpi)), r.Top, r.Right, r.Bottom}
-	text(dc, words, c.Text, black, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
+	text(dc, words, c.Text, ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	focusRing(dc, item, rect{words.Left - 2, words.Top + 2, words.Right, words.Bottom - 2})
 }
 
@@ -180,19 +183,19 @@ func (w *Window) drawSwitch(item *drawItem, c Control) {
 func (w *Window) drawSwatch(item *drawItem, c Control) {
 	dc, r := item.DC, item.Rect
 	offer := c.Kind == Colour && !c.On
-	paper := colourRef(c.Colour)
+	paper := c.Colour
 	if offer {
-		paper = white
+		paper = field
 	}
 
 	fill(dc, r, paper)
-	frame(dc, r, black)
+	frame(dc, r, seam)
 	if offer {
-		text(dc, r, c.Text, black, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+		text(dc, r, c.Text, ink, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
 	}
 	if c.On || item.ItemState&odsSelected != 0 {
-		frame(dc, inset(r, 1), white)
-		frame(dc, inset(r, 2), black)
+		frame(dc, inset(r, 1), ink)
+		frame(dc, inset(r, 2), ground)
 	}
 	focusRing(dc, item, inset(r, int32(scaled(4, w.dpi))))
 }
@@ -204,13 +207,13 @@ func (w *Window) drawRow(item *drawItem, c Control) {
 		return
 	}
 
-	ink, paper := uint32(black), uint32(white)
+	words, paper := ink, field
 	if item.ItemState&odsSelected != 0 {
-		ink, paper = white, black
+		words, paper = onSignal, signal
 	}
 	fill(dc, r, paper)
-	words := rect{r.Left + int32(scaled(6, w.dpi)), r.Top, r.Right - int32(scaled(4, w.dpi)), r.Bottom}
-	text(dc, words, c.Rows[item.ItemID], ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
+	inner := rect{r.Left + int32(scaled(6, w.dpi)), r.Top, r.Right - int32(scaled(4, w.dpi)), r.Bottom}
+	text(dc, inner, c.Rows[item.ItemID], words, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	focusRing(dc, item, r)
 }
 
@@ -228,7 +231,7 @@ func (w *Window) drawPreview(dc uintptr, r rect, c Control) {
 	header.Size = uint32(unsafe.Sizeof(header))
 	procSetDIBitsToDevice.Call(dc, uintptr(r.Left), uintptr(r.Top), uintptr(side), uintptr(side), 0, 0, 0, uintptr(side),
 		uintptr(unsafe.Pointer(&pixels[0])), uintptr(unsafe.Pointer(&header)), dibRGBColors)
-	frame(dc, r, black)
+	frame(dc, r, seam)
 }
 
 func (w *Window) paintPreviews(side int) *previews {
@@ -244,20 +247,20 @@ func focusRing(dc uintptr, item *drawItem, r rect) {
 	}
 }
 
-func fill(dc uintptr, r rect, colour uint32) {
-	brush, _, _ := procCreateSolidBrush.Call(uintptr(colour))
+func fill(dc uintptr, r rect, colour crosshair.RGB) {
+	brush, _, _ := procCreateSolidBrush.Call(uintptr(colourRef(colour)))
 	procFillRect.Call(dc, uintptr(unsafe.Pointer(&r)), brush)
 	procDeleteObject.Call(brush)
 }
 
-func frame(dc uintptr, r rect, colour uint32) {
-	brush, _, _ := procCreateSolidBrush.Call(uintptr(colour))
+func frame(dc uintptr, r rect, colour crosshair.RGB) {
+	brush, _, _ := procCreateSolidBrush.Call(uintptr(colourRef(colour)))
 	procFrameRect.Call(dc, uintptr(unsafe.Pointer(&r)), brush)
 	procDeleteObject.Call(brush)
 }
 
-func text(dc uintptr, r rect, words string, colour uint32, format uintptr) {
-	procSetTextColor.Call(dc, uintptr(colour))
+func text(dc uintptr, r rect, words string, colour crosshair.RGB, format uintptr) {
+	procSetTextColor.Call(dc, uintptr(colourRef(colour)))
 	line, _ := windows.UTF16FromString(words)
 	procDrawTextW.Call(dc, uintptr(unsafe.Pointer(&line[0])), uintptr(len(line)-1), uintptr(unsafe.Pointer(&r)), format)
 }
@@ -269,6 +272,10 @@ func inset(r rect, by int32) rect {
 // A COLORREF holds red in its lowest byte.
 func colourRef(rgb crosshair.RGB) uint32 {
 	return uint32(rgb.R) | uint32(rgb.G)<<8 | uint32(rgb.B)<<16
+}
+
+func opaque(rgb crosshair.RGB) color.RGBA {
+	return color.RGBA{R: rgb.R, G: rgb.G, B: rgb.B, A: 0xFF}
 }
 
 func sliderProc(hwnd, message, wparam, lparam uintptr) uintptr {
@@ -343,16 +350,16 @@ func (w *Window) paintSlider(hwnd uintptr, id int) {
 
 	knob := w.shown[id].Knob
 	track, client := w.track(hwnd)
-	fill(dc, client, white)
+	fill(dc, client, ground)
 
 	line := max(int32(scaled(1, w.dpi)), 1)
 	middle := client.Bottom / 2
 	half := int32(track.Thumb / 2)
-	fill(dc, rect{half, middle - line/2, client.Right - half, middle - line/2 + line}, black)
+	fill(dc, rect{half, middle - line/2, client.Right - half, middle - line/2 + line}, ash)
 
 	left := int32(track.ThumbAt(knob.Knob, knob.Value))
 	margin := int32(scaled(4, w.dpi))
-	fill(dc, rect{left, margin, left + int32(track.Thumb), client.Bottom - margin}, black)
+	fill(dc, rect{left, margin, left + int32(track.Thumb), client.Bottom - margin}, ink)
 
 	focus, _, _ := procGetFocus.Call()
 	state, _, _ := procSendMessageW.Call(hwnd, wmQueryUIState, 0, 0)

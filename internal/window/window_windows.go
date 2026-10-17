@@ -53,6 +53,9 @@ var (
 	procDestroyIcon              = user32.NewProc("DestroyIcon")
 	procGetWindowRect            = user32.NewProc("GetWindowRect")
 	procCreateFontW              = gdi32.NewProc("CreateFontW")
+	procGetTextFaceW             = gdi32.NewProc("GetTextFaceW")
+	procGetDC                    = user32.NewProc("GetDC")
+	procReleaseDC                = user32.NewProc("ReleaseDC")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
 	procSetTextColor             = gdi32.NewProc("SetTextColor")
 	procSetBkColor               = gdi32.NewProc("SetBkColor")
@@ -467,13 +470,39 @@ func (w *Window) fontOf(kind Kind) uintptr {
 	return w.font
 }
 
-// A negative height asks for the size of the letters rather than of the line: 9 points.
+var variableFaces = map[uintptr]string{fwNormal: "Segoe UI Variable Text", fwSemiBold: "Segoe UI Variable Text Semibold"}
+
+// Windows 11 draws its own windows in Segoe UI Variable, which older Windows lacks; a missing face
+// is swapped silently for another, so the font is kept only if it came in the face it asked for.
 func makeFont(dpi int, weight uintptr) uintptr {
-	face, _ := windows.UTF16PtrFromString("Segoe UI")
+	face := variableFaces[weight]
+	font := fontIn(face, dpi, weight)
+	if faceOf(font) == face {
+		return font
+	}
+	procDeleteObject.Call(font)
+
+	return fontIn("Segoe UI", dpi, weight)
+}
+
+// A negative height asks for the size of the letters rather than of the line: 9 points.
+func fontIn(face string, dpi int, weight uintptr) uintptr {
+	name, _ := windows.UTF16PtrFromString(face)
 	height := -int32((9*dpi + 36) / 72)
-	font, _, _ := procCreateFontW.Call(uintptr(height), 0, 0, 0, weight, 0, 0, 0, defaultCharset, 0, 0, clearTypeQuality, 0, uintptr(unsafe.Pointer(face)))
+	font, _, _ := procCreateFontW.Call(uintptr(height), 0, 0, 0, weight, 0, 0, 0, defaultCharset, 0, 0, clearTypeQuality, 0, uintptr(unsafe.Pointer(name)))
 
 	return font
+}
+
+func faceOf(font uintptr) string {
+	dc, _, _ := procGetDC.Call(0)
+	defer procReleaseDC.Call(0, dc)
+	previous, _, _ := procSelectObject.Call(dc, font)
+	defer procSelectObject.Call(dc, previous)
+	name := make([]uint16, 32)
+	procGetTextFaceW.Call(dc, uintptr(len(name)), uintptr(unsafe.Pointer(&name[0])))
+
+	return windows.UTF16ToString(name)
 }
 
 func (w *Window) centre() {

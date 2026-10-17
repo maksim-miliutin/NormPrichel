@@ -24,6 +24,7 @@ const (
 	SquareDot   Shape = "square-dot"
 	Chevron     Shape = "chevron"
 	CircleCross Shape = "circle-cross"
+	Brackets    Shape = "brackets"
 )
 
 type RGB struct {
@@ -69,6 +70,7 @@ var shapes = []struct {
 	{SquareDot, func(s Style) parts { return withDot(withSquare(s), s) }, []string{"opacity", "thickness", "radius", "dot", "outline"}},
 	{Chevron, func(s Style) parts { return withDiagonals(s, 0, lowerCorners) }, []string{"opacity", "length", "thickness", "outline"}},
 	{CircleCross, func(s Style) parts { return joined(withRing(s), withArms(s, true)) }, []string{"opacity", "length", "thickness", "gap", "radius", "outline"}},
+	{Brackets, func(s Style) parts { return withDot(withBrackets(s), s) }, []string{"opacity", "thickness", "gap", "radius", "dot", "outline"}},
 }
 
 // Directions of diagonal arms, x right and y down: all four corners for the diagonal cross, the
@@ -256,6 +258,24 @@ func withSquare(s Style) parts {
 		{x: side, y: band.shifted(s.Radius)},
 		{x: band.shifted(-s.Radius), y: side},
 		{x: band.shifted(s.Radius), y: side},
+	}}
+}
+
+// Brackets are the square with an opening in its top and bottom side; the gap counts from the
+// centre the way it does for the arms of a cross.
+func withBrackets(s Style) parts {
+	parity := s.Thickness % 2
+	band := centred(s.Thickness, parity)
+	side := span{lo: band.lo - s.Radius, hi: band.hi + s.Radius}
+	right := span{lo: s.Gap, hi: side.hi}
+	left := span{lo: parity - 1 - right.hi, hi: parity - 1 - right.lo}
+	top, bottom := band.shifted(-s.Radius), band.shifted(s.Radius)
+
+	return parts{parity: parity, rects: []rect{
+		{x: band.shifted(-s.Radius), y: side},
+		{x: band.shifted(s.Radius), y: side},
+		{x: left, y: top}, {x: right, y: top},
+		{x: left, y: bottom}, {x: right, y: bottom},
 	}}
 }
 

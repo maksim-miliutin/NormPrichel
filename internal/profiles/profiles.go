@@ -20,11 +20,12 @@ const maxOffset = 500
 var pictureName = regexp.MustCompile(`^[0-9a-f]{64}\.png$`)
 
 type Settings struct {
-	Version int     `json:"version"`
-	Visible bool    `json:"visible"`
-	Hotkeys Hotkeys `json:"hotkeys"`
-	Games   []Game  `json:"games"`
-	Saved   []Saved `json:"saved"`
+	Version  int     `json:"version"`
+	Visible  bool    `json:"visible"`
+	Language string  `json:"language,omitempty"` // empty leaves the language to Windows
+	Hotkeys  Hotkeys `json:"hotkeys"`
+	Games    []Game  `json:"games"`
+	Saved    []Saved `json:"saved"`
 }
 
 type Hotkeys struct {
@@ -113,7 +114,7 @@ func Parse(text []byte) (Settings, error) {
 		saved = append(saved, entry)
 	}
 
-	return Settings{Version: settings.Version, Visible: settings.Visible, Hotkeys: settings.Hotkeys, Games: kept.Games, Saved: saved}, nil
+	return Settings{Version: settings.Version, Visible: settings.Visible, Language: settings.Language, Hotkeys: settings.Hotkeys, Games: kept.Games, Saved: saved}, nil
 }
 
 func (s Settings) Encode() ([]byte, error) {

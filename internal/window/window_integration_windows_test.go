@@ -226,7 +226,7 @@ func TestEveryControlIsMadeOfItsKind(t *testing.T) {
 		window.Button: "Button", window.Choice: "Button", window.Switch: "Button", window.Colour: "Button", window.Swatch: "Button",
 		window.Edit: "Edit", window.Hotkey: "Edit", window.List: "ListBox", window.Label: "Static",
 		window.Heading: "Static", window.Hint: "Static", window.Problem: "Static", window.Preview: "Static",
-		window.Slider: "NormPrichelSlider", window.Empty: "Static",
+		window.Slider: "NormPrichelSlider", window.Empty: "Static", window.Tab: "Button", window.Divider: "Static",
 	}
 
 	for _, p := range window.Places() {

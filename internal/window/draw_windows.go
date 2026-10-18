@@ -105,6 +105,8 @@ func (w *Window) draw(item *drawItem) {
 		text(dc, inner, c.Text, ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
 	case c.Kind == Switch:
 		w.drawSwitch(item, c)
+	case c.Kind == Tab:
+		w.drawTab(item, c)
 	case c.Kind == Colour || c.Kind == Swatch:
 		w.drawSwatch(item, c)
 	default:
@@ -192,6 +194,21 @@ func (w *Window) drawSwitch(item *drawItem, c Control) {
 
 	words := rect{r.Left + int32(look.Track().Max.X+scaled(8, w.dpi)), r.Top, r.Right, r.Bottom}
 	text(dc, words, c.Text, ink, dtLeft|dtVCenter|dtSingleLine|dtNoPrefix|dtEndEllipsis)
+}
+
+// Not a filled face like the choices on a page: the open tab is marked only by the line beneath it.
+func (w *Window) drawTab(item *drawItem, c Control) {
+	dc, r := item.DC, item.Rect
+	line := int32(scaled(3, w.dpi))
+	words, colour := rect{r.Left, r.Top, r.Right, r.Bottom - line}, ash
+	fill(dc, r, ground)
+	if c.On {
+		fill(dc, rect{r.Left, r.Bottom - line, r.Right, r.Bottom}, signal)
+		procSelectObject.Call(dc, w.bold)
+		colour = ink
+	}
+	text(dc, words, c.Text, colour, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+	focusRing(dc, item, r)
 }
 
 // The square of the player's own colour shows that colour only while it is in use; until then it

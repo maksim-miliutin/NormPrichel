@@ -26,6 +26,8 @@ const (
 	Preview Kind = "preview"
 	Slider  Kind = "slider"
 	Empty   Kind = "empty" // a hint in a frame, where a list has nothing to show
+	Tab     Kind = "tab"   // a button that opens one part of the window
+	Divider Kind = "divider"
 )
 
 const (
@@ -84,6 +86,8 @@ const (
 	idTabPosition
 	idTabHotkeys
 	idTabGeneral
+	idBarLine
+	idGamesLine
 	idProblem
 	idGamesHeading
 	idGames
@@ -188,12 +192,16 @@ func Places() []Place {
 }
 
 func topBar() []Place {
-	places := []Place{{idVisible, Switch, "visible", always, Rect{sideX, 13, sideW, 24}, 0}}
+	places := []Place{{idVisible, Switch, "visible", always, Rect{sideX, 18, sideW, 24}, 0}}
 	for i, tab := range tabs {
-		places = append(places, Place{tab.id, Choice, tab.word, always, Rect{leftX + i*138, 11, 132, 28}, 0})
+		places = append(places, Place{tab.id, Tab, tab.word, always, Rect{leftX + i*138, 14, 132, 36}, 0})
 	}
 
-	return append(places, Place{idProblem, Problem, "", problem, Rect{leftX, 58, rightX + rightW - leftX, 26}, 0})
+	return append(places,
+		Place{idBarLine, Divider, "", always, Rect{0, 50, width, 1}, 0},
+		Place{idGamesLine, Divider, "", always, Rect{sideX + sideW + 16, 51, 1, height - 51}, 0},
+		Place{idProblem, Problem, "", problem, Rect{leftX, 58, rightX + rightW - leftX, 26}, 0},
+	)
 }
 
 func gamesColumn() []Place {

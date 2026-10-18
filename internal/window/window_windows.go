@@ -367,18 +367,21 @@ func (w *Window) SetIcon(newIcon func(side int) (uintptr, error)) error {
 	return nil
 }
 
+// A kind made as a button but left out of the clicks would show and never answer.
+var pressable = []Kind{Button, Choice, Switch, Colour, Swatch, Tab}
+
 func (w *Window) makeChild(p Place, instance windows.Handle) error {
 	class, style := "STATIC", uintptr(ssNoPrefix)
-	switch p.Kind {
-	case Button, Choice, Switch, Colour, Swatch:
+	switch {
+	case slices.Contains(pressable, p.Kind):
 		class, style = "BUTTON", bsOwnerDraw|wsTabStop|wsGroup
-	case Edit, Hotkey:
+	case p.Kind == Edit || p.Kind == Hotkey:
 		class, style = "EDIT", esAutoHScroll|wsTabStop|wsGroup
-	case List:
+	case p.Kind == List:
 		class, style = "LISTBOX", wsVScroll|lbsNotify|lbsOwnerDrawFixed|lbsHasStrings|lbsNoIntegralHeight|wsTabStop|wsGroup
-	case Problem, Preview:
+	case p.Kind == Problem || p.Kind == Preview:
 		style = ssOwnerDraw
-	case Slider:
+	case p.Kind == Slider:
 		class, style = "NormPrichelSlider", wsTabStop|wsGroup
 	}
 
@@ -620,14 +623,15 @@ func (w *Window) command(id, code int, child uintptr) {
 		return
 	}
 
-	switch w.places[id].Kind {
-	case Button, Choice, Switch, Colour, Swatch:
+	kind := w.places[id].Kind
+	switch {
+	case slices.Contains(pressable, kind):
 		// A second click soon after the first comes as a double click, and the arrows would
 		// move the crosshair at half the rate the player clicks.
 		if code == bnClicked || code == bnDoubleClicked {
 			w.act(w.actions.Click(id), false)
 		}
-	case Edit, Hotkey:
+	case kind == Edit || kind == Hotkey:
 		switch code {
 		case enSetFocus:
 			w.reframe(id)
@@ -635,7 +639,7 @@ func (w *Window) command(id, code int, child uintptr) {
 			w.reframe(id)
 			w.act(w.actions.Leave(id), false)
 		}
-	case List:
+	case kind == List:
 		switch code {
 		case lbnSelChange:
 			w.act(w.actions.Select(id), false)
@@ -740,6 +744,8 @@ func (w *Window) colours(dc, child uintptr) uintptr {
 		words = ash
 	case c.Kind == Empty:
 		words, paper = ash, field
+	case c.Kind == Divider:
+		paper = seam
 	case c.Kind == Hotkey && c.On:
 		paper = rust
 	case framed(c.Kind):

@@ -55,4 +55,10 @@ func TestWhatIsOnStandsOutAndFieldsLiftOffTheWindow(t *testing.T) {
 	if got := contrast(seam, field); got < 1.3 {
 		t.Errorf("an edge against its field: contrast %.2f, want it visible", got)
 	}
+	if got := contrast(seam, ground); got < 1.3 {
+		t.Errorf("a hairline against the window: contrast %.2f, want it visible", got)
+	}
+	if got := contrast(signal, ground); got < 3 {
+		t.Errorf("the line under the open tab against the window: contrast %.2f, want at least 3", got)
+	}
 }

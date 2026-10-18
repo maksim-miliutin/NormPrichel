@@ -50,15 +50,17 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		saved:     view != nil && len(screen.Saved) > 0,
 		noSaved:   view != nil && len(screen.Saved) == 0,
 		autostart: screen.Autostart != nil,
+		taken:     true,
 		problem:   screen.Problem != "",
 	}
 	if view == nil {
 		view = &settings.GameView{}
 	}
+	open := openTab(screen.Tab)
 
 	var controls []Control
 	for _, p := range Places() {
-		c := Control{Place: p, Shown: shown[p.Group], Row: -1}
+		c := Control{Place: p, Shown: shown[p.Group] && (p.Tabs == 0 || p.Tabs&open != 0), Row: -1}
 		if p.Word != "" {
 			c.Text = word(p.Word)
 		}
@@ -144,11 +146,27 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 	if language, ok := languages[c.ID]; ok {
 		c.On = screen.Language == language
 	}
+	for _, tab := range tabs {
+		if tab.id == c.ID {
+			c.On = tab.on == openTab(screen.Tab)
+		}
+	}
 	if text, ok := signs[c.ID]; ok {
 		c.Text = text
 	}
 
 	return c
+}
+
+// A tab the window does not know, the empty one of a first start among them, opens the first.
+func openTab(word string) Tabs {
+	for _, tab := range tabs {
+		if tab.word == word {
+			return tab.on
+		}
+	}
+
+	return tabs[0].on
 }
 
 func swatchPart(c Control, colour, current crosshair.RGB) Control {
@@ -216,9 +234,9 @@ func hotkeyPart(c Control, i, part int, rows []settings.HotkeyRow, word func(str
 	case 1:
 		c.Text, c.On = row.Text, row.Taken != ""
 	case 2:
-		c.Text, c.Shown = word("take")+" "+row.Suggestion, row.Taken != "" && row.Suggestion != ""
+		c.Text, c.Shown = word("take")+" "+row.Suggestion, c.Shown && row.Taken != "" && row.Suggestion != ""
 	case 3:
-		c.Text, c.Shown = row.Taken+" "+word("taken"), row.Taken != ""
+		c.Text, c.Shown = row.Taken+" "+word("taken"), c.Shown && row.Taken != ""
 	}
 
 	return c

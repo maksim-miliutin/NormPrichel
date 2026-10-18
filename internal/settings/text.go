@@ -92,6 +92,9 @@ var texts = map[string]map[string]string{
 		"taken":           "занято другой программой.",
 		"take":            "Взять",
 
+		"general":  "Общие",
+		"language": "Язык",
+
 		"version":    "Версия",
 		"risk":       "Правила игры могут запрещать сторонний прицел. Риск бана несёт тот, кто запускает NormPrichel.",
 		"borderless": "Игра должна идти в режиме «окно без рамки» или в окне: поверх эксклюзивного полного экрана прицела не видно.",
@@ -194,6 +197,9 @@ var texts = map[string]map[string]string{
 		"hotkey.next":     "Next saved crosshair",
 		"taken":           "is held by another program.",
 		"take":            "Use",
+
+		"general":  "General",
+		"language": "Language",
 
 		"version":    "Version",
 		"risk":       "A game's rules may forbid a third-party crosshair. The risk of a ban lies with whoever runs NormPrichel.",

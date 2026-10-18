@@ -1,0 +1,90 @@
+package crosshair_test
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"testing"
+
+	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
+)
+
+// The gallery on maksim-miliutin.com draws codes in its own TypeScript and holds itself to this
+// same list; a drawing changed here needs the list there changed with it.
+var drawn = []struct {
+	code          string
+	width, height int
+	sha256        string
+}{
+	{"np1.dot.00FF66.100.8.2.3.10.2.1.000000", 4, 4, "207b4785c6f49509b4a772b6f92c1cd25ae52f26075aa42c6cccb66bd49f8948"},
+	{"np1.dot.129AEF.70.5.1.2.6.1.2.FF8001", 5, 5, "7cfeac6079d020ef88e5d88391354d80647c9b04460ae7d2806db8dea1b261b7"},
+	{"np1.dot.FF3377.100.9.4.0.13.3.0.000000", 3, 3, "93d13cfe3068c249689bd17f740a216caf5c8332ab053cdb4a93785319e32106"},
+	{"np1.cross.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "47297767e0e754635d35198206342d75cc2b1847cc051a97af6bc5dbde050823"},
+	{"np1.cross.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "77ecbacc119b3cd1c4b603e035d80a1fba7f70664c0bf9ed8f997d15672e1e7e"},
+	{"np1.cross.FF3377.100.9.4.0.13.3.0.000000", 18, 18, "48ff37088e4ae2caa3795c25d7aaeed01dbaec823b3b8a5e3b0b0f64bb574f10"},
+	{"np1.cross-dot.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "9461fe3c635e11f6caa3627f21ebfa5647b44f183851c261260a517f2167ddc4"},
+	{"np1.cross-dot.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "b3a4b2c596e9d2de33fd201e159dc002cfc1ed881c5d48f7aa8e9d4b8e17889b"},
+	{"np1.cross-dot.FF3377.100.9.4.0.13.3.0.000000", 18, 18, "48ff37088e4ae2caa3795c25d7aaeed01dbaec823b3b8a5e3b0b0f64bb574f10"},
+	{"np1.circle.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "3340a3a5f63c3f9c96873e471b9e2d7350a89e9ef35d96597819877730b466b7"},
+	{"np1.circle.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "8927b7d51c4e90205c184b06dec2491fcfe299df90a6ca22b158368bc4fd8e7d"},
+	{"np1.circle.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "6b01e21a358835166979266b56d8429f4f57bb24691911a040541574230066ac"},
+	{"np1.circle-dot.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "9cb297732f9e9260c5ee418b7292a4d1bb6eeece1fe23ff1586d38f67ea95414"},
+	{"np1.circle-dot.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "c935c2d27e9c25d510dbd65e93c33014225f3a5cdefa6247bc116bdde6a058cc"},
+	{"np1.circle-dot.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "86cc0816a68f1e2d9a00e4e1abb70d6bb10d2a76e6684a2aa6cc78523420eac7"},
+	{"np1.t.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "b545c1376fa6c99c4b475a5afe1d825764c0395edb752c22dc635c281ba28dbe"},
+	{"np1.t.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "1d5cb363c85617b445c44e4f98f71200eb48eaafa6ca9eac5709dc3100e274d1"},
+	{"np1.t.FF3377.100.9.4.0.13.3.0.000000", 18, 18, "67517222c36a16be294676d9b763da39339959c9044c0e2876c78b075c5a34ed"},
+	{"np1.x.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "6894c6f0e9eb743bf4486ddaa0dd76f63e9d817afa8a451431a5d7b5c8fd5c3c"},
+	{"np1.x.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "e2ac8fa4e1566d99467c082b1a8b17ce06b574d079052b710d56452028588de3"},
+	{"np1.x.FF3377.100.9.4.0.13.3.0.000000", 20, 20, "f05cce0ca716b68c71bdc163fadb0a618f908de0d714b479a71030c12375cb10"},
+	{"np1.x-dot.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "23c88fa5e0971b6e03667abb03f9a8b9f208de315799a42a86d6a59d5e80ef94"},
+	{"np1.x-dot.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "ee78d932876c6a0180c27ad693dfa7ba19379b9db23ec6ce4041a8c9a97fb285"},
+	{"np1.x-dot.FF3377.100.9.4.0.13.3.0.000000", 20, 20, "f05cce0ca716b68c71bdc163fadb0a618f908de0d714b479a71030c12375cb10"},
+	{"np1.square.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "d6087186e86fc1168647506a98dac71c4ed351cdcd831176be211d30fcd82fd7"},
+	{"np1.square.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "b4d55442f4dc882309616b1c029ae0883e8034fd8ad5f0967f6bec3a15eb159e"},
+	{"np1.square.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "ee879cd42823ad64b5af7c5e0ff46be2c3050be809e71f09e7134ccb19434672"},
+	{"np1.square-dot.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "97c6244ae0e6ca6481ff6fb11d819a386d6269765d492856c5ec0c7426781e44"},
+	{"np1.square-dot.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "b99249230bc0c82879e24af23f9fd5b64d7c015335ae2242f497221014d4c05e"},
+	{"np1.square-dot.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "65992751ac8285b8c8239a2de99c2c0c276a8600524e1706c7be0027637b93c2"},
+	{"np1.chevron.00FF66.100.8.2.3.10.2.1.000000", 18, 18, "f20116c6b9afdcba9ee569cf043e609f6680242a66365a88c052be9db410678c"},
+	{"np1.chevron.129AEF.70.5.1.2.6.1.2.FF8001", 13, 13, "f2c8b0f4dcc32809de64a01e4737c782e97ca7a011925a2a8183123154c22932"},
+	{"np1.chevron.FF3377.100.9.4.0.13.3.0.000000", 20, 20, "30fa8e99aad1cfaf1ef149481e2b2cc5dc61d3659b8eebf4ad831b2aece1dd43"},
+	{"np1.circle-cross.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "414a1ef750689e43b14a714922191f3ac7d286cb7adef4f5e1d501d93942bb97"},
+	{"np1.circle-cross.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "3e44dff19f411ec4b5193d10711a35adf74d80f5e2577c34ba08d5de183c9765"},
+	{"np1.circle-cross.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "3c9d76f8a8c31516314395709669de19a32e2bd620bbfc4189ae3eb8aafe3adb"},
+	{"np1.brackets.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "bcb8f7cfca337531b8d8a8fa1904944e321d9a2ed5261fae2f59662ca230dd19"},
+	{"np1.brackets.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "2456688700896be3847c3370dc483d3e44ada68904174a6f5c65932005fd377c"},
+	{"np1.brackets.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "65992751ac8285b8c8239a2de99c2c0c276a8600524e1706c7be0027637b93c2"},
+	{"np1.viewfinder.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "d9a9f2710ccc9924f26011b38d04c95b62087b3c5e54fd1c950e9da3a0a930ca"},
+	{"np1.viewfinder.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "1b4f7bcf83d33882bd6439ea575fde8d906a99e5167a5b9c4c275f4948d3ca60"},
+	{"np1.viewfinder.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "65992751ac8285b8c8239a2de99c2c0c276a8600524e1706c7be0027637b93c2"},
+	{"np1.diamond.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "db36a6109784dcdf02ec3f4f8272d9dcd132a116917cb54b768cacf57f9c7ceb"},
+	{"np1.diamond.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "44e0f9738093afd5034a205ea2c112d7dd72486b874c2f3574d0853a4663eb9b"},
+	{"np1.diamond.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "9141b6fc196297c44f34c4166a1091c152f99cf2900d2ac36f84de96ccba3c66"},
+	{"np1.triangle.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "b6d52d2e718d8ecfb30e14dc9da1cdf5c25748e0d1482b9665194cc1c651d370"},
+	{"np1.triangle.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "3172ef2ab3eb19db21f6245eb2d163065f98192864ab133d3e1d157a2981de7f"},
+	{"np1.triangle.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "e944d55679ffbe0afe5a7eef919aaee5b95e734a2a34c6b5315a4c7104ce91a8"},
+	{"np1.horseshoe.00FF66.100.8.2.3.10.2.1.000000", 24, 24, "31a5d36c7b21d7c555da41ce82d84940baea805587aad133e33ba44a714314cb"},
+	{"np1.horseshoe.129AEF.70.5.1.2.6.1.2.FF8001", 17, 17, "0dadbe62e2c2922d3fe6a4099cefd5d8a38713a14c11b7ccb50e3fa5ce2cd940"},
+	{"np1.horseshoe.FF3377.100.9.4.0.13.3.0.000000", 30, 30, "5ebf42f5ea1340bd6974fe934157c05963fd74a710891a449a43908cc0211bde"},
+	{"np1.dots.00FF66.100.8.2.3.10.2.1.000000", 12, 12, "a868dc1d1b9ded7bb05430f97779d7967dbfb68e667c363b2571d7e1ea7bef3c"},
+	{"np1.dots.129AEF.70.5.1.2.6.1.2.FF8001", 9, 9, "0ad8801bc11eaeb82ad3b53ea158b0d561ad91f95da8eff35b0f9ddcd1aa3572"},
+	{"np1.dots.FF3377.100.9.4.0.13.3.0.000000", 5, 5, "4fba50759228a7150a88f3970a4b763264b7736da39a7d33d970ad6856cda18f"},
+}
+
+func TestEveryReferenceIsDrawnToTheBit(t *testing.T) {
+	for _, reference := range drawn {
+		style, err := crosshair.ParseCode(reference.code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := crosshair.Draw(style)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		sum := sha256.Sum256(img.Pix)
+		if got := hex.EncodeToString(sum[:]); img.Bounds().Dx() != reference.width || img.Bounds().Dy() != reference.height || got != reference.sha256 {
+			t.Errorf("%s draws %v with the sum %s, want %dx%d with %s", reference.code, img.Bounds().Size(), got, reference.width, reference.height, reference.sha256)
+		}
+	}
+}

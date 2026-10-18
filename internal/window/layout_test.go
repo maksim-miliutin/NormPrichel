@@ -76,6 +76,35 @@ func TestTheTabButtonsStandInOneRowAboveWhatTheyShow(t *testing.T) {
 	}
 }
 
+func TestHairlinesPartTheBarTheGamesAndTheTabs(t *testing.T) {
+	w, h := window.Size()
+	var across, down window.Rect
+	bar := 0
+	for _, p := range window.Places() {
+		switch {
+		case p.Kind == window.Divider && p.Rect.H == 1:
+			across = p.Rect
+		case p.Kind == window.Divider && p.Rect.W == 1:
+			down = p.Rect
+		case p.Kind == window.Tab:
+			bar = max(bar, p.Rect.Y+p.Rect.H)
+		}
+	}
+
+	if across != (window.Rect{X: 0, Y: bar, W: w, H: 1}) {
+		t.Errorf("the line under the tabs is %+v, want it across the window at %d", across, bar)
+	}
+	if down.Y != bar+1 || down.Y+down.H != h {
+		t.Errorf("the line beside the games runs %+v, want it from under the bar to the foot of the window", down)
+	}
+	for _, p := range window.Places() {
+		games := p.Tabs == 0 && p.Rect.Y > bar && p.Kind != window.Divider && p.Kind != window.Problem
+		if games && p.Rect.X+p.Rect.W > down.X || p.Tabs != 0 && p.Rect.X <= down.X {
+			t.Errorf("control %d at %+v stands on the wrong side of the line at x %d", p.ID, p.Rect, down.X)
+		}
+	}
+}
+
 func TestEveryFixedWordIsThereInBothLanguages(t *testing.T) {
 	for _, language := range []string{"ru", "en"} {
 		for _, p := range window.Places() {

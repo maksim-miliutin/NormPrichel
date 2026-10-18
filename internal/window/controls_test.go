@@ -149,11 +149,9 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 				t.Errorf("%s: %q shows with no game to apply it to", tab, word)
 			}
 		}
-		choosing := func(c window.Control) bool {
-			return c.Text == "Русский" || c.Text == "English" || slices.Contains(tabWords, c.Word)
-		}
+		languages := func(c window.Control) bool { return c.Text == "Русский" || c.Text == "English" }
 		for _, kind := range []window.Kind{window.Preview, window.Slider, window.Colour, window.Choice} {
-			if shown := slices.DeleteFunc(shownOnly(ofKind(controls, kind)), choosing); len(shown) != 0 {
+			if shown := slices.DeleteFunc(shownOnly(ofKind(controls, kind)), languages); len(shown) != 0 {
 				t.Errorf("%s: %d controls of kind %s show with no game", tab, len(shown), kind)
 			}
 		}
@@ -302,8 +300,8 @@ func TestTheChosenShapeTabAndStepAreTheOnesDown(t *testing.T) {
 	screen := gameScreen(crosshair.Circle)
 	screen.FarStep = true
 	for tab, want := range map[string][]string{
-		"crosshair": {words("crosshair"), words("readyMade"), words("shape.circle")},
-		"position":  {words("position"), "10 px"},
+		"crosshair": {words("readyMade"), words("shape.circle")},
+		"position":  {"10 px"},
 	} {
 		screen.Tab = tab
 		var down []string
@@ -363,7 +361,7 @@ func TestTabGoesDownEachColumn(t *testing.T) {
 	for name, screen := range everyScreen() {
 		last := map[int]window.Rect{}
 		for _, c := range shownOnly(window.Controls(screen, words)) {
-			if c.Kind == window.Label || c.Kind == window.Heading || c.Kind == window.Hint || c.Kind == window.Problem || c.Kind == window.Preview || c.Rect.Y < 40 {
+			if c.Kind == window.Label || c.Kind == window.Heading || c.Kind == window.Hint || c.Kind == window.Problem || c.Kind == window.Preview || c.Kind == window.Divider || c.Rect.Y < 40 {
 				continue
 			}
 			before, seen := last[column(c.Rect)]
@@ -413,7 +411,7 @@ func TestTheAutostartSwitchShowsWhatWindowsSays(t *testing.T) {
 func TestEveryShownButtonAndHeadingSaysWhatItIs(t *testing.T) {
 	for name, screen := range everyScreen() {
 		for _, c := range shownOnly(window.Controls(screen, words)) {
-			worded := c.Kind == window.Button || c.Kind == window.Choice || c.Kind == window.Switch || c.Kind == window.Heading || c.Kind == window.Label
+			worded := c.Kind == window.Button || c.Kind == window.Choice || c.Kind == window.Switch || c.Kind == window.Tab || c.Kind == window.Heading || c.Kind == window.Label
 			if worded && c.Text == "" {
 				t.Errorf("%s: control %d of kind %s shows no words", name, c.ID, c.Kind)
 			}

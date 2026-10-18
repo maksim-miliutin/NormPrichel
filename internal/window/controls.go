@@ -135,6 +135,11 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 		c.On = screen.FarStep
 	case idAimHide:
 		c.On = view.HideWhileAiming
+	case idCopyCode:
+		c.On = screen.Copied
+		if c.On {
+			c.Text = word("copied")
+		}
 	}
 	if language, ok := languages[c.ID]; ok {
 		c.On = screen.Language == language

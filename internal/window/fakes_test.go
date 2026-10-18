@@ -103,6 +103,8 @@ type player struct {
 	pick         int
 	picked       bool
 	visited      []string
+	copied       []string
+	clipboard    string
 }
 
 func (p *player) Text(id int) string { return p.texts[id] }
@@ -132,6 +134,15 @@ func (p *player) Picture() (io.ReadCloser, error) {
 func (p *player) Pick(rows []string, none string) (int, bool) {
 	p.offered, p.none = rows, none
 	return p.pick, p.picked
+}
+
+func (p *player) Copy(text string) error {
+	p.copied = append(p.copied, text)
+	return nil
+}
+
+func (p *player) Paste() (string, error) {
+	return p.clipboard, nil
 }
 
 func (p *player) Visit(address string) error {

@@ -21,6 +21,8 @@ type Inputs interface {
 	Picture() (io.ReadCloser, error) // nil when the player changed their mind
 	Pick(rows []string, none string) (int, bool)
 	Visit(address string) error
+	Copy(text string) error
+	Paste() (string, error)
 }
 
 type Actions struct {
@@ -71,6 +73,14 @@ func (a Actions) Click(id int) error {
 			return nil
 		}
 		return a.Form.RemoveGame()
+	case idCopyCode:
+		return a.Form.CopyCode(a.Inputs.Copy)
+	case idPasteCode:
+		text, err := a.Inputs.Paste()
+		if err != nil {
+			return err
+		}
+		return a.Form.UseCode(text)
 	case idResetCrosshair:
 		if !a.Inputs.Confirm(a.Form.Word("confirmReset")) {
 			return nil

@@ -122,7 +122,7 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 			t.Errorf("%q is hidden", word)
 		}
 	}
-	for _, word := range []string{"remove", "resetCrosshair", "crosshair", "preview", "position", "aiming", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
+	for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "crosshair", "preview", "position", "aiming", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
 		if withWord(t, controls, word).Shown {
 			t.Errorf("%q shows with no game to apply it to", word)
 		}

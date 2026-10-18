@@ -833,3 +833,78 @@ func TestResettingEverythingLeavesAFirstStartAndANewGameTakesTheDefaultCrosshair
 		t.Errorf("a game added after the reset shows %+v with the picture tab %v, want the default crosshair", game.Crosshair, game.Picture)
 	}
 }
+
+func TestCopyingTheCodeHandsTheClipboardTheCrosshairOnShowUntilSomethingChanges(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+	var clipboard []string
+	keep := func(text string) error {
+		clipboard = append(clipboard, text)
+		return nil
+	}
+
+	if err := form.CopyCode(keep); err != nil {
+		t.Fatal(err)
+	}
+	if want := crosshairOf(crosshair.Dot).Code(); !slices.Equal(clipboard, []string{want}) || !form.Screen().Copied {
+		t.Errorf("the clipboard got %q and the screen shows the copy %v, want %q marked", clipboard, form.Screen().Copied, want)
+	}
+	form.SetShape(crosshair.Cross)
+	if form.Screen().Copied {
+		t.Error("the mark of the copy stays over a crosshair that changed since")
+	}
+	form.CopyCode(keep)
+	form.Choose("other.exe")
+	if form.Screen().Copied {
+		t.Error("the mark of the copy stays over another game")
+	}
+}
+
+func TestAPictureOfOnesOwnHasNoCode(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+	if err := form.AddPicture(pngOf(t, 9)); err != nil {
+		t.Fatal(err)
+	}
+	copied := false
+
+	err := form.CopyCode(func(string) error {
+		copied = true
+		return nil
+	})
+
+	if !errors.Is(err, settings.ErrNoCode) || copied || form.Screen().Problem != form.Word("error.no-code") {
+		t.Errorf("got %v, copied %v, problem %q; want ErrNoCode shown and nothing copied", err, copied, form.Screen().Problem)
+	}
+}
+
+func TestPastingACodeSetsTheCrosshairOnShowInPlaceOfAPicture(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	if err := form.AddPicture(pngOf(t, 9)); err != nil {
+		t.Fatal(err)
+	}
+	pasted := crosshairOf(crosshair.Horseshoe)
+
+	if err := form.UseCode(pasted.Code()); err != nil {
+		t.Fatal(err)
+	}
+
+	game, other := state.Current().Games[0], state.Current().Games[1]
+	if game.Crosshair.Style != pasted.Style || game.Crosshair.Image != "" || form.Screen().Game.Picture {
+		t.Errorf("the game shows %+v with the picture tab %v, want the pasted horseshoe", game.Crosshair, form.Screen().Game.Picture)
+	}
+	if other.Crosshair.Shape != crosshair.Circle {
+		t.Errorf("the paste reached the other game: %+v", other.Crosshair)
+	}
+}
+
+func TestPastingWhatIsNotACodeSaysSoAndChangesNothing(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	err := form.UseCode("hello")
+
+	if !errors.Is(err, crosshair.ErrBadCode) || form.Screen().Problem != form.Word("error.bad-code") {
+		t.Errorf("got %v with the problem %q, want ErrBadCode shown", err, form.Screen().Problem)
+	}
+	if got := state.Current().Games[0].Crosshair.Shape; got != crosshair.Dot {
+		t.Errorf("the crosshair turned into %s", got)
+	}
+}

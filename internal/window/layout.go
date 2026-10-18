@@ -89,6 +89,8 @@ const (
 	idUploadHint
 	idUpload
 	idPreviewHeading
+	idCopyCode
+	idPasteCode
 	idPreviewDark
 	idPreviewLight
 	idPositionHeading
@@ -234,7 +236,9 @@ func crosshairColumn() []Place {
 
 func positionColumn() []Place {
 	return []Place{
-		{idPreviewHeading, Heading, "preview", game, Rect{col3X, 126, col3W, 18}},
+		{idPreviewHeading, Heading, "preview", game, Rect{col3X, 126, 58, 18}},
+		{idCopyCode, Button, "copyCode", game, Rect{col3X + 62, 122, 104, 22}},
+		{idPasteCode, Button, "pasteCode", game, Rect{col3X + 170, 122, col3W - 170, 22}},
 		{idPreviewDark, Preview, "", game, Rect{col3X, 148, 126, 126}},
 		{idPreviewLight, Preview, "", game, Rect{col3X + 134, 148, 126, 126}},
 		{idPositionHeading, Heading, "position", game, Rect{col3X, 290, col3W, 18}},

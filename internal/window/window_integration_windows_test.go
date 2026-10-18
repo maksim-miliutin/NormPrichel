@@ -599,3 +599,24 @@ func TestEveryControlWritesInAFaceWindowsHasAndHeadingsInSemibold(t *testing.T) 
 	}
 	t.Logf("the window writes in %v", slices.Sorted(maps.Keys(seen)))
 }
+
+func TestTheClipboardKeepsACodeAndTheButtonsUseIt(t *testing.T) {
+	o := open(t, listed())
+	copyButton, _ := o.child(t, worded("copyCode"))
+	pasteButton, _ := o.child(t, worded("pasteCode"))
+
+	procSendMessageW.Call(copyButton, bmClick, 0, 0)
+	if got, err := o.window.Paste(); err != nil || got != profiles.DefaultCrosshair().Code() {
+		t.Errorf("after the copy the clipboard holds %q, %v; want the code of the crosshair on show", got, err)
+	}
+
+	pasted := crosshair.Default()
+	pasted.Shape = crosshair.Diamond
+	if err := o.window.Copy(pasted.Code()); err != nil {
+		t.Fatal(err)
+	}
+	procSendMessageW.Call(pasteButton, bmClick, 0, 0)
+	if got := first(t, o.state.Current()).Crosshair.Shape; got != crosshair.Diamond {
+		t.Errorf("after the paste the crosshair is a %s, want the diamond from the clipboard", got)
+	}
+}

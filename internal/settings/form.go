@@ -14,7 +14,10 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
 
-var ErrAutostart = errors.New("settings: starting with Windows cannot be switched")
+var (
+	ErrAutostart = errors.New("settings: starting with Windows cannot be switched")
+	ErrNoCode    = errors.New("settings: a picture of one's own has no code")
+)
 
 type State interface {
 	Current() profiles.Settings
@@ -42,6 +45,7 @@ type Form struct {
 	pictureTab string // the exe whose picture tab is open, even before a picture is added
 	far        bool   // the arrows move the crosshair ten pixels rather than one
 	problem    error  // the last refusal, nil once a change went through
+	copied     bool   // the code on show went to the clipboard and nothing has changed since
 	painted    *painted
 }
 
@@ -56,6 +60,7 @@ type Screen struct {
 	Problem   string
 	Version   string
 	Language  string
+	Copied    bool
 }
 
 type HotkeyRow struct {
@@ -103,6 +108,7 @@ func (f *Form) Screen() Screen {
 		FarStep:   f.far,
 		Version:   f.Version,
 		Language:  Language(current.Language, f.WindowsLanguage),
+		Copied:    f.copied,
 	}
 
 	shown, ok := f.shown(current)
@@ -168,7 +174,7 @@ func (f *Form) gameView(game profiles.Game) *GameView {
 
 func (f *Form) Choose(exe string) {
 	if !strings.EqualFold(exe, f.shownExe()) {
-		f.pictureTab = ""
+		f.pictureTab, f.copied = "", false
 	}
 	f.chosen = exe
 }
@@ -292,6 +298,33 @@ func (f *Form) ResetCrosshair() error {
 
 	return f.editCrosshair(func(profiles.Crosshair) (profiles.Crosshair, error) {
 		return profiles.DefaultCrosshair(), nil
+	})
+}
+
+func (f *Form) CopyCode(clipboard func(string) error) error {
+	game, ok := f.shown(f.State.Current())
+	if !ok || game.Crosshair.Image != "" {
+		f.problem = ErrNoCode
+		return ErrNoCode
+	}
+
+	f.problem = clipboard(game.Crosshair.Code())
+	f.copied = f.problem == nil
+
+	return f.problem
+}
+
+func (f *Form) UseCode(text string) error {
+	style, err := crosshair.ParseCode(text)
+	if err != nil {
+		f.problem = err
+		return err
+	}
+	f.pictureTab = ""
+
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Style, c.Image = style, ""
+		return c, nil
 	})
 }
 
@@ -453,7 +486,7 @@ func (f *Form) edit(change func(profiles.Game) profiles.Game) error {
 
 func (f *Form) change(edit func(profiles.Settings) (profiles.Settings, error)) error {
 	_, err := f.State.Change(edit)
-	f.problem = err
+	f.problem, f.copied = err, false
 
 	return err
 }

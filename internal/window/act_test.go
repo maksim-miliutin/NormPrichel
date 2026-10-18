@@ -117,6 +117,37 @@ func TestEverythingIsResetOnlyOnceThePlayerAgrees(t *testing.T) {
 	}
 }
 
+func TestTheCodeButtonsGoThroughTheClipboard(t *testing.T) {
+	a, state, _, p := newActions(t, listed())
+	copyCode, pasteCode := control(t, a, worded("copyCode")), control(t, a, worded("pasteCode"))
+
+	a.Click(copyCode)
+	if want := first(t, state.Current()).Crosshair.Code(); !slices.Equal(p.copied, []string{want}) {
+		t.Errorf("the clipboard got %q, want %q", p.copied, want)
+	}
+	if button := withID(window.Controls(a.Form.Screen(), a.Form.Word), copyCode); !button.On || button.Text != a.Form.Word("copied") {
+		t.Errorf("after the copy the button reads %q, on %v; want it to say the code is copied", button.Text, button.On)
+	}
+
+	pasted := crosshair.Default()
+	pasted.Shape = crosshair.Triangle
+	p.clipboard = pasted.Code()
+	a.Click(pasteCode)
+	if got := first(t, state.Current()).Crosshair.Style; got != pasted {
+		t.Errorf("after the paste the crosshair is %+v, want the triangle", got)
+	}
+}
+
+func withID(controls []window.Control, id int) window.Control {
+	for _, c := range controls {
+		if c.ID == id {
+			return c
+		}
+	}
+
+	return window.Control{}
+}
+
 func TestAGameIsAddedFromTheWindowThePlayerPicks(t *testing.T) {
 	a, state, m, p := newActions(t, profiles.Defaults())
 	m.windows = []foreground.Choice{{Exe: "notepad.exe", Title: "Блокнот"}, {Exe: "stalzone.exe", Title: "STALZONE"}}

@@ -64,6 +64,9 @@ var texts = map[string]map[string]string{
 		"scale":              "Масштаб, %",
 
 		"preview":      "Превью",
+		"copyCode":     "Копировать код",
+		"copied":       "Код скопирован",
+		"pasteCode":    "Вставить код",
 		"position":     "Положение",
 		"positionHint": "Сдвиг от центра окна игры, не больше 500 px по каждой оси.",
 		"centre":       "В центр",
@@ -107,6 +110,8 @@ var texts = map[string]map[string]string{
 		"error.refused":       "Программа не приняла изменение.",
 		"error.failed":        "Не получилось:",
 		"error.autostart":     "Не получилось переключить запуск вместе с Windows.",
+		"error.bad-code":      "В буфере обмена нет кода прицела: скопируйте код целиком, он начинается с np1.",
+		"error.no-code":       "У своей картинки нет кода: код описывает только готовый прицел.",
 	},
 	"en": {
 		"visible":       "Crosshair on",
@@ -162,6 +167,9 @@ var texts = map[string]map[string]string{
 		"scale":              "Scale, %",
 
 		"preview":      "Preview",
+		"copyCode":     "Copy code",
+		"copied":       "Code copied",
+		"pasteCode":    "Paste code",
 		"position":     "Position",
 		"positionHint": "Offset from the centre of the game window, up to 500 px each way.",
 		"centre":       "Centre",
@@ -205,6 +213,8 @@ var texts = map[string]map[string]string{
 		"error.refused":       "The program refused the change.",
 		"error.failed":        "That did not work:",
 		"error.autostart":     "Starting with Windows could not be switched.",
+		"error.bad-code":      "The clipboard holds no crosshair code: copy the whole code, it starts with np1.",
+		"error.no-code":       "A picture of your own has no code: a code describes a ready-made crosshair only.",
 	},
 }
 
@@ -246,4 +256,6 @@ var reasons = []struct {
 	{profiles.ErrNoSaved, "no-saved"},
 	{live.ErrRefused, "refused"},
 	{ErrAutostart, "autostart"},
+	{crosshair.ErrBadCode, "bad-code"},
+	{ErrNoCode, "no-code"},
 }

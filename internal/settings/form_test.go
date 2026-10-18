@@ -101,6 +101,25 @@ func TestTheFirstGameIsShownUntilAnotherIsChosen(t *testing.T) {
 	}
 }
 
+func TestTheOpenTabStaysWhileGamesChangeAndThroughAReset(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+	if got := form.Screen().Tab; got != "" {
+		t.Fatalf("before any tab is opened the screen names %q, want none", got)
+	}
+
+	form.OpenTab("position")
+	form.Choose("other.exe")
+	if got := form.Screen().Tab; got != "position" {
+		t.Errorf("after choosing another game the tab is %q, want position", got)
+	}
+	if err := form.ResetAll(); err != nil {
+		t.Fatal(err)
+	}
+	if got := form.Screen().Tab; got != "position" {
+		t.Errorf("after the reset the tab is %q, want the one the player is on", got)
+	}
+}
+
 func TestWithNoGamesThereIsNothingToShow(t *testing.T) {
 	form, _, _ := newForm(t, profiles.Defaults())
 

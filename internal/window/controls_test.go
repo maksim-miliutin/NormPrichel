@@ -1,6 +1,7 @@
 package window_test
 
 import (
+	"cmp"
 	"slices"
 	"strconv"
 	"testing"
@@ -11,6 +12,9 @@ import (
 	"github.com/maksim-miliutin/NormPrichel/internal/settings"
 	"github.com/maksim-miliutin/NormPrichel/internal/window"
 )
+
+// The words the tabs are kept under, in the order their buttons stand.
+var tabWords = []string{"crosshair", "position", "hotkeys", "general"}
 
 func words(key string) string {
 	return settings.Word("ru", key)
@@ -66,7 +70,16 @@ func everyScreen() map[string]settings.Screen {
 	keeping.Hotkeys[0].Taken, keeping.Hotkeys[0].Suggestion = "Ctrl+Alt+F1", "Ctrl+Alt+F9"
 	keeping.Hotkeys[2].Taken = "Ctrl+Alt+F3"
 
-	return map[string]settings.Screen{"no games": empty, "a ready-made crosshair": gameScreen(crosshair.Dot), "a picture": picture, "saved crosshairs and a problem": keeping}
+	screens := map[string]settings.Screen{}
+	for name, screen := range map[string]settings.Screen{"no games": empty, "a ready-made crosshair": gameScreen(crosshair.Dot), "a picture": picture, "saved crosshairs and a problem": keeping} {
+		screens[name] = screen
+		for _, tab := range tabWords[1:] {
+			screen.Tab = tab
+			screens[name+" on "+tab] = screen
+		}
+	}
+
+	return screens
 }
 
 func overlap(a, b window.Rect) bool {
@@ -115,22 +128,67 @@ func TestShownControlsNeverOverlapWhateverTheScreen(t *testing.T) {
 }
 
 func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
-	controls := window.Controls(everyScreen()["no games"], words)
+	own := map[string][]string{
+		"crosshair": {"noGames"},
+		"position":  {"noGames"},
+		"hotkeys":   {"hotkeysHint"},
+		"general":   {"risk", "resetAll"},
+	}
+	for _, tab := range tabWords {
+		screen := everyScreen()["no games"]
+		screen.Tab = tab
+		controls := window.Controls(screen, words)
 
-	for _, word := range []string{"games", "addGame", "noGames", "hotkeys", "risk", "resetAll"} {
-		if !withWord(t, controls, word).Shown {
-			t.Errorf("%q is hidden", word)
+		for _, word := range append([]string{"games", "addGame"}, own[tab]...) {
+			if !withWord(t, controls, word).Shown {
+				t.Errorf("%s: %q is hidden", tab, word)
+			}
+		}
+		for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "preview", "positionHint", "aiming", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
+			if withWord(t, controls, word).Shown {
+				t.Errorf("%s: %q shows with no game to apply it to", tab, word)
+			}
+		}
+		choosing := func(c window.Control) bool {
+			return c.Text == "Русский" || c.Text == "English" || slices.Contains(tabWords, c.Word)
+		}
+		for _, kind := range []window.Kind{window.Preview, window.Slider, window.Colour, window.Choice} {
+			if shown := slices.DeleteFunc(shownOnly(ofKind(controls, kind)), choosing); len(shown) != 0 {
+				t.Errorf("%s: %d controls of kind %s show with no game", tab, len(shown), kind)
+			}
 		}
 	}
-	for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "crosshair", "preview", "position", "aiming", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
-		if withWord(t, controls, word).Shown {
-			t.Errorf("%q shows with no game to apply it to", word)
-		}
+}
+
+func TestOnlyTheOpenTabShowsAndItsButtonIsDown(t *testing.T) {
+	holds := map[string][]string{
+		"crosshair": {"readyMade", "preview", "copyCode", "saved"},
+		"position":  {"positionHint", "centre", "aiming"},
+		"hotkeys":   {"hotkeysHint"},
+		"general":   {"autostart", "language", "risk", "resetAll"},
 	}
-	languages := func(c window.Control) bool { return c.Text == "Русский" || c.Text == "English" }
-	for _, kind := range []window.Kind{window.Preview, window.Slider, window.Colour, window.Choice} {
-		if shown := slices.DeleteFunc(shownOnly(ofKind(controls, kind)), languages); len(shown) != 0 {
-			t.Errorf("%d controls of kind %s show with no game", len(shown), kind)
+	for _, tab := range append([]string{""}, tabWords...) {
+		screen := gameScreen(crosshair.Dot)
+		screen.Tab, screen.Autostart = tab, on(false)
+		controls := window.Controls(screen, words)
+		open := cmp.Or(tab, "crosshair")
+
+		for _, word := range tabWords {
+			if button := withWord(t, controls, word); !button.Shown || button.On != (word == open) {
+				t.Errorf("open %q: the %s button shows %v and is down %v", tab, word, button.Shown, button.On)
+			}
+		}
+		for owner, held := range holds {
+			for _, word := range held {
+				if shown := withWord(t, controls, word).Shown; shown != (owner == open) {
+					t.Errorf("open %q: %q of the %s tab shows %v", tab, word, owner, shown)
+				}
+			}
+		}
+		for _, word := range []string{"visible", "games", "addGame", "name", "enabled", "remove"} {
+			if !withWord(t, controls, word).Shown {
+				t.Errorf("open %q: %q is hidden, want it beside every tab", tab, word)
+			}
 		}
 	}
 }
@@ -243,21 +301,25 @@ func TestTheSwatchesOfferReadyColoursAndMarkTheOneInUse(t *testing.T) {
 func TestTheChosenShapeTabAndStepAreTheOnesDown(t *testing.T) {
 	screen := gameScreen(crosshair.Circle)
 	screen.FarStep = true
-	controls := window.Controls(screen, words)
-
-	var down []string
-	for _, c := range shownOnly(ofKind(controls, window.Choice)) {
-		if c.On {
-			down = append(down, c.Text)
+	for tab, want := range map[string][]string{
+		"crosshair": {words("crosshair"), words("readyMade"), words("shape.circle")},
+		"position":  {words("position"), "10 px"},
+	} {
+		screen.Tab = tab
+		var down []string
+		for _, c := range shownOnly(ofKind(window.Controls(screen, words), window.Choice)) {
+			if c.On {
+				down = append(down, c.Text)
+			}
 		}
-	}
-	if want := []string{words("readyMade"), words("shape.circle"), "10 px"}; !slices.Equal(down, want) {
-		t.Errorf("down: %q, want %q", down, want)
+		if !slices.Equal(down, want) {
+			t.Errorf("%s: down %q, want %q", tab, down, want)
+		}
 	}
 }
 
 func TestATakenHotkeyNamesTheCombinationAndOffersAFreeOne(t *testing.T) {
-	controls := window.Controls(everyScreen()["saved crosshairs and a problem"], words)
+	controls := window.Controls(everyScreen()["saved crosshairs and a problem on hotkeys"], words)
 	fields := ofKind(controls, window.Hotkey)
 
 	if !fields[0].On || fields[1].On || !fields[2].On {
@@ -288,7 +350,7 @@ func TestATakenHotkeyNamesTheCombinationAndOffersAFreeOne(t *testing.T) {
 
 func column(r window.Rect) int {
 	columns := 0
-	for _, edge := range []int{244, 596, 868} {
+	for _, edge := range []int{232, 684} {
 		if r.X >= edge {
 			columns++
 		}
@@ -341,7 +403,7 @@ func TestTheAutostartSwitchShowsWhatWindowsSays(t *testing.T) {
 		{starts: on(true), shown: true, ticks: true},
 	} {
 		screen := gameScreen(crosshair.Dot)
-		screen.Autostart = c.starts
+		screen.Autostart, screen.Tab = c.starts, "general"
 		if got := withWord(t, window.Controls(screen, words), "autostart"); got.Shown != c.shown || got.On != c.ticks {
 			t.Errorf("with %v the switch shows %v and ticks %v", c.starts, got.Shown, got.On)
 		}
@@ -371,10 +433,7 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 	if withWord(t, controls, "enabled").On {
 		t.Error("the game shows as on")
 	}
-	if c := withWord(t, controls, "hideWhileAiming"); !c.On || !c.Shown {
-		t.Errorf("hiding while aiming: %+v, want shown and on", c)
-	}
-	for _, text := range []string{"STALZONE", "stalzone.exe", "3", "-7", words("version") + " v1.2.3"} {
+	for _, text := range []string{"STALZONE", "stalzone.exe"} {
 		if !withText(t, controls, text).Shown {
 			t.Errorf("%q is hidden", text)
 		}
@@ -383,18 +442,34 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 	if squares[0].Colour != screen.Game.Crosshair.Color || squares[1].Colour != screen.Game.Crosshair.Outline.Color {
 		t.Errorf("the colour squares show %v and %v, want %v and %v", squares[0].Colour, squares[1].Colour, screen.Game.Crosshair.Color, screen.Game.Crosshair.Outline.Color)
 	}
+
+	screen.Tab = "position"
+	controls = window.Controls(screen, words)
+	if c := withWord(t, controls, "hideWhileAiming"); !c.On || !c.Shown {
+		t.Errorf("hiding while aiming: %+v, want shown and on", c)
+	}
+	for _, text := range []string{"3", "-7"} {
+		if !withText(t, controls, text).Shown {
+			t.Errorf("%q is hidden", text)
+		}
+	}
+
+	screen.Tab = "general"
+	if version := words("version") + " v1.2.3"; !withText(t, window.Controls(screen, words), version).Shown {
+		t.Errorf("%q is hidden", version)
+	}
 }
 
 func TestTheLanguageButtonsNameEachLanguageInItselfAndMarkTheOneSpoken(t *testing.T) {
 	screen := gameScreen(crosshair.Dot)
-	screen.Language = "en"
+	screen.Language, screen.Tab = "en", "general"
 	controls := window.Controls(screen, words)
 
 	russian, english := withText(t, controls, "Русский"), withText(t, controls, "English")
 	if russian.On || !english.On || !russian.Shown || !english.Shown {
 		t.Errorf("Русский %+v and English %+v, want both shown and English down", russian, english)
 	}
-	if !withText(t, window.Controls(everyScreen()["no games"], words), "Русский").Shown {
+	if !withText(t, window.Controls(everyScreen()["no games on general"], words), "Русский").Shown {
 		t.Error("the language cannot be chosen before a game is added")
 	}
 }

@@ -4,8 +4,8 @@ import "github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 
 // Every size here is in pixels at 96 dpi, the scale Windows calls 100%.
 const (
-	width  = 1192
-	height = 590
+	width  = 1200
+	height = 630
 )
 
 type Kind string
@@ -41,6 +41,30 @@ const (
 	problem   = "problem"
 )
 
+// The tabs a control stands on; none at all means every tab.
+type Tabs uint8
+
+const (
+	crosshairTab Tabs = 1 << iota
+	positionTab
+	hotkeysTab
+	generalTab
+
+	gameTabs = crosshairTab | positionTab
+)
+
+// The tab buttons in the order they stand; the settings keep the open tab under its word.
+var tabs = []struct {
+	id   int
+	word string
+	on   Tabs
+}{
+	{idTabCrosshair, "crosshair", crosshairTab},
+	{idTabPosition, "position", positionTab},
+	{idTabHotkeys, "hotkeys", hotkeysTab},
+	{idTabGeneral, "general", generalTab},
+}
+
 type Rect struct {
 	X, Y, W, H int
 }
@@ -51,35 +75,25 @@ type Place struct {
 	Word  string // the fixed word it shows; empty when its text comes from the settings
 	Group string
 	Rect  Rect
+	Tabs  Tabs
 }
 
 const (
 	idVisible = 100 + iota
-	idAutostart
-	idRussian
-	idEnglish
-	idVersion
-	idGitHub
+	idTabCrosshair
+	idTabPosition
+	idTabHotkeys
+	idTabGeneral
 	idProblem
 	idGamesHeading
 	idGames
 	idAddGame
-	idSavedHeading
-	idSaved
-	idNoSaved
-	idUseSaved
-	idForgetSaved
-	idSaveAs
-	idSaveName
-	idSave
-	idNoGames
 	idNameLabel
 	idName
 	idExe
 	idEnabled
 	idRemoveGame
-	idCrosshairHeading
-	idResetCrosshair
+	idNoGames
 	idReady
 	idPicture
 	idColorLabel
@@ -89,11 +103,19 @@ const (
 	idUploadHint
 	idUpload
 	idPreviewHeading
-	idCopyCode
-	idPasteCode
 	idPreviewDark
 	idPreviewLight
-	idPositionHeading
+	idCopyCode
+	idPasteCode
+	idResetCrosshair
+	idSavedHeading
+	idSaved
+	idNoSaved
+	idUseSaved
+	idForgetSaved
+	idSaveAs
+	idSaveName
+	idSave
 	idPositionHint
 	idXLabel
 	idX
@@ -109,8 +131,13 @@ const (
 	idAimHeading
 	idAimHide
 	idAimHint
-	idHotkeysHeading
 	idHotkeysHint
+	idAutostart
+	idLanguageHeading
+	idRussian
+	idEnglish
+	idVersion
+	idGitHub
 	idRisk
 	idBorderless
 	idResetAll
@@ -130,10 +157,10 @@ const (
 )
 
 const (
-	col1X, col1W = 12, 220
-	col2X, col2W = 244, 340
-	col3X, col3W = 596, 260
-	col4X, col4W = 868, 312
+	sideX, sideW   = 16, 200
+	leftX, leftW   = 252, 420
+	rightX, rightW = 696, 488
+	top            = 96
 )
 
 var shapeCount = len(crosshair.Shapes())
@@ -152,137 +179,135 @@ func Size() (int, int) {
 
 func Places() []Place {
 	var places []Place
-	// Tab visits the places in this order: the top row, then each column from the top.
-	for _, part := range [][]Place{topRow(), gamesColumn(), gameHeader(), crosshairColumn(), positionColumn(), hotkeysColumn(), bottomRow()} {
+	// Tab visits the places in this order: the bar at the top, the games, then each tab from the top.
+	for _, part := range [][]Place{topBar(), gamesColumn(), crosshairColumn(), previewColumn(), positionPage(), hotkeysPage(), generalPage()} {
 		places = append(places, part...)
 	}
 
 	return places
 }
 
-func topRow() []Place {
-	return []Place{
-		{idVisible, Switch, "visible", always, Rect{12, 12, 150, 24}},
-		{idAutostart, Switch, "autostart", autostart, Rect{170, 12, 260, 24}},
-		{idRussian, Choice, "", always, Rect{770, 12, 92, 24}},
-		{idEnglish, Choice, "", always, Rect{866, 12, 92, 24}},
-		{idVersion, Hint, "", always, Rect{968, 16, 128, 18}},
-		{idGitHub, Button, "", always, Rect{1104, 12, 76, 24}},
-		{idProblem, Problem, "", problem, Rect{12, 42, 1168, 22}},
+func topBar() []Place {
+	places := []Place{{idVisible, Switch, "visible", always, Rect{sideX, 13, sideW, 24}, 0}}
+	for i, tab := range tabs {
+		places = append(places, Place{tab.id, Choice, tab.word, always, Rect{leftX + i*138, 11, 132, 28}, 0})
 	}
+
+	return append(places, Place{idProblem, Problem, "", problem, Rect{leftX, 58, rightX + rightW - leftX, 26}, 0})
 }
 
 func gamesColumn() []Place {
 	return []Place{
-		{idGamesHeading, Heading, "games", always, Rect{col1X, 72, col1W, 18}},
-		{idGames, List, "", always, Rect{col1X, 94, col1W, 172}},
-		{idAddGame, Button, "addGame", always, Rect{col1X, 272, col1W, 26}},
-		{idSavedHeading, Heading, "saved", game, Rect{col1X, 314, col1W, 18}},
-		{idSaved, List, "", saved, Rect{col1X, 336, col1W, 102}},
-		{idNoSaved, Empty, "noSaved", noSaved, Rect{col1X, 336, col1W, 134}},
-		{idUseSaved, Button, "use", saved, Rect{col1X, 444, 108, 26}},
-		{idForgetSaved, Button, "forget", saved, Rect{col1X + 112, 444, 108, 26}},
-		{idSaveAs, Label, "saveAs", game, Rect{col1X, 480, col1W, 18}},
-		{idSaveName, Edit, "", game, Rect{col1X, 500, 140, 24}},
-		{idSave, Button, "saveCurrent", game, Rect{col1X + 144, 500, 76, 24}},
-	}
-}
-
-func gameHeader() []Place {
-	return []Place{
-		{idNoGames, Hint, "noGames", noGame, Rect{col2X, 72, col2W + 12 + col3W, 40}},
-		{idNameLabel, Label, "name", game, Rect{col2X, 76, 70, 18}},
-		{idName, Edit, "", game, Rect{col2X + 74, 72, 220, 24}},
-		{idExe, Hint, "", game, Rect{col2X + 74, 98, 220, 16}},
-		{idEnabled, Switch, "enabled", game, Rect{col2X + 308, 72, 120, 24}},
-		{idRemoveGame, Button, "remove", game, Rect{col3X + col3W - 126, 72, 126, 26}},
+		{idGamesHeading, Heading, "games", always, Rect{sideX, top, sideW, 18}, 0},
+		{idGames, List, "", always, Rect{sideX, top + 22, sideW, 230}, 0},
+		{idAddGame, Button, "addGame", always, Rect{sideX, top + 258, sideW, 28}, 0},
+		{idNameLabel, Label, "name", game, Rect{sideX, top + 302, sideW, 18}, 0},
+		{idName, Edit, "", game, Rect{sideX, top + 322, sideW, 28}, 0},
+		{idExe, Hint, "", game, Rect{sideX, top + 352, sideW, 16}, 0},
+		{idEnabled, Switch, "enabled", game, Rect{sideX, top + 376, sideW, 24}, 0},
+		{idRemoveGame, Button, "remove", game, Rect{sideX, top + 412, sideW, 28}, 0},
 	}
 }
 
 func crosshairColumn() []Place {
 	places := []Place{
-		{idCrosshairHeading, Heading, "crosshair", game, Rect{col2X, 126, col2W - 128, 18}},
-		{idResetCrosshair, Button, "resetCrosshair", game, Rect{col2X + col2W - 120, 122, 120, 22}},
-		{idReady, Choice, "readyMade", game, Rect{col2X, 148, 120, 26}},
-		{idPicture, Choice, "picture", game, Rect{col2X + 124, 148, 140, 26}},
+		{idNoGames, Hint, "noGames", noGame, Rect{leftX, top, rightX + rightW - leftX, 40}, gameTabs},
+		{idReady, Choice, "readyMade", game, Rect{leftX, top, 150, 30}, crosshairTab},
+		{idPicture, Choice, "picture", game, Rect{leftX + 156, top, 170, 30}, crosshairTab},
 	}
 	for i := range shapeCount {
-		places = append(places, Place{idShape + i, Choice, "", ready, Rect{col2X + i%6*57, 180 + i/6*44, 53, 40}})
+		places = append(places, Place{idShape + i, Choice, "", ready, Rect{leftX + i%6*70, top + 42 + i/6*58, 65, 52}, crosshairTab})
 	}
-	colour := 180 + (shapeCount+5)/6*44 + 4
-	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{col2X, colour + 4, 60, 18}})
+	colour := top + 42 + (shapeCount+5)/6*58
+	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{leftX, colour + 5, 64, 18}, crosshairTab})
 	for i := range palette {
-		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{col2X + 64 + i*28, colour, 24, 24}})
+		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{leftX + 68 + i*32, colour, 28, 28}, crosshairTab})
 	}
 	places = append(places,
-		Place{idColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, colour, 24, 24}},
-		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{col2X, colour + 34, 220, 18}},
+		Place{idColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour, 28, 28}, crosshairTab},
+		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{leftX, colour + 35, 220, 18}, crosshairTab},
 	)
 	for i := range outlinePalette {
-		x := col2X + 64 + (len(palette)-len(outlinePalette)+i)*28
-		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, colour + 30, 24, 24}})
+		x := leftX + 68 + (len(palette)-len(outlinePalette)+i)*32
+		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, colour + 30, 28, 28}, crosshairTab})
 	}
-	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{col2X + 64 + len(palette)*28, colour + 30, 24, 24}})
+	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab})
 	for i := range knobSlots {
-		places = append(places, knobSlot(i, colour+60+i*26, ready, "")...)
+		places = append(places, knobSlot(i, colour+64+i*30, ready, "")...)
 	}
 	places = append(places,
-		Place{idUploadHint, Hint, "uploadHint", picture, Rect{col2X, 180, col2W, 50}},
-		Place{idUpload, Button, "upload", picture, Rect{col2X, 236, 140, 26}},
+		Place{idUploadHint, Hint, "uploadHint", picture, Rect{leftX, top + 42, leftW, 50}, crosshairTab},
+		Place{idUpload, Button, "upload", picture, Rect{leftX, top + 98, 170, 28}, crosshairTab},
 	)
 
-	return append(places, knobSlot(knobSlots, 268, picture, "scale")...)
+	return append(places, knobSlot(knobSlots, top+134, picture, "scale")...)
 }
 
-func positionColumn() []Place {
+func previewColumn() []Place {
 	return []Place{
-		{idPreviewHeading, Heading, "preview", game, Rect{col3X, 126, 58, 18}},
-		{idCopyCode, Button, "copyCode", game, Rect{col3X + 62, 122, 104, 22}},
-		{idPasteCode, Button, "pasteCode", game, Rect{col3X + 170, 122, col3W - 170, 22}},
-		{idPreviewDark, Preview, "", game, Rect{col3X, 148, 126, 126}},
-		{idPreviewLight, Preview, "", game, Rect{col3X + 134, 148, 126, 126}},
-		{idPositionHeading, Heading, "position", game, Rect{col3X, 290, col3W, 18}},
-		{idPositionHint, Hint, "positionHint", game, Rect{col3X, 310, col3W, 32}},
-		{idXLabel, Label, "", game, Rect{col3X, 352, 14, 18}},
-		{idX, Edit, "", game, Rect{col3X + 16, 348, 60, 24}},
-		{idYLabel, Label, "", game, Rect{col3X + 88, 352, 14, 18}},
-		{idY, Edit, "", game, Rect{col3X + 104, 348, 60, 24}},
-		{idCentre, Button, "centre", game, Rect{col3X + 176, 348, 84, 24}},
-		{idLeft, Button, "", game, Rect{col3X, 380, 26, 26}},
-		{idUp, Button, "", game, Rect{col3X + 30, 380, 26, 26}},
-		{idDown, Button, "", game, Rect{col3X + 60, 380, 26, 26}},
-		{idRight, Button, "", game, Rect{col3X + 90, 380, 26, 26}},
-		{idNear, Choice, "", game, Rect{col3X + 128, 380, 60, 26}},
-		{idFar, Choice, "", game, Rect{col3X + 192, 380, 68, 26}},
-		{idAimHeading, Heading, "aiming", game, Rect{col3X, 422, col3W, 18}},
-		{idAimHide, Switch, "hideWhileAiming", game, Rect{col3X, 444, col3W, 24}},
-		{idAimHint, Hint, "aimingHint", game, Rect{col3X, 472, col3W, 48}},
+		{idPreviewHeading, Heading, "preview", game, Rect{rightX, top, rightW, 18}, crosshairTab},
+		{idPreviewDark, Preview, "", game, Rect{rightX, top + 22, 232, 232}, crosshairTab},
+		{idPreviewLight, Preview, "", game, Rect{rightX + rightW - 232, top + 22, 232, 232}, crosshairTab},
+		{idCopyCode, Button, "copyCode", game, Rect{rightX, top + 264, 156, 28}, crosshairTab},
+		{idPasteCode, Button, "pasteCode", game, Rect{rightX + 162, top + 264, 156, 28}, crosshairTab},
+		{idResetCrosshair, Button, "resetCrosshair", game, Rect{rightX + 324, top + 264, rightW - 324, 28}, crosshairTab},
+		{idSavedHeading, Heading, "saved", game, Rect{rightX, top + 306, rightW, 18}, crosshairTab},
+		{idSaved, List, "", saved, Rect{rightX, top + 328, rightW, 84}, crosshairTab},
+		{idNoSaved, Empty, "noSaved", noSaved, Rect{rightX, top + 328, rightW, 118}, crosshairTab},
+		{idUseSaved, Button, "use", saved, Rect{rightX, top + 418, 240, 28}, crosshairTab},
+		{idForgetSaved, Button, "forget", saved, Rect{rightX + 248, top + 418, rightW - 248, 28}, crosshairTab},
+		{idSaveAs, Label, "saveAs", game, Rect{rightX, top + 456, rightW, 18}, crosshairTab},
+		{idSaveName, Edit, "", game, Rect{rightX, top + 476, 376, 28}, crosshairTab},
+		{idSave, Button, "saveCurrent", game, Rect{rightX + 382, top + 476, rightW - 382, 28}, crosshairTab},
 	}
 }
 
-func hotkeysColumn() []Place {
-	places := []Place{
-		{idHotkeysHeading, Heading, "hotkeys", always, Rect{col4X, 72, col4W, 18}},
-		{idHotkeysHint, Hint, "hotkeysHint", always, Rect{col4X, 92, col4W, 48}},
+func positionPage() []Place {
+	return []Place{
+		{idPositionHint, Hint, "positionHint", game, Rect{leftX, top, leftW, 34}, positionTab},
+		{idXLabel, Label, "", game, Rect{leftX, top + 49, 14, 18}, positionTab},
+		{idX, Edit, "", game, Rect{leftX + 18, top + 44, 76, 28}, positionTab},
+		{idYLabel, Label, "", game, Rect{leftX + 108, top + 49, 14, 18}, positionTab},
+		{idY, Edit, "", game, Rect{leftX + 126, top + 44, 76, 28}, positionTab},
+		{idCentre, Button, "centre", game, Rect{leftX + 216, top + 44, 120, 28}, positionTab},
+		{idLeft, Button, "", game, Rect{leftX, top + 82, 34, 30}, positionTab},
+		{idUp, Button, "", game, Rect{leftX + 40, top + 82, 34, 30}, positionTab},
+		{idDown, Button, "", game, Rect{leftX + 80, top + 82, 34, 30}, positionTab},
+		{idRight, Button, "", game, Rect{leftX + 120, top + 82, 34, 30}, positionTab},
+		{idNear, Choice, "", game, Rect{leftX + 170, top + 82, 76, 30}, positionTab},
+		{idFar, Choice, "", game, Rect{leftX + 252, top + 82, 84, 30}, positionTab},
+		{idAimHeading, Heading, "aiming", game, Rect{leftX, top + 140, leftW, 18}, positionTab},
+		{idAimHide, Switch, "hideWhileAiming", game, Rect{leftX, top + 164, leftW, 24}, positionTab},
+		{idAimHint, Hint, "aimingHint", game, Rect{leftX, top + 194, leftW, 48}, positionTab},
 	}
+}
+
+func hotkeysPage() []Place {
+	places := []Place{{idHotkeysHint, Hint, "hotkeysHint", always, Rect{leftX, top, 600, 34}, hotkeysTab}}
 	for i := range hotkeyCount {
-		y, id := 148+i*68, idHotkey+4*i
+		y, id := top+48+i*80, idHotkey+4*i
 		places = append(places,
-			Place{id, Label, "", always, Rect{col4X, y, col4W, 18}},
-			Place{id + 1, Hotkey, "", always, Rect{col4X, y + 20, 150, 24}},
-			Place{id + 2, Button, "", taken, Rect{col4X + 154, y + 20, col4W - 154, 24}},
-			Place{id + 3, Hint, "", taken, Rect{col4X, y + 46, col4W, 16}},
+			Place{id, Label, "", always, Rect{leftX, y, 600, 18}, hotkeysTab},
+			Place{id + 1, Hotkey, "", always, Rect{leftX, y + 22, 220, 28}, hotkeysTab},
+			Place{id + 2, Button, "", taken, Rect{leftX + 228, y + 22, 260, 28}, hotkeysTab},
+			Place{id + 3, Hint, "", taken, Rect{leftX, y + 52, 600, 16}, hotkeysTab},
 		)
 	}
 
 	return places
 }
 
-func bottomRow() []Place {
+func generalPage() []Place {
 	return []Place{
-		{idRisk, Hint, "risk", always, Rect{12, 540, 980, 18}},
-		{idBorderless, Hint, "borderless", always, Rect{12, 560, 980, 18}},
-		{idResetAll, Button, "resetAll", always, Rect{1004, 546, 176, 26}},
+		{idAutostart, Switch, "autostart", autostart, Rect{leftX, top, leftW, 24}, generalTab},
+		{idLanguageHeading, Heading, "language", always, Rect{leftX, top + 44, leftW, 18}, generalTab},
+		{idRussian, Choice, "", always, Rect{leftX, top + 66, 130, 28}, generalTab},
+		{idEnglish, Choice, "", always, Rect{leftX + 136, top + 66, 130, 28}, generalTab},
+		{idGitHub, Button, "", always, Rect{leftX, top + 112, 110, 28}, generalTab},
+		{idVersion, Hint, "", always, Rect{leftX + 122, top + 117, 200, 18}, generalTab},
+		{idRisk, Hint, "risk", always, Rect{leftX, top + 164, rightX + rightW - leftX, 18}, generalTab},
+		{idBorderless, Hint, "borderless", always, Rect{leftX, top + 186, rightX + rightW - leftX, 18}, generalTab},
+		{idResetAll, Button, "resetAll", always, Rect{leftX, top + 226, 240, 28}, generalTab},
 	}
 }
 
@@ -292,9 +317,9 @@ func knobSlot(slot, y int, group, word string) []Place {
 	id := idKnob + 3*slot
 
 	return []Place{
-		{id, Label, word, group, Rect{col2X, y + 4, 150, 18}},
-		{id + 1, Label, "", group, Rect{col2X + 296, y + 4, col2W - 296, 18}},
-		{id + 2, Slider, "", group, Rect{col2X + 154, y, 136, 26}},
+		{id, Label, word, group, Rect{leftX, y + 6, 150, 18}, crosshairTab},
+		{id + 1, Label, "", group, Rect{leftX + 370, y + 6, leftW - 370, 18}, crosshairTab},
+		{id + 2, Slider, "", group, Rect{leftX + 154, y, 210, 30}, crosshairTab},
 	}
 }
 

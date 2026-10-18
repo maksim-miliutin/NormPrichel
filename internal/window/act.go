@@ -48,6 +48,12 @@ func (a Actions) Click(id int) error {
 	if language, ok := languages[id]; ok {
 		return a.Form.SetLanguage(language)
 	}
+	for _, tab := range tabs {
+		if tab.id == id {
+			a.Form.OpenTab(tab.word)
+			return nil
+		}
+	}
 
 	switch id {
 	case idVisible:

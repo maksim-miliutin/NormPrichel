@@ -51,6 +51,31 @@ func TestTheWindowFitsA1280By720Screen(t *testing.T) {
 	}
 }
 
+func TestTheTabButtonsStandInOneRowAboveWhatTheyShow(t *testing.T) {
+	var buttons []window.Rect
+	lowest := 0
+	for _, p := range window.Places() {
+		if slices.Contains(tabWords, p.Word) {
+			buttons = append(buttons, p.Rect)
+			lowest = max(lowest, p.Rect.Y+p.Rect.H)
+		}
+	}
+
+	if len(buttons) != len(tabWords) {
+		t.Fatalf("%d tab buttons, want one for each of %v", len(buttons), tabWords)
+	}
+	for i := 1; i < len(buttons); i++ {
+		if b, before := buttons[i], buttons[i-1]; b.Y != before.Y || b.X < before.X+before.W {
+			t.Errorf("tab button %d at %+v is out of the row after %+v", i, b, before)
+		}
+	}
+	for _, p := range window.Places() {
+		if p.Tabs != 0 && p.Rect.Y < lowest {
+			t.Errorf("control %d of a tab at %+v stands up among the tab buttons", p.ID, p.Rect)
+		}
+	}
+}
+
 func TestEveryFixedWordIsThereInBothLanguages(t *testing.T) {
 	for _, language := range []string{"ru", "en"} {
 		for _, p := range window.Places() {

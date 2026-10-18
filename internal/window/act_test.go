@@ -59,6 +59,19 @@ func TestTheLanguageButtonsSwitchTheWordsOfTheWindow(t *testing.T) {
 	control(t, a, reading(settings.Word("ru", "addGame")))
 }
 
+func TestTheTabButtonsOpenTheirTabs(t *testing.T) {
+	a, _, _, _ := newActions(t, listed())
+
+	for _, word := range []string{"general", "hotkeys", "position", "crosshair"} {
+		if err := a.Click(control(t, a, worded(word))); err != nil {
+			t.Fatal(err)
+		}
+		if got := a.Form.Screen().Tab; got != word {
+			t.Errorf("after the %s button the open tab is %q", word, got)
+		}
+	}
+}
+
 func TestAGameIsRemovedOnlyOnceThePlayerAgrees(t *testing.T) {
 	a, state, _, p := newActions(t, listed())
 	remove := control(t, a, worded("remove"))

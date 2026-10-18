@@ -108,6 +108,12 @@ func (o opened) child(t *testing.T, match func(window.Control) bool) (uintptr, i
 	return hwnd, id
 }
 
+func (o opened) openTab(t *testing.T, word string) {
+	t.Helper()
+	button, _ := o.child(t, worded(word))
+	procSendMessageW.Call(button, bmClick, 0, 0)
+}
+
 func (o opened) command(id, code int, child uintptr) {
 	procSendMessageW.Call(o.window.Handle(), wmCommand, uintptr(code<<16|id), child)
 }
@@ -469,9 +475,28 @@ func shownOf(o opened, kind window.Kind) []window.Control {
 	return found
 }
 
+func TestATabButtonShowsItsTabAndHidesTheOthers(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	visible := func(word string) bool {
+		hwnd, _ := o.child(t, worded(word))
+		shown, _, _ := procIsWindowVisible.Call(hwnd)
+		return shown != 0
+	}
+
+	if !visible("copyCode") || visible("resetAll") {
+		t.Fatal("the window opens on a tab other than the crosshair")
+	}
+	o.openTab(t, "general")
+	if visible("copyCode") || !visible("resetAll") || !visible("addGame") {
+		t.Errorf("after the general tab: copy code %v, reset all %v, add a game %v", visible("copyCode"), visible("resetAll"), visible("addGame"))
+	}
+}
+
 func TestASwitchShowsThePictureOfItsState(t *testing.T) {
 	o := open(t, listed())
 	o.window.Show()
+	o.openTab(t, "position")
 	button, _ := o.child(t, worded("addGame"))
 	procSetFocus.Call(button)
 	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)

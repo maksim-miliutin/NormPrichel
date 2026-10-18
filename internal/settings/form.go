@@ -42,6 +42,7 @@ type Form struct {
 	WindowsLanguage string
 
 	chosen     string // the exe on show; one off the list shows the first game
+	tab        string // the part of the window on show; empty is its first
 	pictureTab string // the exe whose picture tab is open, even before a picture is added
 	far        bool   // the arrows move the crosshair ten pixels rather than one
 	problem    error  // the last refusal, nil once a change went through
@@ -61,6 +62,7 @@ type Screen struct {
 	Version   string
 	Language  string
 	Copied    bool
+	Tab       string
 }
 
 type HotkeyRow struct {
@@ -109,6 +111,7 @@ func (f *Form) Screen() Screen {
 		Version:   f.Version,
 		Language:  Language(current.Language, f.WindowsLanguage),
 		Copied:    f.copied,
+		Tab:       f.tab,
 	}
 
 	shown, ok := f.shown(current)
@@ -170,6 +173,10 @@ func (f *Form) gameView(game profiles.Game) *GameView {
 	}
 
 	return view
+}
+
+func (f *Form) OpenTab(tab string) {
+	f.tab = tab
 }
 
 func (f *Form) Choose(exe string) {

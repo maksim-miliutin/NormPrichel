@@ -48,11 +48,8 @@ type Tabs uint8
 
 const (
 	crosshairTab Tabs = 1 << iota
-	positionTab
 	hotkeysTab
 	generalTab
-
-	gameTabs = crosshairTab | positionTab
 )
 
 // The tab buttons in the order they stand; the settings keep the open tab under its word.
@@ -62,7 +59,6 @@ var tabs = []struct {
 	on   Tabs
 }{
 	{idTabCrosshair, "crosshair", crosshairTab},
-	{idTabPosition, "position", positionTab},
 	{idTabHotkeys, "hotkeys", hotkeysTab},
 	{idTabGeneral, "general", generalTab},
 }
@@ -83,7 +79,6 @@ type Place struct {
 const (
 	idVisible = 100 + iota
 	idTabCrosshair
-	idTabPosition
 	idTabHotkeys
 	idTabGeneral
 	idBarLine
@@ -120,7 +115,7 @@ const (
 	idSaveAs
 	idSaveName
 	idSave
-	idPositionHint
+	idPositionHeading
 	idXLabel
 	idX
 	idYLabel
@@ -183,7 +178,7 @@ func Size() (int, int) {
 func Places() []Place {
 	var places []Place
 	// Tab visits the places in this order: the bar at the top, the games, then each tab from the top.
-	for _, part := range [][]Place{topBar(), gamesColumn(), crosshairColumn(), previewColumn(), positionPage(), hotkeysPage(), generalPage()} {
+	for _, part := range [][]Place{topBar(), gamesColumn(), crosshairColumn(), positionRows(), previewColumn(), hotkeysPage(), generalPage()} {
 		places = append(places, part...)
 	}
 
@@ -219,14 +214,14 @@ func gamesColumn() []Place {
 
 func crosshairColumn() []Place {
 	places := []Place{
-		{idNoGames, Hint, "noGames", noGame, Rect{leftX, top, rightX + rightW - leftX, 40}, gameTabs},
+		{idNoGames, Hint, "noGames", noGame, Rect{leftX, top, rightX + rightW - leftX, 40}, crosshairTab},
 		{idReady, Choice, "readyMade", game, Rect{leftX, top, 150, 30}, crosshairTab},
 		{idPicture, Choice, "picture", game, Rect{leftX + 156, top, 170, 30}, crosshairTab},
 	}
 	for i := range shapeCount {
 		places = append(places, Place{idShape + i, Choice, "", ready, Rect{leftX + i%shapesPerRow*47, top + 42 + i/shapesPerRow*48, 44, 44}, crosshairTab})
 	}
-	colour := top + 42 + (shapeCount+shapesPerRow-1)/shapesPerRow*48
+	colour := colourRow()
 	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{leftX, colour + 5, 64, 18}, crosshairTab})
 	for i := range palette {
 		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{leftX + 68 + i*32, colour, 28, 28}, crosshairTab})
@@ -251,6 +246,10 @@ func crosshairColumn() []Place {
 	return append(places, knobSlot(knobSlots, top+134, picture, "scale")...)
 }
 
+func colourRow() int {
+	return top + 42 + (shapeCount+shapesPerRow-1)/shapesPerRow*48
+}
+
 func previewColumn() []Place {
 	return []Place{
 		{idPreviewHeading, Heading, "preview", game, Rect{rightX, top, rightW, 18}, crosshairTab},
@@ -270,20 +269,23 @@ func previewColumn() []Place {
 	}
 }
 
-func positionPage() []Place {
+// The offset belongs to the game, not to the look, so it stays under the knobs for a picture too.
+func positionRows() []Place {
+	y := colourRow() + 64 + knobSlots*30 + 12
+
 	return []Place{
-		{idPositionHint, Hint, "positionHint", game, Rect{leftX, top, leftW, 34}, positionTab},
-		{idXLabel, Label, "", game, Rect{leftX, top + 49, 14, 18}, positionTab},
-		{idX, Edit, "", game, Rect{leftX + 18, top + 44, 76, 28}, positionTab},
-		{idYLabel, Label, "", game, Rect{leftX + 108, top + 49, 14, 18}, positionTab},
-		{idY, Edit, "", game, Rect{leftX + 126, top + 44, 76, 28}, positionTab},
-		{idCentre, Button, "centre", game, Rect{leftX + 216, top + 44, 120, 28}, positionTab},
-		{idLeft, Button, "", game, Rect{leftX, top + 82, 34, 30}, positionTab},
-		{idUp, Button, "", game, Rect{leftX + 40, top + 82, 34, 30}, positionTab},
-		{idDown, Button, "", game, Rect{leftX + 80, top + 82, 34, 30}, positionTab},
-		{idRight, Button, "", game, Rect{leftX + 120, top + 82, 34, 30}, positionTab},
-		{idNear, Choice, "", game, Rect{leftX + 170, top + 82, 76, 30}, positionTab},
-		{idFar, Choice, "", game, Rect{leftX + 252, top + 82, 84, 30}, positionTab},
+		{idPositionHeading, Heading, "position", game, Rect{leftX, y, leftW, 18}, crosshairTab},
+		{idXLabel, Label, "", game, Rect{leftX, y + 27, 14, 18}, crosshairTab},
+		{idX, Edit, "", game, Rect{leftX + 18, y + 22, 76, 28}, crosshairTab},
+		{idYLabel, Label, "", game, Rect{leftX + 108, y + 27, 14, 18}, crosshairTab},
+		{idY, Edit, "", game, Rect{leftX + 126, y + 22, 76, 28}, crosshairTab},
+		{idCentre, Button, "centre", game, Rect{leftX + 216, y + 22, 120, 28}, crosshairTab},
+		{idLeft, Button, "", game, Rect{leftX, y + 58, 34, 30}, crosshairTab},
+		{idUp, Button, "", game, Rect{leftX + 40, y + 58, 34, 30}, crosshairTab},
+		{idDown, Button, "", game, Rect{leftX + 80, y + 58, 34, 30}, crosshairTab},
+		{idRight, Button, "", game, Rect{leftX + 120, y + 58, 34, 30}, crosshairTab},
+		{idNear, Choice, "", game, Rect{leftX + 170, y + 58, 76, 30}, crosshairTab},
+		{idFar, Choice, "", game, Rect{leftX + 252, y + 58, 84, 30}, crosshairTab},
 	}
 }
 

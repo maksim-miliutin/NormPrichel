@@ -107,15 +107,15 @@ func TestTheOpenTabStaysWhileGamesChangeAndThroughAReset(t *testing.T) {
 		t.Fatalf("before any tab is opened the screen names %q, want none", got)
 	}
 
-	form.OpenTab("position")
+	form.OpenTab("hotkeys")
 	form.Choose("other.exe")
-	if got := form.Screen().Tab; got != "position" {
-		t.Errorf("after choosing another game the tab is %q, want position", got)
+	if got := form.Screen().Tab; got != "hotkeys" {
+		t.Errorf("after choosing another game the tab is %q, want hotkeys", got)
 	}
 	if err := form.ResetAll(); err != nil {
 		t.Fatal(err)
 	}
-	if got := form.Screen().Tab; got != "position" {
+	if got := form.Screen().Tab; got != "hotkeys" {
 		t.Errorf("after the reset the tab is %q, want the one the player is on", got)
 	}
 }

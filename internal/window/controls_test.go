@@ -14,7 +14,7 @@ import (
 )
 
 // The words the tabs are kept under, in the order their buttons stand.
-var tabWords = []string{"crosshair", "position", "hotkeys", "general"}
+var tabWords = []string{"crosshair", "hotkeys", "general"}
 
 func words(key string) string {
 	return settings.Word("ru", key)
@@ -130,7 +130,6 @@ func TestShownControlsNeverOverlapWhateverTheScreen(t *testing.T) {
 func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 	own := map[string][]string{
 		"crosshair": {"noGames"},
-		"position":  {"noGames"},
 		"hotkeys":   {"hotkeysHint"},
 		"general":   {"risk", "resetAll"},
 	}
@@ -144,7 +143,7 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 				t.Errorf("%s: %q is hidden", tab, word)
 			}
 		}
-		for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "preview", "positionHint", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
+		for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "preview", "position", "centre", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
 			if withWord(t, controls, word).Shown {
 				t.Errorf("%s: %q shows with no game to apply it to", tab, word)
 			}
@@ -160,8 +159,7 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 
 func TestOnlyTheOpenTabShowsAndItsButtonIsDown(t *testing.T) {
 	holds := map[string][]string{
-		"crosshair": {"readyMade", "preview", "copyCode", "saved"},
-		"position":  {"positionHint", "centre"},
+		"crosshair": {"readyMade", "preview", "copyCode", "saved", "position", "centre"},
 		"hotkeys":   {"hotkeysHint"},
 		"general":   {"autostart", "language", "risk", "resetAll"},
 	}
@@ -299,20 +297,15 @@ func TestTheSwatchesOfferReadyColoursAndMarkTheOneInUse(t *testing.T) {
 func TestTheChosenShapeTabAndStepAreTheOnesDown(t *testing.T) {
 	screen := gameScreen(crosshair.Circle)
 	screen.FarStep = true
-	for tab, want := range map[string][]string{
-		"crosshair": {words("readyMade"), words("shape.circle")},
-		"position":  {"10 px"},
-	} {
-		screen.Tab = tab
-		var down []string
-		for _, c := range shownOnly(ofKind(window.Controls(screen, words), window.Choice)) {
-			if c.On {
-				down = append(down, c.Text)
-			}
+	var down []string
+	for _, c := range shownOnly(ofKind(window.Controls(screen, words), window.Choice)) {
+		if c.On {
+			down = append(down, c.Text)
 		}
-		if !slices.Equal(down, want) {
-			t.Errorf("%s: down %q, want %q", tab, down, want)
-		}
+	}
+
+	if want := []string{words("readyMade"), words("shape.circle"), "10 px"}; !slices.Equal(down, want) {
+		t.Errorf("down %q, want %q", down, want)
 	}
 }
 
@@ -444,8 +437,6 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 		t.Errorf("the colour squares show %v and %v, want %v and %v", squares[0].Colour, squares[1].Colour, screen.Game.Crosshair.Color, screen.Game.Crosshair.Outline.Color)
 	}
 
-	screen.Tab = "position"
-	controls = window.Controls(screen, words)
 	for _, text := range []string{"3", "-7"} {
 		if !withText(t, controls, text).Shown {
 			t.Errorf("%q is hidden", text)

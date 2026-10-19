@@ -496,7 +496,6 @@ func TestATabButtonShowsItsTabAndHidesTheOthers(t *testing.T) {
 func TestASwitchShowsThePictureOfItsState(t *testing.T) {
 	o := open(t, listed())
 	o.window.Show()
-	o.openTab(t, "position")
 	button, _ := o.child(t, worded("addGame"))
 	procSetFocus.Call(button)
 	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)

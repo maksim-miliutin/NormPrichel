@@ -507,3 +507,14 @@ func TestTheCornerAndOutlineChoicesShowTheCrosshairAndHideWhereTheyDoNothing(t *
 		t.Error("the shadow hides for a circle, which has an outline")
 	}
 }
+
+func TestTheShapeButtonsDrawWithTheCornersOfTheCrosshair(t *testing.T) {
+	screen := gameScreen(crosshair.Cross)
+	screen.Game.Crosshair.Corners = crosshair.Soft
+
+	for _, c := range window.Controls(screen, words) {
+		if c.Shape != "" && c.Corners != crosshair.Soft {
+			t.Errorf("the %s button draws with %q corners, want soft", c.Shape, c.Corners)
+		}
+	}
+}

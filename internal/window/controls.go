@@ -30,15 +30,16 @@ var cornerChoices = map[int]crosshair.Corners{idSharp: crosshair.Sharp, idSoft: 
 
 type Control struct {
 	Place
-	Text   string
-	Shown  bool
-	On     bool // a switch that is on, a choice that is made, a hotkey another program holds
-	Rows   []string
-	Row    int // the chosen row of a list; -1 leaves the choice to the player
-	Colour crosshair.RGB
-	Shape  crosshair.Shape // the shape a button draws instead of words
-	Knob   settings.KnobView
-	Typed  bool // the player's own words, which no change of the settings overwrites
+	Text    string
+	Shown   bool
+	On      bool // a switch that is on, a choice that is made, a hotkey another program holds
+	Rows    []string
+	Row     int // the chosen row of a list; -1 leaves the choice to the player
+	Colour  crosshair.RGB
+	Shape   crosshair.Shape // the shape a button draws instead of words
+	Corners crosshair.Corners
+	Knob    settings.KnobView
+	Typed   bool // the player's own words, which no change of the settings overwrites
 }
 
 func Controls(screen settings.Screen, word func(string) string) []Control {
@@ -84,6 +85,7 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		case isShape:
 			shape := crosshair.Shapes()[shapeIndex]
 			c.Text, c.Shape, c.On = word("shape."+string(shape)), shape, view.Crosshair.Shape == shape
+			c.Corners = view.Crosshair.Corners
 		default:
 			c = filled(c, screen, view, word)
 		}

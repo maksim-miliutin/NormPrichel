@@ -484,3 +484,25 @@ func TestTheGitHubButtonOpensTheRepository(t *testing.T) {
 		t.Errorf("visited %q", p.visited)
 	}
 }
+
+func TestTheCornerAndOutlineChoicesSetTheCrosshair(t *testing.T) {
+	a, state, _, _ := newActions(t, listed())
+
+	for _, word := range []string{"corners.soft", "outline.shadow"} {
+		if err := a.Click(control(t, a, worded(word))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if c := first(t, state.Current()).Crosshair; c.Corners != crosshair.Soft || !c.Outline.Shadow {
+		t.Errorf("after soft and shadow the crosshair has %q corners and shadow %v", c.Corners, c.Outline.Shadow)
+	}
+
+	for _, word := range []string{"corners.round", "outline.line", "corners.sharp"} {
+		if err := a.Click(control(t, a, worded(word))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if c := first(t, state.Current()).Crosshair; c.Corners != crosshair.Sharp || c.Outline.Shadow {
+		t.Errorf("after round, line and sharp the crosshair has %q corners and shadow %v", c.Corners, c.Outline.Shadow)
+	}
+}

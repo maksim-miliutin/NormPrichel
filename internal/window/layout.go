@@ -35,6 +35,7 @@ const (
 	game      = "game"
 	noGame    = "no-game"
 	ready     = "ready"
+	rounds    = "rounds"
 	picture   = "picture"
 	saved     = "saved"
 	noSaved   = "no-saved"
@@ -98,7 +99,13 @@ const (
 	idColorLabel
 	idColor
 	idOutlineLabel
+	idLine
+	idShadow
 	idOutlineColor
+	idCornersLabel
+	idSharp
+	idSoft
+	idRound
 	idUploadHint
 	idUpload
 	idPreviewHeading
@@ -228,15 +235,23 @@ func crosshairColumn() []Place {
 	}
 	places = append(places,
 		Place{idColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour, 28, 28}, crosshairTab},
-		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{leftX, colour + 35, 220, 18}, crosshairTab},
+		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{leftX, colour + 35, 64, 18}, crosshairTab},
+		Place{idLine, Choice, "outline.line", ready, Rect{leftX + 68, colour + 30, 80, 28}, crosshairTab},
+		Place{idShadow, Choice, "outline.shadow", ready, Rect{leftX + 154, colour + 30, 80, 28}, crosshairTab},
 	)
 	for i := range outlinePalette {
 		x := leftX + 68 + (len(palette)-len(outlinePalette)+i)*32
 		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, colour + 30, 28, 28}, crosshairTab})
 	}
-	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab})
+	places = append(places,
+		Place{idOutlineColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab},
+		Place{idCornersLabel, Label, "corners", rounds, Rect{leftX, colour + 69, 64, 18}, crosshairTab},
+	)
+	for i, word := range []string{"corners.sharp", "corners.soft", "corners.round"} {
+		places = append(places, Place{idSharp + i, Choice, word, rounds, Rect{leftX + 68 + i*102, colour + 64, 96, 28}, crosshairTab})
+	}
 	for i := range knobSlots {
-		places = append(places, knobSlot(i, colour+64+i*30, ready, "")...)
+		places = append(places, knobSlot(i, knobsTop()+i*30, ready, "")...)
 	}
 	places = append(places,
 		Place{idUploadHint, Hint, "uploadHint", picture, Rect{leftX, top + 42, leftW, 50}, crosshairTab},
@@ -248,6 +263,10 @@ func crosshairColumn() []Place {
 
 func colourRow() int {
 	return top + 42 + (shapeCount+shapesPerRow-1)/shapesPerRow*48
+}
+
+func knobsTop() int {
+	return colourRow() + 98
 }
 
 func previewColumn() []Place {
@@ -271,7 +290,7 @@ func previewColumn() []Place {
 
 // The offset belongs to the game, not to the look, so it stays under the knobs for a picture too.
 func positionRows() []Place {
-	y := colourRow() + 64 + knobSlots*30 + 12
+	y := knobsTop() + knobSlots*30 + 12
 
 	return []Place{
 		{idPositionHeading, Heading, "position", game, Rect{leftX, y, leftW, 18}, crosshairTab},

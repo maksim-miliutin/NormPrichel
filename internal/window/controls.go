@@ -26,6 +26,8 @@ var (
 // Each language is named in itself, so a player lost in the other one still finds their own.
 var languages = map[int]string{idRussian: "ru", idEnglish: "en"}
 
+var cornerChoices = map[int]crosshair.Corners{idSharp: crosshair.Sharp, idSoft: crosshair.Soft, idRound: crosshair.Round}
+
 type Control struct {
 	Place
 	Text   string
@@ -46,6 +48,7 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		game:      view != nil,
 		noGame:    view == nil,
 		ready:     view != nil && !view.Picture,
+		rounds:    view != nil && !view.Picture && crosshair.Rounds(view.Crosshair.Shape),
 		picture:   view != nil && view.Picture,
 		saved:     view != nil && len(screen.Saved) > 0,
 		noSaved:   view != nil && len(screen.Saved) == 0,
@@ -137,6 +140,10 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 		c.On = screen.FarStep
 	case idAimHide:
 		c.On = view.HideWhileAiming
+	case idLine, idShadow:
+		c.On = view.Crosshair.Outline.Shadow == (c.ID == idShadow)
+	case idSharp, idSoft, idRound:
+		c.On = view.Crosshair.Corners == cornerChoices[c.ID]
 	case idCopyCode:
 		c.On = screen.Copied
 		if c.On {

@@ -304,7 +304,7 @@ func TestTheChosenShapeTabAndStepAreTheOnesDown(t *testing.T) {
 		}
 	}
 
-	if want := []string{words("readyMade"), words("shape.circle"), "10 px"}; !slices.Equal(down, want) {
+	if want := []string{words("readyMade"), words("shape.circle"), words("outline.line"), "10 px"}; !slices.Equal(down, want) {
 		t.Errorf("down %q, want %q", down, want)
 	}
 }
@@ -483,5 +483,27 @@ func TestOnlyTheNameToSaveUnderIsThePlayersOwn(t *testing.T) {
 	}
 	if save := withWord(t, controls, "saveCurrent"); len(typed) != 1 || typed[0] != save.ID-1 {
 		t.Errorf("the player's own fields are %v, want the one before the save button", typed)
+	}
+}
+
+func TestTheCornerAndOutlineChoicesShowTheCrosshairAndHideWhereTheyDoNothing(t *testing.T) {
+	screen := gameScreen(crosshair.Cross)
+	screen.Game.Crosshair.Corners, screen.Game.Crosshair.Outline.Shadow = crosshair.Round, true
+	controls := window.Controls(screen, words)
+
+	for word, on := range map[string]bool{"corners.sharp": false, "corners.soft": false, "corners.round": true, "outline.line": false, "outline.shadow": true} {
+		if c := withWord(t, controls, word); !c.Shown || c.On != on {
+			t.Errorf("%s shows %v and is down %v, want shown and down %v", word, c.Shown, c.On, on)
+		}
+	}
+
+	controls = window.Controls(gameScreen(crosshair.Circle), words)
+	for _, word := range []string{"corners", "corners.sharp", "corners.round"} {
+		if withWord(t, controls, word).Shown {
+			t.Errorf("%s shows for a circle, which has no corners", word)
+		}
+	}
+	if !withWord(t, controls, "outline.shadow").Shown {
+		t.Error("the shadow hides for a circle, which has an outline")
 	}
 }

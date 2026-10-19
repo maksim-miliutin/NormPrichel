@@ -13,10 +13,12 @@ const (
 	Round Corners = "round"
 )
 
-var rounders = []struct {
+type rounder struct {
 	shape  Shape
 	figure func(s Style, sharp parts) figure
-}{
+}
+
+var rounders = []rounder{
 	{Dot, boxesOf}, {Cross, boxesOf}, {CrossDot, boxesOf}, {Tee, boxesOf}, {Dots, boxesOf}, {CircleDot, boxesOf}, {CircleCross, boxesOf},
 	{Square, framed{}.figure},
 	{SquareDot, framed{dotted: true}.figure},
@@ -34,6 +36,10 @@ var rounders = []struct {
 		half := (s.Radius + base) / 2
 		return polygonOf(s, []point{{0, -s.Radius}, {half, base}, {-half, base}})
 	}},
+}
+
+func Rounds(shape Shape) bool {
+	return slices.ContainsFunc(rounders, func(r rounder) bool { return r.shape == shape })
 }
 
 func roundedFigure(s Style, sharp parts) (figure, bool) {

@@ -185,7 +185,7 @@ func TestTheColourRowStartsRightUnderTheLastRowOfShapes(t *testing.T) {
 		switch {
 		case p.Word == "color":
 			colour = p.Rect
-		case p.Kind == window.Choice && p.Group == "ready":
+		case p.Kind == window.Choice && p.Group == "ready" && p.Word == "":
 			bottom = max(bottom, p.Rect.Y+p.Rect.H)
 		}
 	}
@@ -195,8 +195,8 @@ func TestTheColourRowStartsRightUnderTheLastRowOfShapes(t *testing.T) {
 	}
 }
 
-func TestTheOutlineColourSitsUnderTheColourAndTheKnobsFollowWithoutGaps(t *testing.T) {
-	var colour, outline window.Rect
+func TestTheOutlineAndCornersSitUnderTheColourAndTheKnobsFollowWithoutGaps(t *testing.T) {
+	var colour, outline, corners window.Rect
 	var sliders []window.Rect
 	for _, p := range window.Places() {
 		switch {
@@ -204,6 +204,8 @@ func TestTheOutlineColourSitsUnderTheColourAndTheKnobsFollowWithoutGaps(t *testi
 			colour = p.Rect
 		case p.Word == "outlineColor":
 			outline = p.Rect
+		case p.Word == "corners":
+			corners = p.Rect
 		case p.Kind == window.Slider && p.Group == "ready":
 			sliders = append(sliders, p.Rect)
 		}
@@ -216,8 +218,11 @@ func TestTheOutlineColourSitsUnderTheColourAndTheKnobsFollowWithoutGaps(t *testi
 	if gap := outline.Y - (colour.Y + colour.H); gap < 0 || gap > 12 {
 		t.Errorf("the outline colour starts %d pixels below the colour", gap)
 	}
-	if gap := sliders[0].Y - (outline.Y + outline.H); gap < 0 || gap > 12 {
-		t.Errorf("the first knob starts %d pixels below the outline colour", gap)
+	if gap := corners.Y - (outline.Y + outline.H); gap < 0 || gap > 18 {
+		t.Errorf("the corners start %d pixels below the outline colour", gap)
+	}
+	if gap := sliders[0].Y - (corners.Y + corners.H); gap < 0 || gap > 18 {
+		t.Errorf("the first knob starts %d pixels below the corners", gap)
 	}
 	for i := 1; i < len(sliders); i++ {
 		if gap := sliders[i].Y - (sliders[i-1].Y + sliders[i-1].H); gap != 0 {

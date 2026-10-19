@@ -38,6 +38,7 @@ var (
 	procMonitorFromWindow        = user32.NewProc("MonitorFromWindow")
 	procGetMonitorInfoW          = user32.NewProc("GetMonitorInfoW")
 	procGetCursorPos             = user32.NewProc("GetCursorPos")
+	procTrackMouseEvent          = user32.NewProc("TrackMouseEvent")
 	procSendMessageW             = user32.NewProc("SendMessageW")
 	procSetWindowTextW           = user32.NewProc("SetWindowTextW")
 	procGetWindowTextW           = user32.NewProc("GetWindowTextW")
@@ -106,7 +107,10 @@ const (
 	wmLButtonDown     = 0x0201
 	wmLButtonUp       = 0x0202
 	wmQueryUIState    = 0x0129
+	wmMouseLeave      = 0x02A3
 	wmDpiChanged      = 0x02E0
+
+	tmeLeave = 0x00000002
 
 	waInactive = 0
 
@@ -190,6 +194,13 @@ type point struct {
 	X, Y int32
 }
 
+type trackMouseEvent struct {
+	Size      uint32
+	Flags     uint32
+	Track     uintptr
+	HoverTime uint32
+}
+
 type monitorInfo struct {
 	Size    uint32
 	Monitor rect
@@ -210,7 +221,7 @@ type measureItem struct {
 // and they reach the window through running.
 var (
 	procedures = sync.OnceValue(func() callbacks {
-		return callbacks{windows.NewCallback(windowProc), windows.NewCallback(sliderProc), windows.NewCallback(hotkeyProc)}
+		return callbacks{windows.NewCallback(windowProc), windows.NewCallback(sliderProc), windows.NewCallback(hotkeyProc), windows.NewCallback(buttonProc)}
 	})
 	running *Window
 
@@ -220,7 +231,7 @@ var (
 )
 
 type callbacks struct {
-	window, slider, hotkey uintptr
+	window, slider, hotkey, button uintptr
 }
 
 type Window struct {
@@ -236,7 +247,8 @@ type Window struct {
 	ids        map[uintptr]int
 	places     map[int]Place
 	shown      map[int]Control
-	ownProcs   map[uintptr]uintptr // the hotkey fields' own procedures, under ours
+	ownProcs   map[uintptr]uintptr // the own procedures of the fields and buttons we listen to first
+	hot        int                 // the button under the mouse; zero while none is
 	focus      uintptr             // the control that had the keys when the window went to the back
 	previews   *previews
 	shapeIcons map[iconKey][]byte
@@ -398,6 +410,10 @@ func (w *Window) makeChild(p Place, instance windows.Handle) error {
 	if limit, ok := limits[p.ID]; ok {
 		procSendMessageW.Call(hwnd, emSetLimitText, limit, 0)
 	}
+	if slices.Contains(pressable, p.Kind) {
+		own, _, _ := procSetWindowLongPtrW.Call(hwnd, gwlpWndProc, procedures().button)
+		w.ownProcs[hwnd] = own
+	}
 	if p.Kind == Hotkey {
 		own, _, _ := procSetWindowLongPtrW.Call(hwnd, gwlpWndProc, procedures().hotkey)
 		w.ownProcs[hwnd] = own
@@ -550,6 +566,9 @@ func (w *Window) refresh(everyField bool) {
 		}
 		if !seen || old.Shown != c.Shown {
 			procShowWindow.Call(hwnd, showing(c.Shown))
+		}
+		if !c.Shown && w.hot == c.ID {
+			w.hot = 0
 		}
 		if framed(c.Kind) && (!seen || old.Shown != c.Shown || old.On != c.On) {
 			w.reframe(c.ID)
@@ -811,6 +830,35 @@ func hotkeyProc(hwnd, message, wparam, lparam uintptr) uintptr {
 	result, _, _ := procCallWindowProcW.Call(own, hwnd, message, wparam, lparam)
 
 	return result
+}
+
+// Windows tells a button nothing when the mouse comes and goes: it asks for the leaving itself, and
+// a leaving that comes after the next button already lit must not put that one out.
+func buttonProc(hwnd, message, wparam, lparam uintptr) uintptr {
+	w := running
+	id := w.ids[hwnd]
+	switch {
+	case message == wmMouseMove && w.hot != id:
+		track := trackMouseEvent{Flags: tmeLeave, Track: hwnd}
+		track.Size = uint32(unsafe.Sizeof(track))
+		procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&track)))
+		w.light(id)
+	case message == wmMouseLeave && w.hot == id:
+		w.light(0)
+	}
+
+	result, _, _ := procCallWindowProcW.Call(w.ownProcs[hwnd], hwnd, message, wparam, lparam)
+
+	return result
+}
+
+func (w *Window) light(id int) {
+	for _, changed := range []int{w.hot, id} {
+		if child := w.children[changed]; child != 0 {
+			procInvalidateRect.Call(child, 0, 0)
+		}
+	}
+	w.hot = id
 }
 
 // The same flags as RegisterHotKey's.

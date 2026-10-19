@@ -111,10 +111,7 @@ func (w *Window) draw(item *drawItem) {
 		w.drawSwatch(item, c)
 	default:
 		chosen := c.On || item.ItemState&odsSelected != 0
-		words, paper, edge := ink, field, seam
-		if chosen {
-			words, paper, edge = onSignal, signal, signal
-		}
+		words, paper, edge := face(chosen, c.ID == w.hot)
 		w.plate(dc, r, w.focused(item, Plate{Radius: scaled(4, w.dpi), Fill: paper, Edge: edge, Width: 1, Back: ground}))
 		if c.Shape != "" {
 			w.drawIcon(dc, r, c.Shape, chosen)
@@ -200,14 +197,13 @@ func (w *Window) drawSwitch(item *drawItem, c Control) {
 func (w *Window) drawTab(item *drawItem, c Control) {
 	dc, r := item.DC, item.Rect
 	line := int32(scaled(3, w.dpi))
-	words, colour := rect{r.Left, r.Top, r.Right, r.Bottom - line}, ash
+	words := rect{r.Left, r.Top, r.Right, r.Bottom - line}
 	fill(dc, r, ground)
 	if c.On {
 		fill(dc, rect{r.Left, r.Bottom - line, r.Right, r.Bottom}, signal)
 		procSelectObject.Call(dc, w.bold)
-		colour = ink
 	}
-	text(dc, words, c.Text, colour, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
+	text(dc, words, c.Text, tabInk(c.On, c.ID == w.hot), dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
 	focusRing(dc, item, r)
 }
 

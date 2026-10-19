@@ -12,18 +12,46 @@ var ErrBadCode = errors.New("crosshair: this is not a crosshair code")
 
 // A code carries a style in one line through a chat or a web address: dots between the fields,
 // since shape names hold dashes, and colours without the # that would cut an address short.
-const codeVersion = "np1"
+const (
+	codeVersion    = "np1"
+	roundedVersion = "np2"
+)
+
+var cornerWords = map[string]Corners{"sharp": Sharp, "soft": Soft, "round": Round}
 
 func (s Style) Code() string {
 	c := s.clamped()
-
-	return fmt.Sprintf("%s.%s.%s.%d.%d.%d.%d.%d.%d.%d.%s", codeVersion, c.Shape, hexOf(c.Color),
+	code := fmt.Sprintf("%s.%s.%s.%d.%d.%d.%d.%d.%d.%d.%s", codeVersion, c.Shape, hexOf(c.Color),
 		c.Opacity, c.Length, c.Thickness, c.Gap, c.Radius, c.DotSize, c.Outline.Width, hexOf(c.Outline.Color))
+	// Older copies of the program and the gallery read the first version only.
+	if c.Corners == Sharp && !c.Outline.Shadow {
+		return code
+	}
+
+	corners, outline := "sharp", "line"
+	if c.Corners != Sharp {
+		corners = string(c.Corners)
+	}
+	if c.Outline.Shadow {
+		outline = "shadow"
+	}
+
+	return roundedVersion + strings.TrimPrefix(code, codeVersion) + "." + corners + "." + outline
 }
 
 func ParseCode(text string) (Style, error) {
 	fields := strings.Split(strings.TrimSpace(text), ".")
-	if len(fields) != 11 || !strings.EqualFold(fields[0], codeVersion) || !slices.Contains(Shapes(), Shape(fields[1])) {
+	rounded := len(fields) == 13 && strings.EqualFold(fields[0], roundedVersion)
+	plain := len(fields) == 11 && strings.EqualFold(fields[0], codeVersion)
+	if !rounded && !plain || !slices.Contains(Shapes(), Shape(fields[1])) {
+		return Style{}, fmt.Errorf("%w: %q", ErrBadCode, text)
+	}
+	corners, outline, known := Sharp, "line", true
+	if rounded {
+		corners, known = cornerWords[strings.ToLower(fields[11])]
+		outline = strings.ToLower(fields[12])
+	}
+	if !known || outline != "line" && outline != "shadow" {
 		return Style{}, fmt.Errorf("%w: %q", ErrBadCode, text)
 	}
 
@@ -35,7 +63,8 @@ func ParseCode(text string) (Style, error) {
 	}
 	s := Style{
 		Shape: Shape(fields[1]), Color: colour, Opacity: values[0], Length: values[1], Thickness: values[2],
-		Gap: values[3], Radius: values[4], DotSize: values[5], Outline: Outline{Width: values[6], Color: edge},
+		Gap: values[3], Radius: values[4], DotSize: values[5], Corners: corners,
+		Outline: Outline{Width: values[6], Color: edge, Shadow: outline == "shadow"},
 	}
 
 	return s.clamped(), nil

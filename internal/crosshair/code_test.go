@@ -68,9 +68,45 @@ func TestWhatIsNotACrosshairCodeIsRefused(t *testing.T) {
 		"np1.cross-dot.00FF66.100.8.2.3.10.2.1.00000G",
 		"np1.cross-dot.00FF66.1000.8.2.3.10.2.1.000000",
 		"np1.cross-dot.00FF66.100..2.3.10.2.1.000000",
+		"np1.cross-dot.00FF66.100.8.2.3.10.2.1.000000.round.shadow",
+		"np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.round",
+		"np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.squircle.line",
+		"np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.round.glow",
 	} {
 		if _, err := crosshair.ParseCode(text); !errors.Is(err, crosshair.ErrBadCode) {
 			t.Errorf("%q gives %v, want ErrBadCode", text, err)
 		}
+	}
+}
+
+func TestRoundingAndAShadowGoIntoASecondVersionOfTheCode(t *testing.T) {
+	style := crosshair.Default()
+	style.Corners, style.Outline.Shadow = crosshair.Round, true
+	if got, want := style.Code(), "np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.round.shadow"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+
+	style.Corners, style.Outline.Shadow = crosshair.Soft, false
+	if got, want := style.Code(), "np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.soft.line"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestEveryCornerAndOutlineComesBackFromItsCode(t *testing.T) {
+	for _, corners := range []crosshair.Corners{crosshair.Sharp, crosshair.Soft, crosshair.Round} {
+		for _, shadow := range []bool{false, true} {
+			style := crosshair.Default()
+			style.Corners, style.Outline.Shadow = corners, shadow
+
+			got, err := crosshair.ParseCode(style.Code())
+			if err != nil || got != style {
+				t.Errorf("the code %q gives back %+v, %v; want %+v", style.Code(), got, err, style)
+			}
+		}
+	}
+
+	got, err := crosshair.ParseCode("NP2.cross-dot.00ff66.100.8.2.3.10.2.1.000000.SHARP.Line")
+	if err != nil || got != crosshair.Default() {
+		t.Errorf("a second version code of a plain crosshair gives %+v, %v; want the default", got, err)
 	}
 }

@@ -4,13 +4,17 @@ import (
 	"encoding/json"
 	"image"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 )
 
-var roundedShapes = []crosshair.Shape{crosshair.Dot, crosshair.Cross, crosshair.CrossDot, crosshair.Tee, crosshair.Dots, crosshair.CircleDot, crosshair.CircleCross}
+var (
+	boxShapes     = []crosshair.Shape{crosshair.Dot, crosshair.Cross, crosshair.CrossDot, crosshair.Tee, crosshair.Dots, crosshair.CircleDot, crosshair.CircleCross}
+	roundedShapes = append(slices.Clone(boxShapes), crosshair.X, crosshair.XDot, crosshair.Chevron)
+)
 
 func draw(t *testing.T, style crosshair.Style) *image.RGBA {
 	t.Helper()
@@ -34,6 +38,11 @@ func area(img *image.RGBA) float64 {
 
 func near(got, want float64) bool {
 	return math.Abs(got-want) <= 0.01*want
+}
+
+// Across a slant the square grid of samples is coarser, so a slanted edge is counted less finely.
+func nearSlanted(got, want float64) bool {
+	return math.Abs(got-want) <= 0.02*want
 }
 
 func TestCornersStaySharpUnlessChosenAndKeepOutOfOldFiles(t *testing.T) {
@@ -72,7 +81,7 @@ func TestCornersOfAnUnknownKindDrawSharp(t *testing.T) {
 }
 
 func TestRoundingOnlyEverTakesAwayFromTheSharpShape(t *testing.T) {
-	for _, shape := range roundedShapes {
+	for _, shape := range boxShapes {
 		for i, style := range styles(shape) {
 			if i%23 != 0 {
 				continue
@@ -140,7 +149,7 @@ func TestRoundedShapesMirrorAsTheSharpOnesDo(t *testing.T) {
 				if !same(img, mirrored(img)) {
 					t.Errorf("%+v is not symmetric left to right", style)
 				}
-				if shape != crosshair.Tee && !same(img, transposed(img)) {
+				if shape != crosshair.Tee && shape != crosshair.Chevron && !same(img, transposed(img)) {
 					t.Errorf("%+v is not symmetric along the diagonal", style)
 				}
 			}
@@ -158,5 +167,61 @@ func TestEveryRoundedShapeLosesItsCorners(t *testing.T) {
 				t.Errorf("%s with %s corners covers %.2f pixels, want fewer than the sharp %.2f", shape, corners, got, area(sharp))
 			}
 		}
+	}
+}
+
+func TestARoundDiagonalArmIsASmoothCapsuleWithinTheSharpSize(t *testing.T) {
+	for _, thickness := range []int{2, 3, 4} {
+		style := crosshair.Style{Shape: crosshair.X, Color: white, Opacity: 100, Length: 10, Thickness: thickness, Gap: 4}
+		sharp := draw(t, style)
+		style.Corners = crosshair.Round
+		round := draw(t, style)
+		w := float64(thickness)
+		want := 4 * (9*math.Sqrt2*w + math.Pi*w*w/4)
+
+		if got := area(round); !nearSlanted(got, want) {
+			t.Errorf("thickness %d: the arms cover %.2f pixels, want %.2f", thickness, got, want)
+		}
+		if round.Bounds() != sharp.Bounds() {
+			t.Errorf("thickness %d: the round cross is %v, want the size of the sharp %v", thickness, round.Bounds(), sharp.Bounds())
+		}
+	}
+}
+
+func TestASoftDiagonalArmIsABoxWithItsCornersRoundedOff(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.X, Color: white, Opacity: 100, Length: 10, Thickness: 4, Gap: 4, Corners: crosshair.Soft}
+	want := 4 * ((9*math.Sqrt2+4)*4 - 4*(1-math.Pi/4))
+
+	if got := area(draw(t, style)); !nearSlanted(got, want) {
+		t.Errorf("the arms cover %.2f pixels, want %.2f", got, want)
+	}
+}
+
+func TestTheArmsOfARoundChevronMeetInARoundTip(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Chevron, Color: white, Opacity: 100, Length: 8, Thickness: 4, Gap: 3, Corners: crosshair.Round}
+	img := draw(t, style)
+	middle := img.Bounds().Dx() / 2
+
+	if a := img.RGBAAt(middle, middle).A; a != 255 {
+		t.Errorf("the tip is covered %d of 255, want fully", a)
+	}
+	above := img.RGBAAt(middle, middle-2).A
+	if above == 0 || above == 255 {
+		t.Errorf("past the tip the cover is %d of 255, want the edge of a round cap", above)
+	}
+}
+
+func TestARoundDiagonalCrossKeepsItsDotAndTheBareOneItsHole(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.XDot, Color: white, Opacity: 100, Length: 8, Thickness: 4, Gap: 4, DotSize: 4, Corners: crosshair.Round}
+	dotted := draw(t, style)
+	style.Shape = crosshair.X
+	bare := draw(t, style)
+	middle := dotted.Bounds().Dx() / 2
+
+	if a := dotted.RGBAAt(middle, middle).A; a != 255 {
+		t.Errorf("the middle of the cross with a dot is covered %d of 255, want fully", a)
+	}
+	if a := bare.RGBAAt(middle, middle).A; a != 0 {
+		t.Errorf("the middle of the bare cross is covered %d of 255, want clear", a)
 	}
 }

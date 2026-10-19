@@ -63,13 +63,12 @@ var texts = map[string]map[string]string{
 		"uploadHint":         "PNG с прозрачностью, до 2 МБ и до 512 × 512 px. Центр картинки встанет в точку прицеливания.",
 		"scale":              "Масштаб, %",
 
-		"preview":      "Превью",
-		"copyCode":     "Копировать код",
-		"copied":       "Код скопирован",
-		"pasteCode":    "Вставить код",
-		"position":     "Положение",
-		"positionHint": "Сдвиг от центра окна игры, не больше 500 px по каждой оси.",
-		"centre":       "В центр",
+		"preview":   "Превью",
+		"copyCode":  "Копировать код",
+		"copied":    "Код скопирован",
+		"pasteCode": "Вставить код",
+		"position":  "Положение",
+		"centre":    "В центр",
 
 		"hideWhileAiming": "Прятать при ПКМ",
 
@@ -167,13 +166,12 @@ var texts = map[string]map[string]string{
 		"uploadHint":         "A PNG with transparency, up to 2 MB and 512 × 512 px. Its centre goes on the aim point.",
 		"scale":              "Scale, %",
 
-		"preview":      "Preview",
-		"copyCode":     "Copy code",
-		"copied":       "Code copied",
-		"pasteCode":    "Paste code",
-		"position":     "Position",
-		"positionHint": "Offset from the centre of the game window, up to 500 px each way.",
-		"centre":       "Centre",
+		"preview":   "Preview",
+		"copyCode":  "Copy code",
+		"copied":    "Code copied",
+		"pasteCode": "Paste code",
+		"position":  "Position",
+		"centre":    "Centre",
 
 		"hideWhileAiming": "Hide while aiming",
 

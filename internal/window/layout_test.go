@@ -151,6 +151,33 @@ func TestTheAimSwitchStandsUnderTheGamesOwnSwitch(t *testing.T) {
 	}
 }
 
+func TestThePositionFollowsTheKnobsOnTheCrosshairTab(t *testing.T) {
+	var heading, centre, ready window.Place
+	knobs := 0
+	for _, p := range window.Places() {
+		switch {
+		case p.Word == "position":
+			heading = p
+		case p.Word == "centre":
+			centre = p
+		case p.Word == "readyMade":
+			ready = p
+		case p.Kind == window.Slider && p.Group == "ready":
+			knobs = max(knobs, p.Rect.Y+p.Rect.H)
+		}
+	}
+
+	if heading.Kind != window.Heading || heading.Tabs != ready.Tabs || centre.Tabs != ready.Tabs {
+		t.Fatalf("the position is %+v with %+v, want a heading and its buttons on the tab of %+v", heading, centre, ready)
+	}
+	if gap := heading.Rect.Y - knobs; gap < 0 || gap > 16 {
+		t.Errorf("the position starts %d pixels below the last knob", gap)
+	}
+	if centre.Rect.Y <= heading.Rect.Y {
+		t.Errorf("the centre button stands at %d, want it under the heading at %d", centre.Rect.Y, heading.Rect.Y)
+	}
+}
+
 func TestTheColourRowStartsRightUnderTheLastRowOfShapes(t *testing.T) {
 	var colour window.Rect
 	bottom := 0

@@ -62,7 +62,7 @@ func TestTheLanguageButtonsSwitchTheWordsOfTheWindow(t *testing.T) {
 func TestTheTabButtonsOpenTheirTabs(t *testing.T) {
 	a, _, _, _ := newActions(t, listed())
 
-	for _, word := range []string{"general", "hotkeys", "position", "crosshair"} {
+	for _, word := range []string{"general", "hotkeys", "crosshair"} {
 		if err := a.Click(control(t, a, worded(word))); err != nil {
 			t.Fatal(err)
 		}

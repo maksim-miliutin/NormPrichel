@@ -14,7 +14,7 @@ import (
 var (
 	boxShapes     = []crosshair.Shape{crosshair.Dot, crosshair.Cross, crosshair.CrossDot, crosshair.Tee, crosshair.Dots, crosshair.CircleDot, crosshair.CircleCross}
 	frameShapes   = []crosshair.Shape{crosshair.Square, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder}
-	roundedShapes = slices.Concat(boxShapes, frameShapes, []crosshair.Shape{crosshair.X, crosshair.XDot, crosshair.Chevron, crosshair.Diamond, crosshair.Triangle})
+	roundedShapes = slices.Concat(boxShapes, frameShapes, []crosshair.Shape{crosshair.X, crosshair.XDot, crosshair.Chevron, crosshair.Diamond, crosshair.Triangle, crosshair.Horseshoe})
 )
 
 func draw(t *testing.T, style crosshair.Style) *image.RGBA {
@@ -153,7 +153,7 @@ func TestRoundedShapesMirrorAsTheSharpOnesDo(t *testing.T) {
 				if !same(img, mirrored(img)) {
 					t.Errorf("%+v is not symmetric left to right", style)
 				}
-				if !slices.Contains([]crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle}, shape) && !same(img, transposed(img)) {
+				if !slices.Contains([]crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle, crosshair.Horseshoe}, shape) && !same(img, transposed(img)) {
 					t.Errorf("%+v is not symmetric along the diagonal", style)
 				}
 			}
@@ -161,13 +161,18 @@ func TestRoundedShapesMirrorAsTheSharpOnesDo(t *testing.T) {
 	}
 }
 
+// Rounding takes corners away, but for the horseshoe, whose round caps reach on past its open ends.
 func TestEveryRoundedShapeLosesItsCorners(t *testing.T) {
 	for _, shape := range roundedShapes {
 		style := crosshair.Style{Shape: shape, Color: white, Opacity: 100, Length: 8, Thickness: 4, Gap: 4, Radius: 9, DotSize: 4}
 		sharp := draw(t, style)
 		for _, corners := range []crosshair.Corners{crosshair.Soft, crosshair.Round} {
 			style.Corners = corners
-			if got := area(draw(t, style)); got >= area(sharp) {
+			rounded := draw(t, style)
+			if same(rounded, sharp) {
+				t.Errorf("%s with %s corners draws as the sharp one", shape, corners)
+			}
+			if got := area(rounded); got >= area(sharp) && shape != crosshair.Horseshoe {
 				t.Errorf("%s with %s corners covers %.2f pixels, want fewer than the sharp %.2f", shape, corners, got, area(sharp))
 			}
 		}
@@ -387,5 +392,27 @@ func TestSoftSidesMeetInAPointWhereRoundOnesMeetInACurve(t *testing.T) {
 
 	if soft <= round {
 		t.Errorf("soft sides reach %d rows up and round ones %d, want the soft corner to stand out further", soft, round)
+	}
+}
+
+func TestARoundHorseshoeEndsInRoundCapsAndItsOutlineGoesRoundThem(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Horseshoe, Color: white, Opacity: 100, Thickness: 4, Radius: 10, DotSize: 4, Corners: crosshair.Round}
+	ring := func(h float64) float64 { return 0.75*math.Pi*4*10*h + math.Pi*h*h }
+	if got, want := area(draw(t, style)), ring(2)+math.Pi*4; !nearSlanted(got, want) {
+		t.Errorf("the horseshoe covers %.2f pixels, want %.2f", got, want)
+	}
+
+	style.Outline = crosshair.Outline{Width: 1, Color: black}
+	if got, want := area(draw(t, style)), ring(3)+math.Pi*9; !nearSlanted(got, want) {
+		t.Errorf("the horseshoe and its outline cover %.2f pixels, want %.2f", got, want)
+	}
+}
+
+func TestASoftHorseshoeKeepsItsEndsCutAlongTheDiagonals(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Horseshoe, Color: white, Opacity: 100, Thickness: 4, Radius: 10, DotSize: 4, Corners: crosshair.Soft}
+	want := 0.75*math.Pi*4*10*2 + 16 - (4 - math.Pi)
+
+	if got := area(draw(t, style)); !nearSlanted(got, want) {
+		t.Errorf("the horseshoe covers %.2f pixels, want %.2f", got, want)
 	}
 }

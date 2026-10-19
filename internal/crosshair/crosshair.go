@@ -160,8 +160,7 @@ func Draw(s Style) (*image.RGBA, error) {
 	if err != nil {
 		return nil, err
 	}
-	if s.Corners != Sharp && slices.Contains(roundable, s.Shape) {
-		rounded := roundedFrom(fill, s.Corners)
+	if rounded, ok := roundedFigure(s, fill); ok && s.Corners != Sharp {
 		edge := figure{parity: rounded.parity}
 		if s.Outline.Width > 0 {
 			edge = rounded.grown(s.Outline.Width)

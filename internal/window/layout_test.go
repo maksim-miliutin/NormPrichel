@@ -115,6 +115,23 @@ func TestEveryFixedWordIsThereInBothLanguages(t *testing.T) {
 	}
 }
 
+func TestTheShapeButtonsAreSquaresInTwoRows(t *testing.T) {
+	rows := map[int]int{}
+	for _, p := range window.Places() {
+		if p.Kind != window.Choice || p.Group != "ready" || p.Word != "" {
+			continue
+		}
+		rows[p.Rect.Y]++
+		if p.Rect.W != p.Rect.H || p.Rect.W < 40 {
+			t.Errorf("shape button %d is %dx%d, want a square of at least 40", p.ID, p.Rect.W, p.Rect.H)
+		}
+	}
+
+	if len(rows) != 2 {
+		t.Errorf("the shape buttons stand in %d rows, want two: %v", len(rows), rows)
+	}
+}
+
 func TestTheColourRowStartsRightUnderTheLastRowOfShapes(t *testing.T) {
 	var colour window.Rect
 	bottom := 0

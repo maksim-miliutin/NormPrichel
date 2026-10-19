@@ -156,8 +156,9 @@ const (
 	idOutlineSwatch = 520
 	idAddMenu       = 1000
 
-	knobSlots   = 6
-	hotkeyCount = 5
+	knobSlots    = 6
+	hotkeyCount  = 5
+	shapesPerRow = 9
 )
 
 const (
@@ -224,9 +225,9 @@ func crosshairColumn() []Place {
 		{idPicture, Choice, "picture", game, Rect{leftX + 156, top, 170, 30}, crosshairTab},
 	}
 	for i := range shapeCount {
-		places = append(places, Place{idShape + i, Choice, "", ready, Rect{leftX + i%6*70, top + 42 + i/6*58, 65, 52}, crosshairTab})
+		places = append(places, Place{idShape + i, Choice, "", ready, Rect{leftX + i%shapesPerRow*47, top + 42 + i/shapesPerRow*48, 44, 44}, crosshairTab})
 	}
-	colour := top + 42 + (shapeCount+5)/6*58
+	colour := top + 42 + (shapeCount+shapesPerRow-1)/shapesPerRow*48
 	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{leftX, colour + 5, 64, 18}, crosshairTab})
 	for i := range palette {
 		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{leftX + 68 + i*32, colour, 28, 28}, crosshairTab})

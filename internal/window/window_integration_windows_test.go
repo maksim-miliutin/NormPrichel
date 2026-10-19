@@ -41,6 +41,9 @@ var (
 	procGetPixel          = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetPixel")
 	procGetDpiForWindow   = user32.NewProc("GetDpiForWindow")
 	procGetFocus          = user32.NewProc("GetFocus")
+	procSetCursorPos      = user32.NewProc("SetCursorPos")
+	procGetWindowRect     = user32.NewProc("GetWindowRect")
+	procTrackMouseEvent   = user32.NewProc("TrackMouseEvent")
 	procSelectObject      = windows.NewLazySystemDLL("gdi32.dll").NewProc("SelectObject")
 	procGetTextFaceW      = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetTextFaceW")
 	procGetObjectW        = windows.NewLazySystemDLL("gdi32.dll").NewProc("GetObjectW")
@@ -57,6 +60,8 @@ const (
 	wmClose         = 0x0010
 	wmKeyDown       = 0x0100
 	wmLButtonDown   = 0x0201
+	wmMouseMove     = 0x0200
+	wmMouseLeave    = 0x02A3
 	wmCommand       = 0x0111
 	bmClick         = 0x00F5
 	lbSetCurSel     = 0x0186
@@ -70,6 +75,8 @@ const (
 	rdwAllChildren  = 0x0080
 	rdwUpdateNow    = 0x0100
 	wmGetFont       = 0x0031
+	tmeLeave        = 0x00000002
+	tmeQuery        = 0x40000000
 )
 
 // GWL_EXSTYLE is -20 in the Windows headers.
@@ -490,6 +497,81 @@ func TestATabButtonShowsItsTabAndHidesTheOthers(t *testing.T) {
 	o.openTab(t, "general")
 	if visible("copyCode") || !visible("resetAll") || !visible("addGame") {
 		t.Errorf("after the general tab: copy code %v, reset all %v, add a game %v", visible("copyCode"), visible("resetAll"), visible("addGame"))
+	}
+}
+
+func TestAButtonUnderTheMouseLightsUpUntilTheMouseMovesOn(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	add, _ := o.child(t, worded("addGame"))
+	remove, _ := o.child(t, worded("remove"))
+	look := func(button uintptr) crosshair.RGB {
+		procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+		return pixel(button, 6, 6)
+	}
+	idle := look(add)
+
+	procSendMessageW.Call(add, wmMouseMove, 0, 5|5<<16)
+	lit := look(add)
+	procSendMessageW.Call(remove, wmMouseMove, 0, 5|5<<16)
+	procSendMessageW.Call(add, wmMouseLeave, 0, 0)
+	left, next := look(add), look(remove)
+	procSendMessageW.Call(remove, wmMouseLeave, 0, 0)
+
+	if brightness(lit) <= brightness(idle) || amber(lit) {
+		t.Errorf("a button under the mouse is %v, idle %v: want it a shade lighter, not amber", lit, idle)
+	}
+	if left != idle || next != lit {
+		t.Errorf("after the mouse moved on the first button is %v and the next %v, want %v and %v", left, next, idle, lit)
+	}
+	if gone := look(remove); gone != idle {
+		t.Errorf("after the mouse left the button is %v, want it back to %v", gone, idle)
+	}
+}
+
+type trackMouse struct {
+	Size      uint32
+	Flags     uint32
+	Track     uintptr
+	HoverTime uint32
+}
+
+// Windows says nothing to a button when the mouse goes away unless the button asked; the asking is
+// what this looks at, with the mouse put over the button so that it stays in force.
+func TestAButtonUnderTheMouseAsksToHearWhenItLeaves(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	add, _ := o.child(t, worded("addGame"))
+	var r struct{ Left, Top, Right, Bottom int32 }
+	procGetWindowRect.Call(add, uintptr(unsafe.Pointer(&r)))
+	procSetCursorPos.Call(uintptr((r.Left+r.Right)/2), uintptr((r.Top+r.Bottom)/2))
+
+	procSendMessageW.Call(add, wmMouseMove, 0, 5|5<<16)
+	query := trackMouse{Flags: tmeQuery}
+	query.Size = uint32(unsafe.Sizeof(query))
+	procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&query)))
+
+	if query.Flags&tmeLeave == 0 || query.Track != add {
+		t.Errorf("Windows tracks %#x for window %#x, want the leaving of the button %#x", query.Flags, query.Track, add)
+	}
+}
+
+func TestAButtonHiddenUnderTheMouseComesBackUnlit(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	copyCode, _ := o.child(t, worded("copyCode"))
+	look := func() crosshair.RGB {
+		procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+		return pixel(copyCode, 6, 6)
+	}
+	idle := look()
+
+	procSendMessageW.Call(copyCode, wmMouseMove, 0, 5|5<<16)
+	o.openTab(t, "general")
+	o.openTab(t, "crosshair")
+
+	if back := look(); back != idle {
+		t.Errorf("the button the mouse was on when its tab closed comes back %v, want it idle %v", back, idle)
 	}
 }
 

@@ -18,6 +18,10 @@ var rounders = []struct {
 	figure func(s Style, sharp parts) figure
 }{
 	{Dot, boxesOf}, {Cross, boxesOf}, {CrossDot, boxesOf}, {Tee, boxesOf}, {Dots, boxesOf}, {CircleDot, boxesOf}, {CircleCross, boxesOf},
+	{Square, framed{}.figure},
+	{SquareDot, framed{dotted: true}.figure},
+	{Brackets, framed{openAcross: true, dotted: true}.figure},
+	{Viewfinder, framed{openAcross: true, openDown: true, dotted: true}.figure},
 	{X, diagonals{directions: corners, fromGap: true}.figure},
 	{XDot, diagonals{directions: corners, fromGap: true, dotted: true}.figure},
 	{Chevron, diagonals{directions: lowerCorners}.figure},
@@ -26,7 +30,9 @@ var rounders = []struct {
 func roundedFigure(s Style, sharp parts) (figure, bool) {
 	for _, entry := range rounders {
 		if entry.shape == s.Shape {
-			return entry.figure(s, sharp), true
+			f := entry.figure(s, sharp)
+			f.least = sharp.reach()
+			return f, true
 		}
 	}
 
@@ -102,6 +108,47 @@ func boxesOf(s Style, sharp parts) figure {
 	return roundedFrom(sharp, s.Corners)
 }
 
+// Round corners stop short of the openings and discs cap their ends: openings keep the sharp width.
+type framed struct {
+	openAcross, openDown, dotted bool
+}
+
+func (fm framed) figure(s Style, sharp parts) figure {
+	if s.Corners == Soft {
+		return boxesOf(s, sharp)
+	}
+
+	parity := s.Thickness % 2
+	side, h := s.Radius*unit, s.Thickness*unit/2
+	cut := min(unit*s.Gap-samples*parity+h, side-h)
+	rr := side / 2
+	if fm.openAcross || fm.openDown {
+		rr = max(0, min(rr, side-cut))
+	}
+	fr := frame{q: side - rr, rr: rr, h: h}
+	f := figure{parity: parity}
+	for _, sign := range [][2]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}} {
+		if fm.openAcross {
+			fr.cutX = cut
+			f.strokes = append(f.strokes, disc(point{sign[0] * cut, sign[1] * side}, h))
+		}
+		if fm.openDown {
+			fr.cutY = cut
+			f.strokes = append(f.strokes, disc(point{sign[0] * side, sign[1] * cut}, h))
+		}
+	}
+	f.frames = []frame{fr}
+	if fm.dotted {
+		f.strokes = append(f.strokes, roundedFrom(withDot(parts{parity: parity}, s), s.Corners).strokes...)
+	}
+
+	return f
+}
+
+func disc(at point, h int) stroke {
+	return boxed(point{at.x - h, at.y - h}, point{at.x + h, at.y + h}, h)
+}
+
 // The smooth arms run where the sharp ones step their brush, as wide and half of it longer at each end.
 type diagonals struct {
 	directions      [][2]int
@@ -144,10 +191,33 @@ func (k stroke) grown(by int) stroke {
 	return k
 }
 
+// A frame strokes the line round a square whose corners curve with radius rr from a core of half
+// side q: h to either side of it, less what lies within cutX of the middle across or cutY down.
+type frame struct {
+	q, rr, h, cutX, cutY int
+}
+
+func (f frame) holds(x, y int) bool {
+	ax, ay := max(x, -x), max(y, -y)
+	if ax < f.cutX || ay < f.cutY {
+		return false
+	}
+	qx, qy := max(ax-f.q, 0), max(ay-f.q, 0)
+	if qx == 0 && qy == 0 {
+		return f.rr+min(f.q-ax, f.q-ay) <= f.h
+	}
+	far, near := f.rr+f.h, max(f.rr-f.h, 0)
+
+	return near*near <= qx*qx+qy*qy && qx*qx+qy*qy <= far*far
+}
+
+// The least reach keeps a rounded drawing the size of the sharp one, which may reach past what
+// it draws.
 type figure struct {
-	parity  int
-	strokes []stroke
-	rings   []ring
+	parity, least int
+	strokes       []stroke
+	frames        []frame
+	rings         []ring
 }
 
 func roundedFrom(ps parts, corners Corners) figure {
@@ -178,12 +248,17 @@ func (f figure) grown(width int) figure {
 	for i, k := range f.strokes {
 		strokes[i] = k.grown(width * unit)
 	}
+	frames := make([]frame, len(f.frames))
+	for i, fr := range f.frames {
+		fr.h += width * unit
+		frames[i] = fr
+	}
 
-	return figure{parity: f.parity, strokes: strokes, rings: parts{parity: f.parity, rings: f.rings}.grown(width).rings}
+	return figure{parity: f.parity, least: f.least + width, strokes: strokes, frames: frames, rings: parts{parity: f.parity, rings: f.rings}.grown(width).rings}
 }
 
 func (f figure) reach() int {
-	reach := parts{parity: f.parity, rings: f.rings}.reach()
+	reach := max(f.least, parts{parity: f.parity, rings: f.rings}.reach())
 	for _, k := range f.strokes {
 		low := floorDiv(min(k.low.x, k.low.y)+samples*f.parity, unit)
 		high := -floorDiv(-(max(k.high.x, k.high.y) + samples*f.parity), unit)
@@ -209,7 +284,7 @@ func (f figure) coverage(dx, dy int) int {
 			near = append(near, k)
 		}
 	}
-	if len(near) == 0 && len(f.rings) == 0 {
+	if len(near) == 0 && len(f.frames) == 0 && len(f.rings) == 0 {
 		return 0
 	}
 
@@ -217,7 +292,9 @@ func (f figure) coverage(dx, dy int) int {
 	count := 0
 	for i := 0; i < full; i++ {
 		x, y := x0+2*(i%samples)+1, y0+2*(i/samples)+1
-		if slices.ContainsFunc(near, func(k stroke) bool { return k.holds(x, y) }) || len(f.rings) > 0 && rings.inRing(x, y) {
+		if slices.ContainsFunc(near, func(k stroke) bool { return k.holds(x, y) }) ||
+			slices.ContainsFunc(f.frames, func(fr frame) bool { return fr.holds(x, y) }) ||
+			len(f.rings) > 0 && rings.inRing(x, y) {
 			count++
 		}
 	}

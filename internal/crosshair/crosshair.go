@@ -50,8 +50,9 @@ type Style struct {
 }
 
 type Outline struct {
-	Width int `json:"width"` // zero turns the outline off
-	Color RGB `json:"color"`
+	Width  int  `json:"width"` // zero turns the outline off
+	Color  RGB  `json:"color"`
+	Shadow bool `json:"shadow,omitempty"`
 }
 
 var (
@@ -181,19 +182,61 @@ type cover interface {
 	reach() int
 }
 
+// A shadow is the outline blurred over as many pixels again: as much shade, spread twice as far,
+// fading from the fill outwards.
 func (s Style) painted(fill, edge cover, parity int) *image.RGBA {
-	reach := max(fill.reach(), edge.reach())
+	blur := 0
+	if s.Outline.Shadow {
+		blur = s.Outline.Width
+	}
+	reach := max(fill.reach(), edge.reach()) + blur
 	size := 2*reach + parity
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
 
+	edges := grid{values: make([]int, size*size), side: size}
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
-			dx, dy := x-reach, y-reach
-			img.SetRGBA(x, y, s.paint(layered(fill.coverage(dx, dy), edge.coverage(dx, dy))))
+			edges.values[y*size+x] = edge.coverage(x-reach, y-reach)
+		}
+	}
+	edges = edges.blurred(blur, 1).blurred(blur, size)
+
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			img.SetRGBA(x, y, s.paint(layered(fill.coverage(x-reach, y-reach), edges.values[y*size+x])))
 		}
 	}
 
 	return img
+}
+
+type grid struct {
+	values []int
+	side   int
+}
+
+// blurred averages each value with the radius around it, stepping by step: one along a row, the
+// side down a column.
+func (g grid) blurred(radius, step int) grid {
+	if radius == 0 {
+		return g
+	}
+
+	out := make([]int, len(g.values))
+	across := 2*radius + 1
+	for i := range g.values {
+		at := i % g.side
+		if step == g.side {
+			at = i / g.side
+		}
+		sum := 0
+		for d := max(-radius, -at); d <= min(radius, g.side-1-at); d++ {
+			sum += g.values[i+d*step]
+		}
+		out[i] = (sum + across/2) / across
+	}
+
+	return grid{values: out, side: g.side}
 }
 
 func (s Style) clamped() Style {

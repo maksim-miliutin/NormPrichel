@@ -25,6 +25,14 @@ var rounders = []struct {
 	{X, diagonals{directions: corners, fromGap: true}.figure},
 	{XDot, diagonals{directions: corners, fromGap: true, dotted: true}.figure},
 	{Chevron, diagonals{directions: lowerCorners}.figure},
+	{Diamond, func(s Style, _ parts) figure {
+		return polygonOf(s, []point{{0, -s.Radius}, {s.Radius, 0}, {0, s.Radius}, {-s.Radius, 0}})
+	}},
+	{Triangle, func(s Style, _ parts) figure {
+		base := s.Radius / 2
+		half := (s.Radius + base) / 2
+		return polygonOf(s, []point{{0, -s.Radius}, {half, base}, {-half, base}})
+	}},
 }
 
 func roundedFigure(s Style, sharp parts) (figure, bool) {
@@ -149,6 +157,31 @@ func disc(at point, h int) stroke {
 	return boxed(point{at.x - h, at.y - h}, point{at.x + h, at.y + h}, h)
 }
 
+// Corners come in pixels. A middle left narrower than the outline and a pixel would show only
+// flecks of outline, so a small thick figure is filled, as its sharp drawing is.
+func polygonOf(s Style, corners []point) figure {
+	parity := s.Thickness % 2
+	h := s.Thickness * unit / 2
+	f := figure{parity: parity}
+	var inside hull
+	twice, around := 0, 0.0
+	for i, from := range corners {
+		to := corners[(i+1)%len(corners)]
+		dir := point{to.x - from.x, to.y - from.y}
+		start, end := point{unit * from.x, unit * from.y}, point{unit * to.x, unit * to.y}
+		f.strokes = append(f.strokes, segment{dir: dir, from: start, to: end, half: h, corner: rounding(s.Corners, h)}.stroke())
+		inside = append(inside, start)
+		twice += from.x*to.y - to.x*from.y
+		around += math.Hypot(float64(to.x-from.x), float64(to.y-from.y))
+	}
+	if float64(twice)/around-float64(s.Thickness)/2 < float64(s.Outline.Width+1) {
+		f.hulls = []hull{inside}
+	}
+	f.strokes = append(f.strokes, roundedFrom(withDot(parts{parity: parity}, s), s.Corners).strokes...)
+
+	return f
+}
+
 // The smooth arms run where the sharp ones step their brush, as wide and half of it longer at each end.
 type diagonals struct {
 	directions      [][2]int
@@ -217,7 +250,22 @@ type figure struct {
 	parity, least int
 	strokes       []stroke
 	frames        []frame
+	hulls         []hull
 	rings         []ring
+}
+
+// A hull fills the convex polygon its corners go round clockwise, in units.
+type hull []point
+
+func (hl hull) holds(x, y int) bool {
+	for i, a := range hl {
+		b := hl[(i+1)%len(hl)]
+		if (b.x-a.x)*(y-a.y)-(b.y-a.y)*(x-a.x) < 0 {
+			return false
+		}
+	}
+
+	return true
 }
 
 func roundedFrom(ps parts, corners Corners) figure {
@@ -254,7 +302,7 @@ func (f figure) grown(width int) figure {
 		frames[i] = fr
 	}
 
-	return figure{parity: f.parity, least: f.least + width, strokes: strokes, frames: frames, rings: parts{parity: f.parity, rings: f.rings}.grown(width).rings}
+	return figure{parity: f.parity, least: f.least + width, strokes: strokes, frames: frames, hulls: f.hulls, rings: parts{parity: f.parity, rings: f.rings}.grown(width).rings}
 }
 
 func (f figure) reach() int {
@@ -284,7 +332,7 @@ func (f figure) coverage(dx, dy int) int {
 			near = append(near, k)
 		}
 	}
-	if len(near) == 0 && len(f.frames) == 0 && len(f.rings) == 0 {
+	if len(near) == 0 && len(f.frames) == 0 && len(f.hulls) == 0 && len(f.rings) == 0 {
 		return 0
 	}
 
@@ -294,6 +342,7 @@ func (f figure) coverage(dx, dy int) int {
 		x, y := x0+2*(i%samples)+1, y0+2*(i/samples)+1
 		if slices.ContainsFunc(near, func(k stroke) bool { return k.holds(x, y) }) ||
 			slices.ContainsFunc(f.frames, func(fr frame) bool { return fr.holds(x, y) }) ||
+			slices.ContainsFunc(f.hulls, func(hl hull) bool { return hl.holds(x, y) }) ||
 			len(f.rings) > 0 && rings.inRing(x, y) {
 			count++
 		}

@@ -132,6 +132,25 @@ func TestTheShapeButtonsAreSquaresInTwoRows(t *testing.T) {
 	}
 }
 
+func TestTheAimSwitchStandsUnderTheGamesOwnSwitch(t *testing.T) {
+	var enabled, aim window.Place
+	for _, p := range window.Places() {
+		switch p.Word {
+		case "enabled":
+			enabled = p
+		case "hideWhileAiming":
+			aim = p
+		}
+	}
+
+	if aim.Tabs != 0 || aim.Rect.X != enabled.Rect.X || aim.Rect.W != enabled.Rect.W {
+		t.Errorf("the aim switch stands at %+v on tabs %b, want it in the games column like %+v", aim.Rect, aim.Tabs, enabled.Rect)
+	}
+	if gap := aim.Rect.Y - (enabled.Rect.Y + enabled.Rect.H); gap < 0 || gap > 12 {
+		t.Errorf("the aim switch starts %d pixels below the game's own switch", gap)
+	}
+}
+
 func TestTheColourRowStartsRightUnderTheLastRowOfShapes(t *testing.T) {
 	var colour window.Rect
 	bottom := 0

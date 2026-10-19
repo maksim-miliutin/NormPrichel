@@ -132,9 +132,7 @@ const (
 	idRight
 	idNear
 	idFar
-	idAimHeading
 	idAimHide
-	idAimHint
 	idHotkeysHint
 	idAutostart
 	idLanguageHeading
@@ -214,7 +212,8 @@ func gamesColumn() []Place {
 		{idName, Edit, "", game, Rect{sideX, top + 322, sideW, 28}, 0},
 		{idExe, Hint, "", game, Rect{sideX, top + 352, sideW, 16}, 0},
 		{idEnabled, Switch, "enabled", game, Rect{sideX, top + 376, sideW, 24}, 0},
-		{idRemoveGame, Button, "remove", game, Rect{sideX, top + 412, sideW, 28}, 0},
+		{idAimHide, Switch, "hideWhileAiming", game, Rect{sideX, top + 406, sideW, 24}, 0},
+		{idRemoveGame, Button, "remove", game, Rect{sideX, top + 442, sideW, 28}, 0},
 	}
 }
 
@@ -285,9 +284,6 @@ func positionPage() []Place {
 		{idRight, Button, "", game, Rect{leftX + 120, top + 82, 34, 30}, positionTab},
 		{idNear, Choice, "", game, Rect{leftX + 170, top + 82, 76, 30}, positionTab},
 		{idFar, Choice, "", game, Rect{leftX + 252, top + 82, 84, 30}, positionTab},
-		{idAimHeading, Heading, "aiming", game, Rect{leftX, top + 140, leftW, 18}, positionTab},
-		{idAimHide, Switch, "hideWhileAiming", game, Rect{leftX, top + 164, leftW, 24}, positionTab},
-		{idAimHint, Hint, "aimingHint", game, Rect{leftX, top + 194, leftW, 48}, positionTab},
 	}
 }
 

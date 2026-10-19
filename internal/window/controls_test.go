@@ -144,7 +144,7 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 				t.Errorf("%s: %q is hidden", tab, word)
 			}
 		}
-		for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "preview", "positionHint", "aiming", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
+		for _, word := range []string{"remove", "resetCrosshair", "copyCode", "pasteCode", "preview", "positionHint", "hideWhileAiming", "saved", "saveCurrent", "color", "upload"} {
 			if withWord(t, controls, word).Shown {
 				t.Errorf("%s: %q shows with no game to apply it to", tab, word)
 			}
@@ -161,7 +161,7 @@ func TestWithoutGamesTheListAndTheHintShowAndTheGameDoesNot(t *testing.T) {
 func TestOnlyTheOpenTabShowsAndItsButtonIsDown(t *testing.T) {
 	holds := map[string][]string{
 		"crosshair": {"readyMade", "preview", "copyCode", "saved"},
-		"position":  {"positionHint", "centre", "aiming"},
+		"position":  {"positionHint", "centre"},
 		"hotkeys":   {"hotkeysHint"},
 		"general":   {"autostart", "language", "risk", "resetAll"},
 	}
@@ -183,7 +183,7 @@ func TestOnlyTheOpenTabShowsAndItsButtonIsDown(t *testing.T) {
 				}
 			}
 		}
-		for _, word := range []string{"visible", "games", "addGame", "name", "enabled", "remove"} {
+		for _, word := range []string{"visible", "games", "addGame", "name", "enabled", "hideWhileAiming", "remove"} {
 			if !withWord(t, controls, word).Shown {
 				t.Errorf("open %q: %q is hidden, want it beside every tab", tab, word)
 			}
@@ -436,6 +436,9 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 			t.Errorf("%q is hidden", text)
 		}
 	}
+	if c := withWord(t, controls, "hideWhileAiming"); !c.On || !c.Shown {
+		t.Errorf("hiding while aiming: %+v, want shown and on", c)
+	}
 	squares := ofKind(controls, window.Colour)
 	if squares[0].Colour != screen.Game.Crosshair.Color || squares[1].Colour != screen.Game.Crosshair.Outline.Color {
 		t.Errorf("the colour squares show %v and %v, want %v and %v", squares[0].Colour, squares[1].Colour, screen.Game.Crosshair.Color, screen.Game.Crosshair.Outline.Color)
@@ -443,9 +446,6 @@ func TestTheSwitchesAndFieldsShowTheSettings(t *testing.T) {
 
 	screen.Tab = "position"
 	controls = window.Controls(screen, words)
-	if c := withWord(t, controls, "hideWhileAiming"); !c.On || !c.Shown {
-		t.Errorf("hiding while aiming: %+v, want shown and on", c)
-	}
 	for _, text := range []string{"3", "-7"} {
 		if !withText(t, controls, text).Shown {
 			t.Errorf("%q is hidden", text)

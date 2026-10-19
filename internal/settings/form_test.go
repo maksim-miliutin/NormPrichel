@@ -414,6 +414,29 @@ func TestTheColoursOfTheCrosshairAndItsOutlineAreSet(t *testing.T) {
 	}
 }
 
+func TestTheCornersAndTheShadowOfTheChosenGameAreSet(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := errors.Join(form.SetCorners(crosshair.Round), form.SetShadow(true)); err != nil {
+		t.Fatal(err)
+	}
+	game, _ := state.Current().Game("stalzone.exe")
+	other, _ := state.Current().Game("other.exe")
+	if game.Crosshair.Corners != crosshair.Round || !game.Crosshair.Outline.Shadow {
+		t.Errorf("the chosen game has %q corners and shadow %v, want round with a shadow", game.Crosshair.Corners, game.Crosshair.Outline.Shadow)
+	}
+	if other.Crosshair.Corners != crosshair.Sharp || other.Crosshair.Outline.Shadow {
+		t.Errorf("the other game has %q corners and shadow %v, want it untouched", other.Crosshair.Corners, other.Crosshair.Outline.Shadow)
+	}
+
+	if err := errors.Join(form.SetCorners(crosshair.Soft), form.SetShadow(false)); err != nil {
+		t.Fatal(err)
+	}
+	if game, _ = state.Current().Game("stalzone.exe"); game.Crosshair.Corners != crosshair.Soft || game.Crosshair.Outline.Shadow {
+		t.Errorf("after soft and no shadow the game has %q corners and shadow %v", game.Crosshair.Corners, game.Crosshair.Outline.Shadow)
+	}
+}
+
 func TestAPictureIsAddedShownAndScaledInItsRange(t *testing.T) {
 	form, state, _ := newForm(t, listed())
 

@@ -300,6 +300,20 @@ func (f *Form) SetOutlineColor(rgb crosshair.RGB) error {
 	})
 }
 
+func (f *Form) SetCorners(corners crosshair.Corners) error {
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Corners = corners
+		return c, nil
+	})
+}
+
+func (f *Form) SetShadow(on bool) error {
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Outline.Shadow = on
+		return c, nil
+	})
+}
+
 func (f *Form) ResetCrosshair() error {
 	f.pictureTab = ""
 

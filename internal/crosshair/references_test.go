@@ -3,6 +3,7 @@ package crosshair_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 	"testing"
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
@@ -71,8 +72,53 @@ var drawn = []struct {
 	{"np1.dots.FF3377.100.9.4.0.13.3.0.000000", 5, 5, "4fba50759228a7150a88f3970a4b763264b7736da39a7d33d970ad6856cda18f"},
 }
 
+// Rounded drawings, each looked at before it was pinned; the gallery does not draw them yet.
+var roundedDrawn = []struct {
+	code          string
+	width, height int
+	sha256        string
+}{
+	{"np2.dot.00FF66.100.8.4.4.9.4.1.000000.soft.line", 6, 6, "ea03c42a3dfdc157d7113f67b2380d3b0d9801bbb670b765f1f07d25f67a3782"},
+	{"np2.dot.00FF66.100.8.4.4.9.4.1.000000.round.line", 6, 6, "f6dadd7dfce02d7b35d5f302143d533d1d041c58b6ba75b3772de661c65e9182"},
+	{"np2.cross.00FF66.100.8.4.4.9.4.1.000000.soft.line", 26, 26, "1a101ccd1f88c8132b90c6b7a6d9668f221dbdca690e5d088040ce4c9c52e4a1"},
+	{"np2.cross.00FF66.100.8.4.4.9.4.1.000000.round.line", 26, 26, "6e2021a4f2e8741c9994378b6f334fedc35a117c43b4c1ab98c568af8528fbc6"},
+	{"np2.cross-dot.00FF66.100.8.4.4.9.4.1.000000.soft.line", 26, 26, "0a9a7f2bc1b2c508175b42ad0414abdb740d1fefc2f81834b43d01a7d21bfe16"},
+	{"np2.cross-dot.00FF66.100.8.4.4.9.4.1.000000.round.line", 26, 26, "50a07f988df58e6360f19bd90521294e358e41d148ffa9bb3d3ef5d386a8997d"},
+	{"np2.cross-dot.00FF66.100.8.4.4.9.4.1.000000.round.shadow", 28, 28, "4bc932293d7e680e92bbd6b8b729f4b585bf0d72ebc67e9ef67e0e3d776c93f8"},
+	{"np2.circle-dot.00FF66.100.8.4.4.9.4.1.000000.soft.line", 24, 24, "39942e42cafba72d81705c533cc4a01f54e14db27298082adffac636b8250d36"},
+	{"np2.circle-dot.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "e19547920264ef6579f65a735f6ed87b36280f5f1efb06c53c1185d9327cc294"},
+	{"np2.t.00FF66.100.8.4.4.9.4.1.000000.soft.line", 26, 26, "eb4448c6f1a1dde659362862706a3c096630c1acb6de8a31a9d7f558229febcb"},
+	{"np2.t.00FF66.100.8.4.4.9.4.1.000000.round.line", 26, 26, "c36d6a4d3465a360ca59a72d2824bff818900ad3fbc88d01d413d4e4f43da658"},
+	{"np2.x.00FF66.100.8.4.4.9.4.1.000000.soft.line", 30, 30, "e1661839a575af761b89b169b6d9343a88bf0c9de22567f6ab9f57bddf11e684"},
+	{"np2.x.00FF66.100.8.4.4.9.4.1.000000.round.line", 28, 28, "6c75a54afad44767751ca091484785807e2fde6f7bc8f0bbc904dfc55aae38d9"},
+	{"np2.x.00FF66.100.8.4.4.9.4.1.000000.round.shadow", 30, 30, "fc8508b275f1efb31fb9786fc9ed9fc2b4e8c311b536166953494dbf5991b66d"},
+	{"np2.x-dot.00FF66.100.8.4.4.9.4.1.000000.soft.line", 30, 30, "52e61ca71ea486cad26e386aa3d61f6ad94bac76b46ed06b63fc747d883a5e5d"},
+	{"np2.x-dot.00FF66.100.8.4.4.9.4.1.000000.round.line", 28, 28, "b65306643478d68cd74d3e14054cb3a591562f21fa650ff6a5356ee0088fed23"},
+	{"np2.square.00FF66.100.8.4.4.9.4.1.000000.soft.line", 24, 24, "934cd907719abca85e9ba3aade26e733a93caa16a069c632a03bf728efad873f"},
+	{"np2.square.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "01ad385ce2bd1e11c45d06e6fe58eedaa1a9b317cada63165912c69daca8abff"},
+	{"np2.square-dot.00FF66.100.8.4.4.9.4.1.000000.soft.line", 24, 24, "965c07192b41c1b77feb2d6028834d7c870779668577102de76f19ae2fd7338f"},
+	{"np2.square-dot.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "6780a0e6c9f576c17ebf3402a798c30b74f67ae608961adec125cb7e8a795d4c"},
+	{"np2.chevron.00FF66.100.8.4.4.9.4.1.000000.soft.line", 22, 22, "c637379215f58814bc1709bbfc333642268a8d3160d4349a9930fb8086b1d8c5"},
+	{"np2.chevron.00FF66.100.8.4.4.9.4.1.000000.round.line", 20, 20, "c9cf3a0ede95a869e03144a16fa9afc318021af5400308cd752b4affbb596414"},
+	{"np2.circle-cross.00FF66.100.8.4.4.9.4.1.000000.soft.line", 26, 26, "d9f0529388dd4a5c94e7fa96cb6d4b89ccbe8f741ff40a9362d8067b24870e68"},
+	{"np2.circle-cross.00FF66.100.8.4.4.9.4.1.000000.round.line", 26, 26, "9f090b517cc1dd0c1f987d089f9f52bb3916e8f1a1149274e2edfb37f48ddafe"},
+	{"np2.brackets.00FF66.100.8.4.4.9.4.1.000000.soft.line", 24, 24, "76c26ede431604dee5ad035d8055c6df32bc7934f4f89127b90accad84772425"},
+	{"np2.brackets.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "bdeb4eb696885fe2c160e3c55762d6d318eac1b421bed42e89b53c9fb391958e"},
+	{"np2.brackets.00FF66.100.8.4.4.9.4.1.000000.round.shadow", 26, 26, "9117a4b31a885861537030dbe3659a33ee94659f5ce28a64114bc320430f9dde"},
+	{"np2.viewfinder.00FF66.100.8.4.4.9.4.1.000000.soft.line", 24, 24, "1544ab1baa4c0866530ff156aec376070808838fb7b238b67f53fd7e9aa27ed7"},
+	{"np2.viewfinder.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "7f5db988e0150274c6f7ac093612da805efa414e310b28bc858f8b4bb666626d"},
+	{"np2.diamond.00FF66.100.8.4.4.9.4.1.000000.soft.line", 26, 26, "44dfa96b9baef0419c99e14c716f50d74fcbf7f8c967f30cc51f8fb4e0e2de74"},
+	{"np2.diamond.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "8f665280cc562765882f4b8845f4a2c0e135884892ddb14c7a70bf718eb16e3f"},
+	{"np2.triangle.00FF66.100.8.4.4.9.4.1.000000.soft.line", 26, 26, "e67bf3de82bfc4ea0c798f92a905590f977a641b22693eb9556cf5489c392ca6"},
+	{"np2.triangle.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "005ccf0443214a4118afeb2fdb3af1a97f8f5deb9c7006a2057490ac748afadf"},
+	{"np2.horseshoe.00FF66.100.8.4.4.9.4.1.000000.soft.line", 24, 24, "4707674baf17e934e4f0f4d7130d0a386e028502aa5c07a19487181ecd3af3d9"},
+	{"np2.horseshoe.00FF66.100.8.4.4.9.4.1.000000.round.line", 24, 24, "5bb5f2e903e4fd2eb520d10b213325c009b7471e71a095f185f34c8f91d0dc5a"},
+	{"np2.dots.00FF66.100.8.4.4.9.4.1.000000.soft.line", 18, 18, "82bf03342a9fec9d2cc74143a2d4133b65429f79648e5756104d5ee1b0bc2783"},
+	{"np2.dots.00FF66.100.8.4.4.9.4.1.000000.round.line", 18, 18, "712e09dd13051ab9d9dc592af859e30c241e1e5eb9a79dd93a7285d74f15f450"},
+}
+
 func TestEveryReferenceIsDrawnToTheBit(t *testing.T) {
-	for _, reference := range drawn {
+	for _, reference := range slices.Concat(drawn, roundedDrawn) {
 		style, err := crosshair.ParseCode(reference.code)
 		if err != nil {
 			t.Fatal(err)

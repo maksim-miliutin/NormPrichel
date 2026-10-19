@@ -25,6 +25,7 @@ var rounders = []struct {
 	{X, diagonals{directions: corners, fromGap: true}.figure},
 	{XDot, diagonals{directions: corners, fromGap: true, dotted: true}.figure},
 	{Chevron, diagonals{directions: lowerCorners}.figure},
+	{Horseshoe, horseshoeOf},
 	{Diamond, func(s Style, _ parts) figure {
 		return polygonOf(s, []point{{0, -s.Radius}, {s.Radius, 0}, {0, s.Radius}, {-s.Radius, 0}})
 	}},
@@ -182,6 +183,19 @@ func polygonOf(s Style, corners []point) figure {
 	return f
 }
 
+// The cut ring ends on the lower diagonals, a radius out from the middle.
+func horseshoeOf(s Style, sharp parts) figure {
+	f := boxesOf(s, sharp)
+	if s.Corners != Round {
+		return f
+	}
+
+	h, aside := s.Thickness*unit/2, stretch(samples*s.Radius, 2)
+	f.strokes = append(f.strokes, disc(point{aside, aside}, h), disc(point{-aside, aside}, h))
+
+	return f
+}
+
 // The smooth arms run where the sharp ones step their brush, as wide and half of it longer at each end.
 type diagonals struct {
 	directions      [][2]int
@@ -302,7 +316,9 @@ func (f figure) grown(width int) figure {
 		frames[i] = fr
 	}
 
-	return figure{parity: f.parity, least: f.least + width, strokes: strokes, frames: frames, hulls: f.hulls, rings: parts{parity: f.parity, rings: f.rings}.grown(width).rings}
+	rings := parts{parity: f.parity, rings: f.rings}.grown(width).rings
+
+	return figure{parity: f.parity, least: f.least + width, strokes: strokes, frames: frames, hulls: f.hulls, rings: rings}
 }
 
 func (f figure) reach() int {

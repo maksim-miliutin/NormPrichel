@@ -13,7 +13,8 @@ import (
 
 var (
 	boxShapes     = []crosshair.Shape{crosshair.Dot, crosshair.Cross, crosshair.CrossDot, crosshair.Tee, crosshair.Dots, crosshair.CircleDot, crosshair.CircleCross}
-	roundedShapes = append(slices.Clone(boxShapes), crosshair.X, crosshair.XDot, crosshair.Chevron)
+	frameShapes   = []crosshair.Shape{crosshair.Square, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder}
+	roundedShapes = slices.Concat(boxShapes, frameShapes, []crosshair.Shape{crosshair.X, crosshair.XDot, crosshair.Chevron})
 )
 
 func draw(t *testing.T, style crosshair.Style) *image.RGBA {
@@ -81,13 +82,16 @@ func TestCornersOfAnUnknownKindDrawSharp(t *testing.T) {
 }
 
 func TestRoundingOnlyEverTakesAwayFromTheSharpShape(t *testing.T) {
-	for _, shape := range boxShapes {
+	for _, shape := range slices.Concat(boxShapes, frameShapes) {
 		for i, style := range styles(shape) {
 			if i%23 != 0 {
 				continue
 			}
 			sharp := draw(t, style)
 			for _, corners := range []crosshair.Corners{crosshair.Soft, crosshair.Round} {
+				if corners == crosshair.Round && slices.Contains(frameShapes, shape) {
+					continue
+				}
 				style.Corners = corners
 				rounded := draw(t, style)
 				if rounded.Bounds() != sharp.Bounds() {
@@ -149,7 +153,7 @@ func TestRoundedShapesMirrorAsTheSharpOnesDo(t *testing.T) {
 				if !same(img, mirrored(img)) {
 					t.Errorf("%+v is not symmetric left to right", style)
 				}
-				if shape != crosshair.Tee && shape != crosshair.Chevron && !same(img, transposed(img)) {
+				if !slices.Contains([]crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets}, shape) && !same(img, transposed(img)) {
 					t.Errorf("%+v is not symmetric along the diagonal", style)
 				}
 			}
@@ -223,5 +227,87 @@ func TestARoundDiagonalCrossKeepsItsDotAndTheBareOneItsHole(t *testing.T) {
 	}
 	if a := bare.RGBAAt(middle, middle).A; a != 0 {
 		t.Errorf("the middle of the bare cross is covered %d of 255, want clear", a)
+	}
+}
+
+func TestARoundSquareIsABandAroundASquareWithHalfRoundCorners(t *testing.T) {
+	for _, thickness := range []int{2, 4} {
+		style := crosshair.Style{Shape: crosshair.Square, Color: white, Opacity: 100, Thickness: thickness, Radius: 10, Corners: crosshair.Round}
+		corner := 5.0
+		want := (8*(10-corner) + 2*math.Pi*corner) * float64(thickness)
+
+		if got := area(draw(t, style)); !near(got, want) {
+			t.Errorf("thickness %d: the square covers %.2f pixels, want %.2f", thickness, got, want)
+		}
+	}
+}
+
+func TestTheOutlineOfARoundSquareWidensItsBandBothWays(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Square, Color: white, Opacity: 100, Thickness: 2, Radius: 10, Corners: crosshair.Round, Outline: crosshair.Outline{Width: 2, Color: black}}
+	want := (8*(10-5) + 2*math.Pi*5) * (2 + 2*2)
+
+	if got := area(draw(t, style)); !near(got, want) {
+		t.Errorf("the square and its outline cover %.2f pixels, want %.2f", got, want)
+	}
+}
+
+func TestRoundBracketsOpenAsWideAsTheSharpOnesAndCapTheEnds(t *testing.T) {
+	for _, thickness := range []int{2, 3} {
+		style := crosshair.Style{Shape: crosshair.Brackets, Color: white, Opacity: 100, Thickness: thickness, Gap: 3, Radius: 10, DotSize: thickness}
+		sharp := draw(t, style)
+		style.Corners = crosshair.Round
+		round := draw(t, style)
+		parity := thickness % 2
+		reach := (sharp.Bounds().Dx() - parity) / 2
+		top := reach - 10
+
+		for _, dx := range []int{2, parity - 3} {
+			if a := round.RGBAAt(reach+dx, top).A; a != 0 {
+				t.Errorf("thickness %d: the opening is covered %d of 255 at %d, want clear", thickness, a, dx)
+			}
+		}
+		for _, dx := range []int{3, parity - 4} {
+			edge, capped := sharp.RGBAAt(reach+dx, top).A, round.RGBAAt(reach+dx, top).A
+			if edge != 255 || capped == 0 || capped == 255 {
+				t.Errorf("thickness %d: at %d the sharp top is covered %d and the round %d, want full and the edge of a cap", thickness, dx, edge, capped)
+			}
+		}
+	}
+}
+
+func TestAWideOpeningTightensTheBendSoTheCapSitsOnTheStraight(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Brackets, Color: white, Opacity: 100, Thickness: 2, Gap: 8, Radius: 12, DotSize: 2, Corners: crosshair.Round}
+	img := draw(t, style)
+	reach := img.Bounds().Dx() / 2
+
+	if a := img.RGBAAt(reach+10, reach-13).A; a < 128 {
+		t.Errorf("past the cap the top edge is covered %d of 255, want the band still running straight there", a)
+	}
+}
+
+// differences lists the points, counted from the middle pixel, inked in one drawing and bare in the other.
+func differences(a, b *image.RGBA, points []image.Point) []image.Point {
+	var differ []image.Point
+	middle := a.Bounds().Dx() / 2
+	for _, p := range points {
+		if (a.RGBAAt(middle+p.X, middle+p.Y).A == 0) != (b.RGBAAt(middle+p.X, middle+p.Y).A == 0) {
+			differ = append(differ, p)
+		}
+	}
+
+	return differ
+}
+
+func TestARoundedFrameKeepsItsDotAndSidesWhereTheSharpOneHasThem(t *testing.T) {
+	middleAndSides := []image.Point{{0, 0}, {-10, 0}, {10, 0}, {0, -10}, {0, 10}}
+	for _, shape := range frameShapes {
+		style := crosshair.Style{Shape: shape, Color: white, Opacity: 100, Thickness: 3, Gap: 3, Radius: 10, DotSize: 3}
+		sharp := draw(t, style)
+		for _, corners := range []crosshair.Corners{crosshair.Soft, crosshair.Round} {
+			style.Corners = corners
+			if differ := differences(sharp, draw(t, style), middleAndSides); len(differ) > 0 {
+				t.Errorf("%s with %s corners is inked otherwise than the sharp one at %v", shape, corners, differ)
+			}
+		}
 	}
 }

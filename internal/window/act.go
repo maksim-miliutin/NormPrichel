@@ -107,6 +107,10 @@ func (a Actions) Click(id int) error {
 		return a.Form.Nudge(step[0], step[1])
 	case idNear, idFar:
 		a.Form.SetFarStep(id == idFar)
+	case idLine, idShadow:
+		return a.Form.SetShadow(id == idShadow)
+	case idSharp, idSoft, idRound:
+		return a.Form.SetCorners(cornerChoices[id])
 	case idCentre:
 		return a.Form.Centre()
 	case idAimHide:

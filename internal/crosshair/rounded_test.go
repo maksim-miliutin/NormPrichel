@@ -416,3 +416,14 @@ func TestASoftHorseshoeKeepsItsEndsCutAlongTheDiagonals(t *testing.T) {
 		t.Errorf("the horseshoe covers %.2f pixels, want %.2f", got, want)
 	}
 }
+
+func TestOnlyTheCircleHasNoCornersToRound(t *testing.T) {
+	for _, shape := range crosshair.Shapes() {
+		if got := crosshair.Rounds(shape); got != slices.Contains(roundedShapes, shape) {
+			t.Errorf("%s rounds %v, want %v", shape, got, !got)
+		}
+	}
+	if slices.Contains(roundedShapes, crosshair.Circle) || len(roundedShapes) != len(crosshair.Shapes())-1 {
+		t.Errorf("the rounded shapes are %v, want every shape but the circle", roundedShapes)
+	}
+}

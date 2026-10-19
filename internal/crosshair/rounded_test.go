@@ -14,7 +14,7 @@ import (
 var (
 	boxShapes     = []crosshair.Shape{crosshair.Dot, crosshair.Cross, crosshair.CrossDot, crosshair.Tee, crosshair.Dots, crosshair.CircleDot, crosshair.CircleCross}
 	frameShapes   = []crosshair.Shape{crosshair.Square, crosshair.SquareDot, crosshair.Brackets, crosshair.Viewfinder}
-	roundedShapes = slices.Concat(boxShapes, frameShapes, []crosshair.Shape{crosshair.X, crosshair.XDot, crosshair.Chevron})
+	roundedShapes = slices.Concat(boxShapes, frameShapes, []crosshair.Shape{crosshair.X, crosshair.XDot, crosshair.Chevron, crosshair.Diamond, crosshair.Triangle})
 )
 
 func draw(t *testing.T, style crosshair.Style) *image.RGBA {
@@ -153,7 +153,7 @@ func TestRoundedShapesMirrorAsTheSharpOnesDo(t *testing.T) {
 				if !same(img, mirrored(img)) {
 					t.Errorf("%+v is not symmetric left to right", style)
 				}
-				if !slices.Contains([]crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets}, shape) && !same(img, transposed(img)) {
+				if !slices.Contains([]crosshair.Shape{crosshair.Tee, crosshair.Chevron, crosshair.Brackets, crosshair.Triangle}, shape) && !same(img, transposed(img)) {
 					t.Errorf("%+v is not symmetric along the diagonal", style)
 				}
 			}
@@ -309,5 +309,83 @@ func TestARoundedFrameKeepsItsDotAndSidesWhereTheSharpOneHasThem(t *testing.T) {
 				t.Errorf("%s with %s corners is inked otherwise than the sharp one at %v", shape, corners, differ)
 			}
 		}
+	}
+}
+
+func TestARoundDiamondIsABandAlongItsFourSidesWithRoundJoins(t *testing.T) {
+	for _, thickness := range []int{2, 4} {
+		style := crosshair.Style{Shape: crosshair.Diamond, Color: white, Opacity: 100, Thickness: thickness, Radius: 10, DotSize: thickness, Corners: crosshair.Round}
+		w := float64(thickness)
+		dot := math.Pi * w * w / 4
+		want := 4*10*math.Sqrt2*w - (4-math.Pi)*w*w/4 + dot
+
+		if got := area(draw(t, style)); !nearSlanted(got, want) {
+			t.Errorf("thickness %d: the diamond covers %.2f pixels, want %.2f", thickness, got, want)
+		}
+	}
+}
+
+func TestARoundTriangleKeepsItsApexAndBaseAndRoundsTheirCorners(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Triangle, Color: white, Opacity: 100, Thickness: 2, Radius: 10, DotSize: 2}
+	sharp := draw(t, style)
+	style.Corners = crosshair.Round
+	round := draw(t, style)
+	reach := round.Bounds().Dx() / 2
+
+	if a := round.RGBAAt(reach, reach-10).A; a != 255 {
+		t.Errorf("the apex is covered %d of 255, want fully", a)
+	}
+	if a := round.RGBAAt(reach-1, reach-11).A; a == 0 || a >= sharp.RGBAAt(reach-1, reach-11).A {
+		t.Errorf("above the apex the cover is %d of 255 against the sharp %d, want the edge of a round join", a, sharp.RGBAAt(reach-1, reach-11).A)
+	}
+	if a := round.RGBAAt(reach, reach+5).A; a != 255 {
+		t.Errorf("the middle of the base is covered %d of 255, want fully", a)
+	}
+}
+
+func TestASmallThickTriangleFillsItsMiddleRatherThanFleckIt(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Triangle, Color: white, Opacity: 100, Thickness: 4, Radius: 9, DotSize: 2, Outline: crosshair.Outline{Width: 1, Color: black}}
+	for _, corners := range []crosshair.Corners{crosshair.Soft, crosshair.Round} {
+		style.Corners = corners
+		img := draw(t, style)
+		reach := img.Bounds().Dx() / 2
+
+		for _, at := range []image.Point{{0, 0}, {0, 2}, {-2, 2}, {2, 2}, {0, -3}} {
+			if c := img.RGBAAt(reach+at.X, reach+at.Y); c.R != 255 || c.A != 255 {
+				t.Errorf("%s: inside at %v the triangle shows %v, want its own colour", corners, at, c)
+			}
+		}
+	}
+
+	style = crosshair.Style{Shape: crosshair.Triangle, Color: white, Opacity: 100, Thickness: 2, Radius: 24, DotSize: 2, Corners: crosshair.Round}
+	img := draw(t, style)
+	reach := img.Bounds().Dx() / 2
+	if a := img.RGBAAt(reach, reach+5).A; a != 0 {
+		t.Errorf("a large thin triangle is covered %d of 255 inside, want its middle clear", a)
+	}
+}
+
+// top tells how many rows above its middle a drawing reaches.
+func top(img *image.RGBA) int {
+	reach := img.Bounds().Dx() / 2
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			if img.RGBAAt(x, y).A != 0 {
+				return reach - y
+			}
+		}
+	}
+
+	return 0
+}
+
+func TestSoftSidesMeetInAPointWhereRoundOnesMeetInACurve(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.Diamond, Color: white, Opacity: 100, Thickness: 4, Radius: 10, DotSize: 4, Corners: crosshair.Soft}
+	soft := top(draw(t, style))
+	style.Corners = crosshair.Round
+	round := top(draw(t, style))
+
+	if soft <= round {
+		t.Errorf("soft sides reach %d rows up and round ones %d, want the soft corner to stand out further", soft, round)
 	}
 }

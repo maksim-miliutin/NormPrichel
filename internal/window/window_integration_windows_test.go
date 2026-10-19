@@ -255,6 +255,34 @@ func TestAClickOnAShapeButtonDrawsThatShape(t *testing.T) {
 	}
 }
 
+// Only what the window marks as changed is painted again here, so a button it forgets to mark
+// keeps its old picture.
+func TestTheShapeButtonsRepaintTheirIconsWhenTheCornersChange(t *testing.T) {
+	o := open(t, listed())
+	o.window.Show()
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+	square, _ := o.child(t, reading(o.actions.Form.Word("shape.square")))
+	round, _ := o.child(t, worded("corners.round"))
+	look := func() []crosshair.RGB {
+		var seen []crosshair.RGB
+		size := clientOf(square)
+		for y := range size.Y {
+			for x := range size.X {
+				seen = append(seen, pixel(square, int32(x), int32(y)))
+			}
+		}
+		return seen
+	}
+	before := look()
+
+	procSendMessageW.Call(round, bmClick, 0, 0)
+	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwAllChildren|rdwUpdateNow)
+
+	if slices.Equal(look(), before) {
+		t.Error("the square's button shows the same icon after the corners turned round")
+	}
+}
+
 func TestAnOffsetTypedIntoItsFieldAppliesWhenTheFieldIsLeft(t *testing.T) {
 	o := open(t, listed())
 	field, id := o.child(t, func(c window.Control) bool { return c.Kind == window.Edit && c.Text == "0" })

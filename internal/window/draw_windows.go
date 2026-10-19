@@ -114,7 +114,7 @@ func (w *Window) draw(item *drawItem) {
 		words, paper, edge := face(chosen, c.ID == w.hot)
 		w.plate(dc, r, w.focused(item, Plate{Radius: scaled(4, w.dpi), Fill: paper, Edge: edge, Width: 1, Back: ground}))
 		if c.Shape != "" {
-			w.drawIcon(dc, r, c.Shape, chosen)
+			w.drawIcon(dc, r, c, chosen)
 		} else {
 			text(dc, r, c.Text, words, dtCenter|dtVCenter|dtSingleLine|dtNoPrefix)
 		}
@@ -155,21 +155,22 @@ func blit(dc uintptr, x, y int32, size image.Point, pixels []byte) {
 }
 
 type iconKey struct {
-	shape  crosshair.Shape
-	side   int
-	chosen bool
+	shape   crosshair.Shape
+	corners crosshair.Corners
+	side    int
+	chosen  bool
 }
 
-func (w *Window) drawIcon(dc uintptr, r rect, shape crosshair.Shape, chosen bool) {
+func (w *Window) drawIcon(dc uintptr, r rect, c Control, chosen bool) {
 	side := int(min(r.Right-r.Left, r.Bottom-r.Top)) - 2*scaled(5, w.dpi)
-	key := iconKey{shape: shape, side: side, chosen: chosen}
+	key := iconKey{shape: c.Shape, corners: c.Corners, side: side, chosen: chosen}
 	pixels, ok := w.shapeIcons[key]
 	if !ok && side > 0 {
 		lines, paper := ink, field
 		if chosen {
 			lines, paper = onSignal, signal
 		}
-		icon, err := Icon(shape, side, opaque(lines), opaque(paper))
+		icon, err := ShapeIcon{Shape: c.Shape, Corners: c.Corners, Side: side, Ink: opaque(lines), Paper: opaque(paper)}.Image()
 		if err != nil {
 			return
 		}

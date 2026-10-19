@@ -19,7 +19,7 @@ func TestEveryShapeIconIsInkOnPaperInsideItsSquare(t *testing.T) {
 		ink, paper := colours[0], colours[1]
 		for _, side := range []int{20, 30, 45, 60} {
 			for _, shape := range crosshair.Shapes() {
-				icon, err := window.Icon(shape, side, ink, paper)
+				icon, err := window.ShapeIcon{Shape: shape, Side: side, Ink: ink, Paper: paper}.Image()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -53,7 +53,7 @@ func inkOf(icon *image.RGBA, ink, paper color.RGBA) (int, int) {
 func TestEveryShapeIconLooksDifferent(t *testing.T) {
 	seen := map[string]crosshair.Shape{}
 	for _, shape := range crosshair.Shapes() {
-		icon, err := window.Icon(shape, 30, inkColour, paperColour)
+		icon, err := window.ShapeIcon{Shape: shape, Side: 30, Ink: inkColour, Paper: paperColour}.Image()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +66,7 @@ func TestEveryShapeIconLooksDifferent(t *testing.T) {
 }
 
 func TestAShapeIconCentresWhatItsInkCovers(t *testing.T) {
-	icon, err := window.Icon(crosshair.Chevron, 30, inkColour, paperColour)
+	icon, err := window.ShapeIcon{Shape: crosshair.Chevron, Side: 30, Ink: inkColour, Paper: paperColour}.Image()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,26 @@ func TestAShapeIconCentresWhatItsInkCovers(t *testing.T) {
 }
 
 func TestAnUnknownShapeHasNoIcon(t *testing.T) {
-	if _, err := window.Icon("star", 30, inkColour, paperColour); err == nil {
+	if _, err := (window.ShapeIcon{Shape: "star", Side: 30, Ink: inkColour, Paper: paperColour}).Image(); err == nil {
 		t.Error("an unknown shape got an icon")
+	}
+}
+
+func TestAShapeIconTakesTheCornersOfTheCrosshair(t *testing.T) {
+	for _, shape := range []crosshair.Shape{crosshair.Cross, crosshair.Square, crosshair.Circle} {
+		look := window.ShapeIcon{Shape: shape, Side: 34, Ink: inkColour, Paper: paperColour}
+		sharp, err := look.Image()
+		if err != nil {
+			t.Fatal(err)
+		}
+		look.Corners = crosshair.Round
+		round, err := look.Image()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if changed := string(round.Pix) != string(sharp.Pix); changed != crosshair.Rounds(shape) {
+			t.Errorf("%s: the round icon differs from the sharp one %v, want %v", shape, changed, crosshair.Rounds(shape))
+		}
 	}
 }

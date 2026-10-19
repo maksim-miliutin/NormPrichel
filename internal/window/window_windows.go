@@ -561,7 +561,7 @@ func (w *Window) refresh(everyField bool) {
 				setText(hwnd, c.Text)
 			}
 		}
-		if c.Kind == Preview || old.On != c.On || old.Colour != c.Colour || old.Knob != c.Knob || old.Text != c.Text {
+		if c.Kind == Preview || old.On != c.On || old.Colour != c.Colour || old.Knob != c.Knob || old.Text != c.Text || old.Corners != c.Corners {
 			procInvalidateRect.Call(hwnd, 0, 1)
 		}
 		if !seen || old.Shown != c.Shown {

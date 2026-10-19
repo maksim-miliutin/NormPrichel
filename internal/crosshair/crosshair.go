@@ -46,6 +46,7 @@ type Style struct {
 	Radius    int     `json:"radius"`
 	DotSize   int     `json:"dot"`
 	Outline   Outline `json:"outline"`
+	Corners   Corners `json:"corners,omitempty"`
 }
 
 type Outline struct {
@@ -159,14 +160,31 @@ func Draw(s Style) (*image.RGBA, error) {
 	if err != nil {
 		return nil, err
 	}
+	if s.Corners != Sharp && slices.Contains(roundable, s.Shape) {
+		rounded := roundedFrom(fill, s.Corners)
+		edge := figure{parity: rounded.parity}
+		if s.Outline.Width > 0 {
+			edge = rounded.grown(s.Outline.Width)
+		}
+		return s.painted(rounded, edge, rounded.parity), nil
+	}
 
 	edge := parts{parity: fill.parity}
 	if s.Outline.Width > 0 {
 		edge = fill.grown(s.Outline.Width)
 	}
 
+	return s.painted(fill, edge, fill.parity), nil
+}
+
+type cover interface {
+	coverage(dx, dy int) int
+	reach() int
+}
+
+func (s Style) painted(fill, edge cover, parity int) *image.RGBA {
 	reach := max(fill.reach(), edge.reach())
-	size := 2*reach + fill.parity
+	size := 2*reach + parity
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 
 	for y := 0; y < size; y++ {
@@ -176,7 +194,7 @@ func Draw(s Style) (*image.RGBA, error) {
 		}
 	}
 
-	return img, nil
+	return img
 }
 
 func (s Style) clamped() Style {
@@ -187,6 +205,9 @@ func (s Style) clamped() Style {
 	s.Radius = radiusLimit.clamp(s.Radius)
 	s.DotSize = dotLimit.clamp(s.DotSize)
 	s.Outline.Width = outlineLimit.clamp(s.Outline.Width)
+	if !slices.Contains([]Corners{Soft, Round}, s.Corners) {
+		s.Corners = Sharp
+	}
 
 	return s
 }

@@ -38,6 +38,28 @@ var rounders = []rounder{
 	}},
 }
 
+// Soft corners round a line of their thickness as far as this share would, and stop short of
+// either end, being neither sharp nor round.
+func (s Style) Roundness() int {
+	c := s.clamped()
+	switch {
+	case c.Rounding > 0:
+		return c.Rounding
+	case c.Corners == Round:
+		return roundingLimit.max
+	case c.Corners == Soft:
+		return limit{min: 1, max: roundingLimit.max - 1}.clamp(roundedRatio(2*roundingLimit.max, c.Thickness))
+	}
+
+	return 0
+}
+
+func (s Style) Rounded(share int) Style {
+	s.Corners, s.Rounding = Sharp, roundingLimit.clamp(share)
+
+	return s.held()
+}
+
 func Rounds(shape Shape) bool {
 	return slices.ContainsFunc(rounders, func(r rounder) bool { return r.shape == shape })
 }

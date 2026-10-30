@@ -88,6 +88,7 @@ type GameView struct {
 	Picture         bool       // the picture is on show rather than the ready-made shapes
 	Knobs           []KnobView // the values the shape is drawn from
 	Scale           KnobView
+	Rounding        KnobView
 	Offset          profiles.Offset
 	HideWhileAiming bool
 }
@@ -165,6 +166,7 @@ func (f *Form) gameView(game profiles.Game) *GameView {
 		Crosshair:       c,
 		Picture:         c.Image != "" || strings.EqualFold(f.pictureTab, game.Exe),
 		Scale:           KnobView{Knob: crosshair.PictureScale(), Label: f.Word("scale"), Value: c.Scale},
+		Rounding:        KnobView{Knob: crosshair.RoundingKnob(), Label: f.Word("rounding"), Value: c.Roundness()},
 		Offset:          game.Offset,
 		HideWhileAiming: game.HideWhileAiming,
 	}
@@ -303,6 +305,13 @@ func (f *Form) SetOutlineColor(rgb crosshair.RGB) error {
 func (f *Form) SetCorners(corners crosshair.Corners) error {
 	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
 		c.Corners = corners
+		return c, nil
+	})
+}
+
+func (f *Form) SetRounding(share int) error {
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Style = c.Rounded(share)
 		return c, nil
 	})
 }

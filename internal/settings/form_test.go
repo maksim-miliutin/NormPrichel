@@ -437,6 +437,31 @@ func TestTheCornersAndTheShadowOfTheChosenGameAreSet(t *testing.T) {
 	}
 }
 
+func TestTheRoundingOfTheChosenGameIsSetAndShownInPercent(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if shown := form.Screen().Game.Rounding; shown.Label != form.Word("rounding") || shown.Knob != crosshair.RoundingKnob() || shown.Value != 0 {
+		t.Errorf("a sharp crosshair shows its rounding as %+v", shown)
+	}
+	for _, c := range []struct {
+		asked, shown int
+		corners      crosshair.Corners
+	}{{40, 40, crosshair.Sharp}, {100, 100, crosshair.Round}, {130, 100, crosshair.Round}, {0, 0, crosshair.Sharp}, {-5, 0, crosshair.Sharp}} {
+		if err := form.SetRounding(c.asked); err != nil {
+			t.Fatal(err)
+		}
+		game, _ := state.Current().Game("stalzone.exe")
+		if got := form.Screen().Game.Rounding.Value; got != c.shown || game.Crosshair.Corners != c.corners {
+			t.Errorf("rounded %d%%: shows %d with %q corners, want %d with %q", c.asked, got, game.Crosshair.Corners, c.shown, c.corners)
+		}
+	}
+
+	form.SetRounding(60)
+	if other, _ := state.Current().Game("other.exe"); other.Crosshair.Rounding != 0 || other.Crosshair.Corners != crosshair.Sharp {
+		t.Errorf("the other game rounds %d%% with %q corners, want it untouched", other.Crosshair.Rounding, other.Crosshair.Corners)
+	}
+}
+
 func TestAPictureIsAddedShownAndScaledInItsRange(t *testing.T) {
 	form, state, _ := newForm(t, listed())
 

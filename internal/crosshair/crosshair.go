@@ -47,6 +47,7 @@ type Style struct {
 	DotSize   int     `json:"dot"`
 	Outline   Outline `json:"outline"`
 	Corners   Corners `json:"corners,omitempty"`
+	Rounding  int     `json:"rounding,omitempty"` // percent of round; zero leaves the corners to Corners
 }
 
 type Outline struct {
@@ -104,6 +105,7 @@ var (
 	radiusLimit    = limit{min: 2, max: 64}
 	dotLimit       = limit{min: 1, max: 16}
 	outlineLimit   = limit{min: 0, max: 4}
+	roundingLimit  = limit{min: 0, max: 100}
 )
 
 // Each pixel is sampled on a samples by samples grid, counted in steps of 1/(2*samples) of a
@@ -161,7 +163,7 @@ func Draw(s Style) (*image.RGBA, error) {
 	if err != nil {
 		return nil, err
 	}
-	if rounded, ok := roundedFigure(s, fill); ok && s.Corners != Sharp {
+	if rounded, ok := roundedFigure(s, fill); ok && (s.Corners != Sharp || s.Rounding > 0) {
 		edge := figure{parity: rounded.parity}
 		if s.Outline.Width > 0 {
 			edge = rounded.grown(s.Outline.Width)
@@ -248,6 +250,19 @@ func (s Style) clamped() Style {
 	s.DotSize = dotLimit.clamp(s.DotSize)
 	s.Outline.Width = outlineLimit.clamp(s.Outline.Width)
 	if !slices.Contains([]Corners{Soft, Round}, s.Corners) {
+		s.Corners = Sharp
+	}
+
+	return s.held()
+}
+
+// A share of the way to round stands in for the corners; all of it is round corners, and none
+// leaves them as they were.
+func (s Style) held() Style {
+	switch {
+	case s.Rounding >= roundingLimit.max:
+		s.Corners, s.Rounding = Round, 0
+	case s.Rounding > 0:
 		s.Corners = Sharp
 	}
 

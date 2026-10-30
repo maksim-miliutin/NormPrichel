@@ -24,13 +24,16 @@ func (s Style) Code() string {
 	code := fmt.Sprintf("%s.%s.%s.%d.%d.%d.%d.%d.%d.%d.%s", codeVersion, c.Shape, hexOf(c.Color),
 		c.Opacity, c.Length, c.Thickness, c.Gap, c.Radius, c.DotSize, c.Outline.Width, hexOf(c.Outline.Color))
 	// Older copies of the program and the gallery read the first version only.
-	if c.Corners == Sharp && !c.Outline.Shadow {
+	if c.Corners == Sharp && c.Rounding == 0 && !c.Outline.Shadow {
 		return code
 	}
 
 	corners, outline := "sharp", "line"
 	if c.Corners != Sharp {
 		corners = string(c.Corners)
+	}
+	if c.Rounding > 0 {
+		corners = strconv.Itoa(c.Rounding)
 	}
 	if c.Outline.Shadow {
 		outline = "shadow"
@@ -46,9 +49,9 @@ func ParseCode(text string) (Style, error) {
 	if !rounded && !plain || !slices.Contains(Shapes(), Shape(fields[1])) {
 		return Style{}, fmt.Errorf("%w: %q", ErrBadCode, text)
 	}
-	corners, outline, known := Sharp, "line", true
+	corners, rounding, outline, known := Sharp, 0, "line", true
 	if rounded {
-		corners, known = cornerWords[strings.ToLower(fields[11])]
+		corners, rounding, known = cornersOf(fields[11])
 		outline = strings.ToLower(fields[12])
 	}
 	if !known || outline != "line" && outline != "shadow" {
@@ -63,11 +66,24 @@ func ParseCode(text string) (Style, error) {
 	}
 	s := Style{
 		Shape: Shape(fields[1]), Color: colour, Opacity: values[0], Length: values[1], Thickness: values[2],
-		Gap: values[3], Radius: values[4], DotSize: values[5], Corners: corners,
+		Gap: values[3], Radius: values[4], DotSize: values[5], Corners: corners, Rounding: rounding,
 		Outline: Outline{Width: values[6], Color: edge, Shadow: outline == "shadow"},
 	}
 
 	return s.clamped(), nil
+}
+
+// The corners are a word or the share of the way to round, in percent.
+func cornersOf(field string) (Corners, int, bool) {
+	if corners, known := cornerWords[strings.ToLower(field)]; known {
+		return corners, 0, true
+	}
+	share, counted := numbers([]string{field})
+	if !counted {
+		return Sharp, 0, false
+	}
+
+	return Sharp, share[0], true
 }
 
 func numbers(fields []string) ([]int, bool) {

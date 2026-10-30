@@ -2,6 +2,7 @@ package window_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"slices"
 	"testing"
@@ -485,24 +486,28 @@ func TestTheGitHubButtonOpensTheRepository(t *testing.T) {
 	}
 }
 
-func TestTheCornerAndOutlineChoicesSetTheCrosshair(t *testing.T) {
+func TestTheOutlineChoicesAndTheRoundingSliderSetTheCrosshair(t *testing.T) {
 	a, state, _, _ := newActions(t, listed())
+	rounding := func(c window.Control) bool { return c.Kind == window.Slider && c.Knob.Name == "rounding" }
 
-	for _, word := range []string{"corners.soft", "outline.shadow"} {
-		if err := a.Click(control(t, a, worded(word))); err != nil {
-			t.Fatal(err)
-		}
+	if err := errors.Join(a.Click(control(t, a, worded("outline.shadow"))), a.Slide(control(t, a, rounding), 35)); err != nil {
+		t.Fatal(err)
 	}
-	if c := first(t, state.Current()).Crosshair; c.Corners != crosshair.Soft || !c.Outline.Shadow {
-		t.Errorf("after soft and shadow the crosshair has %q corners and shadow %v", c.Corners, c.Outline.Shadow)
+	if c := first(t, state.Current()).Crosshair; c.Rounding != 35 || !c.Outline.Shadow {
+		t.Errorf("after the shadow and 35%% the crosshair rounds %d%% with shadow %v", c.Rounding, c.Outline.Shadow)
 	}
 
-	for _, word := range []string{"corners.round", "outline.line", "corners.sharp"} {
-		if err := a.Click(control(t, a, worded(word))); err != nil {
-			t.Fatal(err)
-		}
+	if err := errors.Join(a.Click(control(t, a, worded("outline.line"))), a.Slide(control(t, a, rounding), 100)); err != nil {
+		t.Fatal(err)
 	}
-	if c := first(t, state.Current()).Crosshair; c.Corners != crosshair.Sharp || c.Outline.Shadow {
-		t.Errorf("after round, line and sharp the crosshair has %q corners and shadow %v", c.Corners, c.Outline.Shadow)
+	if c := first(t, state.Current()).Crosshair; c.Corners != crosshair.Round || c.Outline.Shadow {
+		t.Errorf("after the line and 100%% the crosshair has %q corners and shadow %v", c.Corners, c.Outline.Shadow)
+	}
+
+	if err := a.Slide(control(t, a, rounding), 0); err != nil {
+		t.Fatal(err)
+	}
+	if c := first(t, state.Current()).Crosshair; c.Corners != crosshair.Sharp || c.Rounding != 0 {
+		t.Errorf("after 0%% the crosshair has %q corners rounded %d%%", c.Corners, c.Rounding)
 	}
 }

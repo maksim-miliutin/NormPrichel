@@ -120,10 +120,10 @@ func stretch(k, n2 int) int {
 }
 
 func boxesOf(s Style, sharp parts) figure {
-	return roundedFrom(sharp, s.Corners)
+	return roundedFrom(sharp, s)
 }
 
-// Round corners stop short of the openings and discs cap their ends: openings keep the sharp width.
+// Round corners stop short of the openings and caps close their ends: openings keep the sharp width.
 type framed struct {
 	openAcross, openDown, dotted bool
 }
@@ -140,28 +140,28 @@ func (fm framed) figure(s Style, sharp parts) figure {
 	if fm.openAcross || fm.openDown {
 		rr = max(0, min(rr, side-cut))
 	}
-	fr := frame{q: side - rr, rr: rr, h: h}
+	fr := frame{side: side, h: h, outer: bend(s, rr+h)}
 	f := figure{parity: parity}
 	for _, sign := range [][2]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}} {
 		if fm.openAcross {
 			fr.cutX = cut
-			f.strokes = append(f.strokes, disc(point{sign[0] * cut, sign[1] * side}, h))
+			f.strokes = append(f.strokes, capped(point{sign[0] * cut, sign[1] * side}, h, bend(s, h)))
 		}
 		if fm.openDown {
 			fr.cutY = cut
-			f.strokes = append(f.strokes, disc(point{sign[0] * side, sign[1] * cut}, h))
+			f.strokes = append(f.strokes, capped(point{sign[0] * side, sign[1] * cut}, h, bend(s, h)))
 		}
 	}
 	f.frames = []frame{fr}
 	if fm.dotted {
-		f.strokes = append(f.strokes, roundedFrom(withDot(parts{parity: parity}, s), s.Corners).strokes...)
+		f.strokes = append(f.strokes, roundedFrom(withDot(parts{parity: parity}, s), s).strokes...)
 	}
 
 	return f
 }
 
-func disc(at point, h int) stroke {
-	return boxed(point{at.x - h, at.y - h}, point{at.x + h, at.y + h}, h)
+func capped(at point, h, r int) stroke {
+	return boxed(point{at.x - h, at.y - h}, point{at.x + h, at.y + h}, r)
 }
 
 // Corners come in pixels. A middle left narrower than the outline and a pixel would show only
@@ -176,7 +176,7 @@ func polygonOf(s Style, corners []point) figure {
 		to := corners[(i+1)%len(corners)]
 		dir := point{to.x - from.x, to.y - from.y}
 		start, end := point{unit * from.x, unit * from.y}, point{unit * to.x, unit * to.y}
-		f.strokes = append(f.strokes, segment{dir: dir, from: start, to: end, half: h, corner: rounding(s.Corners, h)}.stroke())
+		f.strokes = append(f.strokes, segment{dir: dir, from: start, to: end, half: h, corner: bend(s, h)}.stroke())
 		inside = append(inside, start)
 		twice += from.x*to.y - to.x*from.y
 		around += math.Hypot(float64(to.x-from.x), float64(to.y-from.y))
@@ -184,20 +184,26 @@ func polygonOf(s Style, corners []point) figure {
 	if float64(twice)/around-float64(s.Thickness)/2 < float64(s.Outline.Width+1) {
 		f.hulls = []hull{inside}
 	}
-	f.strokes = append(f.strokes, roundedFrom(withDot(parts{parity: parity}, s), s.Corners).strokes...)
+	f.strokes = append(f.strokes, roundedFrom(withDot(parts{parity: parity}, s), s).strokes...)
 
 	return f
 }
 
-// The cut ring ends on the lower diagonals, a radius out from the middle.
+// The cut ring ends on the lower diagonals, a radius out from the middle. A cap is the band
+// across the end swept r either way of the cut, which keeps its back half within the ring.
 func horseshoeOf(s Style, sharp parts) figure {
 	f := boxesOf(s, sharp)
-	if s.Corners != Round {
+	if s.Corners == Soft {
 		return f
 	}
 
 	h, aside := s.Thickness*unit/2, stretch(samples*s.Radius, 2)
-	f.strokes = append(f.strokes, disc(point{aside, aside}, h), disc(point{-aside, aside}, h))
+	r := bend(s, h)
+	off := stretch(h-r, 2) / 2
+	for _, side := range []int{1, -1} {
+		from, to := point{side * (aside - off), aside - off}, point{side * (aside + off), aside + off}
+		f.strokes = append(f.strokes, segment{dir: point{side, 1}, from: from, to: to, half: r, corner: r}.stroke())
+	}
 
 	return f
 }
@@ -220,10 +226,10 @@ func (dg diagonals) figure(s Style, _ parts) figure {
 		dir := point{d[0], d[1]}
 		first := point{unit * d[0] * from, unit * d[1] * from}
 		last := point{unit * d[0] * (from + s.Length - 1), unit * d[1] * (from + s.Length - 1)}
-		f.strokes = append(f.strokes, segment{dir: dir, from: first, to: last, half: h, corner: rounding(s.Corners, h)}.stroke())
+		f.strokes = append(f.strokes, segment{dir: dir, from: first, to: last, half: h, corner: bend(s, h)}.stroke())
 	}
 	if dg.dotted {
-		dot := roundedFrom(withDot(parts{parity: parity}, s), s.Corners)
+		dot := roundedFrom(withDot(parts{parity: parity}, s), s)
 		f.strokes = append(f.strokes, dot.strokes...)
 	}
 
@@ -244,10 +250,10 @@ func (k stroke) grown(by int) stroke {
 	return k
 }
 
-// A frame strokes the line round a square whose corners curve with radius rr from a core of half
-// side q: h to either side of it, less what lies within cutX of the middle across or cutY down.
+// A frame is the band between a square of half side side+h whose corners curve with radius outer
+// and one of half side side-h curving 2h less, less what lies within cutX across or cutY down.
 type frame struct {
-	q, rr, h, cutX, cutY int
+	side, h, outer, cutX, cutY int
 }
 
 func (f frame) holds(x, y int) bool {
@@ -255,13 +261,21 @@ func (f frame) holds(x, y int) bool {
 	if ax < f.cutX || ay < f.cutY {
 		return false
 	}
-	qx, qy := max(ax-f.q, 0), max(ay-f.q, 0)
-	if qx == 0 && qy == 0 {
-		return f.rr+min(f.q-ax, f.q-ay) <= f.h
-	}
-	far, near := f.rr+f.h, max(f.rr-f.h, 0)
 
-	return near*near <= qx*qx+qy*qy && qx*qx+qy*qy <= far*far
+	return within(ax, ay, f.side+f.h, f.outer) && !inside(ax, ay, f.side-f.h, max(f.outer-2*f.h, 0))
+}
+
+func within(ax, ay, half, r int) bool {
+	qx, qy := max(ax-half+r, 0), max(ay-half+r, 0)
+
+	return ax <= half && ay <= half && qx*qx+qy*qy <= r*r
+}
+
+// inside leaves out the edge itself, which belongs to the band as the outer edge does.
+func inside(ax, ay, half, r int) bool {
+	qx, qy := max(ax-half+r, 0), max(ay-half+r, 0)
+
+	return ax < half && ay < half && (r == 0 || qx*qx+qy*qy < r*r)
 }
 
 // The least reach keeps a rounded drawing the size of the sharp one, which may reach past what
@@ -288,7 +302,7 @@ func (hl hull) holds(x, y int) bool {
 	return true
 }
 
-func roundedFrom(ps parts, corners Corners) figure {
+func roundedFrom(ps parts, s Style) figure {
 	var strokes []stroke
 	for _, r := range ps.rects {
 		low := point{unit*r.x.lo - samples*ps.parity, unit*r.y.lo - samples*ps.parity}
@@ -296,19 +310,25 @@ func roundedFrom(ps parts, corners Corners) figure {
 		if high.x <= low.x || high.y <= low.y {
 			continue
 		}
-		strokes = append(strokes, boxed(low, high, rounding(corners, min(high.x-low.x, high.y-low.y)/2)))
+		strokes = append(strokes, boxed(low, high, bend(s, min(high.x-low.x, high.y-low.y)/2)))
 	}
 
 	return figure{parity: ps.parity, strokes: strokes, rings: ps.rings}
 }
 
-// Soft corners round off a pixel, round ones all of half the stroke.
-func rounding(corners Corners, half int) int {
-	if corners == Soft {
-		return min(unit, half)
+// bend is the radius a corner takes of the most it can have: soft corners round off a pixel,
+// round ones all of it, and a share of the way to round that share of it.
+func bend(s Style, most int) int {
+	switch {
+	case s.Rounding > 0:
+		return most * s.Rounding / roundingLimit.max
+	case s.Corners == Soft:
+		return min(unit, most)
+	case s.Corners == Round:
+		return most
 	}
 
-	return half
+	return 0
 }
 
 func (f figure) grown(width int) figure {
@@ -319,6 +339,7 @@ func (f figure) grown(width int) figure {
 	frames := make([]frame, len(f.frames))
 	for i, fr := range f.frames {
 		fr.h += width * unit
+		fr.outer += width * unit
 		frames[i] = fr
 	}
 

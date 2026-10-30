@@ -48,6 +48,8 @@ type Style struct {
 	Outline   Outline `json:"outline"`
 	Corners   Corners `json:"corners,omitempty"`
 	Rounding  int     `json:"rounding,omitempty"` // percent of round; zero leaves the corners to Corners
+	Built     bool    `json:"built,omitempty"`    // drawn from its parts, the shape kept for the way back
+	Parts     Parts   `json:"parts,omitzero"`
 }
 
 type Outline struct {
@@ -158,6 +160,9 @@ func Shapes() []Shape {
 
 func Draw(s Style) (*image.RGBA, error) {
 	s = s.clamped()
+	if s.Built {
+		return s.assembled(), nil
+	}
 
 	fill, err := partsOf(s)
 	if err != nil {
@@ -181,26 +186,16 @@ func Draw(s Style) (*image.RGBA, error) {
 
 type cover interface {
 	coverage(dx, dy int) int
+	sampled(dx, dy, i int) bool
 	reach() int
 }
 
 // A shadow is the outline blurred over as many pixels again: as much shade, spread twice as far,
 // fading from the fill outwards.
 func (s Style) painted(fill, edge cover, parity int) *image.RGBA {
-	blur := 0
-	if s.Outline.Shadow {
-		blur = s.Outline.Width
-	}
-	reach := max(fill.reach(), edge.reach()) + blur
+	reach := max(fill.reach(), edge.reach()) + s.blur()
 	size := 2*reach + parity
-
-	edges := grid{values: make([]int, size*size), side: size}
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
-			edges.values[y*size+x] = edge.coverage(x-reach, y-reach)
-		}
-	}
-	edges = edges.blurred(blur, 1).blurred(blur, size)
+	edges := s.edges(edge, reach, size)
 
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 	for y := 0; y < size; y++ {
@@ -210,6 +205,25 @@ func (s Style) painted(fill, edge cover, parity int) *image.RGBA {
 	}
 
 	return img
+}
+
+func (s Style) blur() int {
+	if s.Outline.Shadow {
+		return s.Outline.Width
+	}
+
+	return 0
+}
+
+func (s Style) edges(edge cover, reach, size int) grid {
+	edges := grid{values: make([]int, size*size), side: size}
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			edges.values[y*size+x] = edge.coverage(x-reach, y-reach)
+		}
+	}
+
+	return edges.blurred(s.blur(), 1).blurred(s.blur(), size)
 }
 
 type grid struct {
@@ -249,6 +263,11 @@ func (s Style) clamped() Style {
 	s.Radius = radiusLimit.clamp(s.Radius)
 	s.DotSize = dotLimit.clamp(s.DotSize)
 	s.Outline.Width = outlineLimit.clamp(s.Outline.Width)
+	for _, k := range partKnobs {
+		if s.Built {
+			*k.value(&s) = k.limit.clamp(*k.value(&s))
+		}
+	}
 	if !slices.Contains([]Corners{Soft, Round}, s.Corners) {
 		s.Corners = Sharp
 	}
@@ -500,14 +519,20 @@ func (ps parts) coverage(dx, dy int) int {
 
 	count := 0
 	for i := 0; i < full; i++ {
-		x := 2*samples*dx - samples*ps.parity + 2*(i%samples) + 1
-		y := 2*samples*dy - samples*ps.parity + 2*(i/samples) + 1
-		if ps.inRing(x, y) {
+		if ps.inRing(sampleAt(dx, dy, ps.parity, i)) {
 			count++
 		}
 	}
 
 	return count
+}
+
+func (ps parts) sampled(dx, dy, i int) bool {
+	return ps.inRect(dx, dy) || ps.inRing(sampleAt(dx, dy, ps.parity, i))
+}
+
+func sampleAt(dx, dy, parity, i int) (int, int) {
+	return unit*dx - samples*parity + 2*(i%samples) + 1, unit*dy - samples*parity + 2*(i/samples) + 1
 }
 
 func (ps parts) inRect(dx, dy int) bool {

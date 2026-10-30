@@ -401,17 +401,25 @@ func (f figure) coverage(dx, dy int) int {
 		return 0
 	}
 
-	rings := parts{parity: f.parity, rings: f.rings}
 	count := 0
 	for i := 0; i < full; i++ {
-		x, y := x0+2*(i%samples)+1, y0+2*(i/samples)+1
-		if slices.ContainsFunc(near, func(k stroke) bool { return k.holds(x, y) }) ||
-			slices.ContainsFunc(f.frames, func(fr frame) bool { return fr.holds(x, y) }) ||
-			slices.ContainsFunc(f.hulls, func(hl hull) bool { return hl.holds(x, y) }) ||
-			len(f.rings) > 0 && rings.inRing(x, y) {
+		if x, y := sampleAt(dx, dy, f.parity, i); f.holds(near, x, y) {
 			count++
 		}
 	}
 
 	return count
+}
+
+func (f figure) sampled(dx, dy, i int) bool {
+	x, y := sampleAt(dx, dy, f.parity, i)
+
+	return f.holds(f.strokes, x, y)
+}
+
+func (f figure) holds(strokes []stroke, x, y int) bool {
+	return slices.ContainsFunc(strokes, func(k stroke) bool { return k.holds(x, y) }) ||
+		slices.ContainsFunc(f.frames, func(fr frame) bool { return fr.holds(x, y) }) ||
+		slices.ContainsFunc(f.hulls, func(hl hull) bool { return hl.holds(x, y) }) ||
+		len(f.rings) > 0 && parts{parity: f.parity, rings: f.rings}.inRing(x, y)
 }

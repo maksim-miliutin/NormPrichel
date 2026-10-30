@@ -26,8 +26,6 @@ var (
 // Each language is named in itself, so a player lost in the other one still finds their own.
 var languages = map[int]string{idRussian: "ru", idEnglish: "en"}
 
-var cornerChoices = map[int]crosshair.Corners{idSharp: crosshair.Sharp, idSoft: crosshair.Soft, idRound: crosshair.Round}
-
 type Control struct {
 	Place
 	Text    string
@@ -69,7 +67,7 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 			c.Text = word(p.Word)
 		}
 		hotkey, hotkeyPlace, isHotkey := rowPart(p.ID, idHotkey, 4, hotkeyCount)
-		slot, slotPlace, isKnob := rowPart(p.ID, idKnob, 3, knobSlots+1)
+		slot, slotPlace, isKnob := rowPart(p.ID, idKnob, 3, slotCount)
 		shapeIndex, _, isShape := rowPart(p.ID, idShape, 1, shapeCount)
 		swatch, _, isSwatch := rowPart(p.ID, idSwatch, 1, len(palette))
 		edging, _, isEdging := rowPart(p.ID, idOutlineSwatch, 1, len(outlinePalette))
@@ -85,7 +83,7 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		case isShape:
 			shape := crosshair.Shapes()[shapeIndex]
 			c.Text, c.Shape, c.On = word("shape."+string(shape)), shape, view.Crosshair.Shape == shape
-			c.Corners = view.Crosshair.Corners
+			c.Corners = look(view.Crosshair.Style)
 		default:
 			c = filled(c, screen, view, word)
 		}
@@ -144,8 +142,6 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 		c.On = view.HideWhileAiming
 	case idLine, idShadow:
 		c.On = view.Crosshair.Outline.Shadow == (c.ID == idShadow)
-	case idSharp, idSoft, idRound:
-		c.On = view.Crosshair.Corners == cornerChoices[c.ID]
 	case idCopyCode:
 		c.On = screen.Copied
 		if c.On {
@@ -208,8 +204,23 @@ func gameRow(row settings.GameRow, word func(string) string) string {
 	return row.Name + " · " + word("gameOff")
 }
 
+// A button is too small to tell one share of the way to round from another, so any shows as soft.
+func look(s crosshair.Style) crosshair.Corners {
+	switch s.Roundness() {
+	case crosshair.RoundingKnob().Min:
+		return crosshair.Sharp
+	case crosshair.RoundingKnob().Max:
+		return crosshair.Round
+	}
+
+	return crosshair.Soft
+}
+
 func knobPart(c Control, slot, part int, view *settings.GameView) Control {
 	knob := view.Scale
+	if slot == roundingSlot {
+		knob = view.Rounding
+	}
 	if slot < knobSlots {
 		c.Shown = c.Shown && slot < len(view.Knobs)
 		if !c.Shown {

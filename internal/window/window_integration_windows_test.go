@@ -68,6 +68,7 @@ const (
 	enKillFocus     = 0x0200
 	lbnSelChange    = 1
 	vkRight         = 0x27
+	vkEnd           = 0x23
 	vkControl       = 0x11
 	vkMenu          = 0x12
 	rdwInvalidate   = 0x0001
@@ -257,12 +258,12 @@ func TestAClickOnAShapeButtonDrawsThatShape(t *testing.T) {
 
 // Only what the window marks as changed is painted again here, so a button it forgets to mark
 // keeps its old picture.
-func TestTheShapeButtonsRepaintTheirIconsWhenTheCornersChange(t *testing.T) {
+func TestTheShapeButtonsRepaintTheirIconsWhenTheRoundingChanges(t *testing.T) {
 	o := open(t, listed())
 	o.window.Show()
 	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
 	square, _ := o.child(t, reading(o.actions.Form.Word("shape.square")))
-	round, _ := o.child(t, worded("corners.round"))
+	rounding, _ := o.child(t, func(c window.Control) bool { return c.Kind == window.Slider && c.Knob.Name == "rounding" })
 	look := func() []crosshair.RGB {
 		var seen []crosshair.RGB
 		size := clientOf(square)
@@ -275,9 +276,12 @@ func TestTheShapeButtonsRepaintTheirIconsWhenTheCornersChange(t *testing.T) {
 	}
 	before := look()
 
-	procSendMessageW.Call(round, bmClick, 0, 0)
+	procSendMessageW.Call(rounding, wmKeyDown, vkEnd, 0)
 	procRedrawWindow.Call(o.window.Handle(), 0, 0, rdwAllChildren|rdwUpdateNow)
 
+	if got := first(t, o.state.Current()).Crosshair.Corners; got != crosshair.Round {
+		t.Errorf("%q corners after End on the rounding, want round", got)
+	}
 	if slices.Equal(look(), before) {
 		t.Error("the square's button shows the same icon after the corners turned round")
 	}

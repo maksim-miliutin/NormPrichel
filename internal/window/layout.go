@@ -102,10 +102,6 @@ const (
 	idLine
 	idShadow
 	idOutlineColor
-	idCornersLabel
-	idSharp
-	idSoft
-	idRound
 	idUploadHint
 	idUpload
 	idPreviewHeading
@@ -157,6 +153,9 @@ const (
 	idAddMenu       = 1000
 
 	knobSlots    = 6
+	scaleSlot    = knobSlots
+	roundingSlot = knobSlots + 1
+	slotCount    = knobSlots + 2
 	hotkeyCount  = 5
 	shapesPerRow = 9
 )
@@ -243,13 +242,8 @@ func crosshairColumn() []Place {
 		x := leftX + 68 + (len(palette)-len(outlinePalette)+i)*32
 		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, colour + 30, 28, 28}, crosshairTab})
 	}
-	places = append(places,
-		Place{idOutlineColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab},
-		Place{idCornersLabel, Label, "corners", rounds, Rect{leftX, colour + 69, 64, 18}, crosshairTab},
-	)
-	for i, word := range []string{"corners.sharp", "corners.soft", "corners.round"} {
-		places = append(places, Place{idSharp + i, Choice, word, rounds, Rect{leftX + 68 + i*102, colour + 64, 96, 28}, crosshairTab})
-	}
+	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab})
+	places = append(places, knobSlot(roundingSlot, colour+62, rounds, "rounding")...)
 	for i := range knobSlots {
 		places = append(places, knobSlot(i, knobsTop()+i*30, ready, "")...)
 	}
@@ -258,7 +252,7 @@ func crosshairColumn() []Place {
 		Place{idUpload, Button, "upload", picture, Rect{leftX, top + 98, 170, 28}, crosshairTab},
 	)
 
-	return append(places, knobSlot(knobSlots, top+134, picture, "scale")...)
+	return append(places, knobSlot(scaleSlot, top+134, picture, "scale")...)
 }
 
 func colourRow() int {
@@ -338,7 +332,7 @@ func generalPage() []Place {
 }
 
 // The knobs a shape is drawn from fill the slots from the top, so a shape with fewer knobs
-// leaves no gaps; the picture's scale has a slot of its own under the upload button.
+// leaves no gaps; the rounding stands above them and the picture's scale under the upload button.
 func knobSlot(slot, y int, group, word string) []Place {
 	id := idKnob + 3*slot
 

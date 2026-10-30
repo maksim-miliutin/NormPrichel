@@ -109,8 +109,6 @@ func (a Actions) Click(id int) error {
 		a.Form.SetFarStep(id == idFar)
 	case idLine, idShadow:
 		return a.Form.SetShadow(id == idShadow)
-	case idSharp, idSoft, idRound:
-		return a.Form.SetCorners(cornerChoices[id])
 	case idCentre:
 		return a.Form.Centre()
 	case idAimHide:
@@ -185,14 +183,16 @@ func (a Actions) Open(id int) error {
 
 func (a Actions) Slide(id, value int) error {
 	game := shownGame(a.Form.Screen())
-	slot, place, ok := rowPart(id, idKnob, 3, knobSlots+1)
+	slot, place, ok := rowPart(id, idKnob, 3, slotCount)
 	if !ok || place != 2 {
 		return nil
 	}
 
 	switch {
-	case slot == knobSlots && value != game.Scale.Value:
+	case slot == scaleSlot && value != game.Scale.Value:
 		return a.Form.SetScale(value)
+	case slot == roundingSlot && value != game.Rounding.Value:
+		return a.Form.SetRounding(value)
 	case slot < len(game.Knobs) && value != game.Knobs[slot].Value:
 		return a.Form.SetKnob(game.Knobs[slot].Name, value)
 	}

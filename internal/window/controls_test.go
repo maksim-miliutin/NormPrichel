@@ -29,6 +29,7 @@ func gameScreen(shape crosshair.Shape) settings.Screen {
 		Enabled:   true,
 		Crosshair: c,
 		Scale:     settings.KnobView{Knob: crosshair.PictureScale(), Label: words("scale"), Value: 150},
+		Rounding:  settings.KnobView{Knob: crosshair.RoundingKnob(), Label: words("rounding"), Value: 0},
 		Offset:    profiles.Offset{X: 3, Y: -7},
 	}
 	for _, knob := range crosshair.Knobs(shape) {
@@ -197,11 +198,17 @@ func TestTheKnobsOfTheShapeFillTheSlotsInOrder(t *testing.T) {
 		var got []string
 		for _, c := range shownOnly(ofKind(controls, window.Slider)) {
 			got = append(got, c.Knob.Name)
-			if c.Knob.Value != screen.Game.Crosshair.Value(c.Knob.Name) || c.Knob.Max == 0 {
+			if c.Knob.Name == "rounding" && c.Knob != screen.Game.Rounding {
+				t.Errorf("%s: the rounding slider holds %+v, want %+v", shape, c.Knob, screen.Game.Rounding)
+			}
+			if c.Knob.Name != "rounding" && c.Knob.Value != screen.Game.Crosshair.Value(c.Knob.Name) || c.Knob.Max == 0 {
 				t.Errorf("%s: the %s slider holds %+v", shape, c.Knob.Name, c.Knob)
 			}
 		}
 		var want []string
+		if crosshair.Rounds(shape) {
+			want = append(want, "rounding")
+		}
 		for _, knob := range crosshair.Knobs(shape) {
 			want = append(want, knob.Name)
 			label := withText(t, controls, words(knob.Name))
@@ -486,35 +493,56 @@ func TestOnlyTheNameToSaveUnderIsThePlayersOwn(t *testing.T) {
 	}
 }
 
-func TestTheCornerAndOutlineChoicesShowTheCrosshairAndHideWhereTheyDoNothing(t *testing.T) {
+func rounding(c window.Control) bool {
+	return c.Kind == window.Slider && c.Knob.Name == "rounding"
+}
+
+func TestTheRoundingAndOutlineChoicesShowTheCrosshairAndHideWhereTheyDoNothing(t *testing.T) {
 	screen := gameScreen(crosshair.Cross)
-	screen.Game.Crosshair.Corners, screen.Game.Crosshair.Outline.Shadow = crosshair.Round, true
+	screen.Game.Crosshair.Outline.Shadow = true
+	screen.Game.Rounding.Value = 35
 	controls := window.Controls(screen, words)
 
-	for word, on := range map[string]bool{"corners.sharp": false, "corners.soft": false, "corners.round": true, "outline.line": false, "outline.shadow": true} {
+	for word, on := range map[string]bool{"outline.line": false, "outline.shadow": true} {
 		if c := withWord(t, controls, word); !c.Shown || c.On != on {
 			t.Errorf("%s shows %v and is down %v, want shown and down %v", word, c.Shown, c.On, on)
 		}
 	}
+	slider := controls[slices.IndexFunc(controls, rounding)]
+	label := withWord(t, controls, "rounding")
+	value := controls[slices.IndexFunc(controls, func(c window.Control) bool { return c.ID == slider.ID-1 })]
+	if !slider.Shown || slider.Knob != screen.Game.Rounding || label.Text != words("rounding") || value.Text != "35" {
+		t.Errorf("the rounding shows %v with %+v, labelled %q at %q", slider.Shown, slider.Knob, label.Text, value.Text)
+	}
 
 	controls = window.Controls(gameScreen(crosshair.Circle), words)
-	for _, word := range []string{"corners", "corners.sharp", "corners.round"} {
-		if withWord(t, controls, word).Shown {
-			t.Errorf("%s shows for a circle, which has no corners", word)
-		}
+	if controls[slices.IndexFunc(controls, rounding)].Shown || withWord(t, controls, "rounding").Shown {
+		t.Error("the rounding shows for a circle, which has no corners")
 	}
 	if !withWord(t, controls, "outline.shadow").Shown {
 		t.Error("the shadow hides for a circle, which has an outline")
 	}
 }
 
-func TestTheShapeButtonsDrawWithTheCornersOfTheCrosshair(t *testing.T) {
-	screen := gameScreen(crosshair.Cross)
-	screen.Game.Crosshair.Corners = crosshair.Soft
+func TestTheShapeButtonsDrawSharpRoundOrInBetween(t *testing.T) {
+	for _, c := range []struct {
+		corners  crosshair.Corners
+		rounding int
+		want     crosshair.Corners
+	}{
+		{crosshair.Sharp, 0, crosshair.Sharp},
+		{crosshair.Round, 0, crosshair.Round},
+		{crosshair.Soft, 0, crosshair.Soft},
+		{crosshair.Sharp, 40, crosshair.Soft},
+		{crosshair.Sharp, 5, crosshair.Soft},
+	} {
+		screen := gameScreen(crosshair.Cross)
+		screen.Game.Crosshair.Corners, screen.Game.Crosshair.Rounding = c.corners, c.rounding
 
-	for _, c := range window.Controls(screen, words) {
-		if c.Shape != "" && c.Corners != crosshair.Soft {
-			t.Errorf("the %s button draws with %q corners, want soft", c.Shape, c.Corners)
+		for _, button := range window.Controls(screen, words) {
+			if button.Shape != "" && button.Corners != c.want {
+				t.Errorf("%q corners rounded %d%%: the %s button draws %q, want %q", c.corners, c.rounding, button.Shape, button.Corners, c.want)
+			}
 		}
 	}
 }

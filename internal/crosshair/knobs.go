@@ -50,6 +50,10 @@ func knobsOf(used []string) []Knob {
 	return offered
 }
 
+func RoundingKnob() Knob {
+	return Knob{Name: "rounding", Min: roundingLimit.min, Max: roundingLimit.max, Step: 5}
+}
+
 func PictureScale() Knob {
 	return Knob{Name: "scale", Min: scaleLimit.min, Max: scaleLimit.max, Step: 25}
 }

@@ -163,3 +163,53 @@ func TestAShareOfRoundingIsWrittenDownOnlyWhenChosen(t *testing.T) {
 		t.Errorf("came back as %+v from %s", back, text)
 	}
 }
+
+func TestTheRoundingKnobRunsFromSharpToRoundInFives(t *testing.T) {
+	if got, want := crosshair.RoundingKnob(), (crosshair.Knob{Name: "rounding", Min: 0, Max: 100, Step: 5}); got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func TestRoundnessReadsTheShareOrTheKindOfCorners(t *testing.T) {
+	for _, c := range []struct {
+		corners   crosshair.Corners
+		rounding  int
+		thickness int
+		want      int
+	}{
+		{crosshair.Sharp, 0, 4, 0},
+		{crosshair.Round, 0, 4, 100},
+		{crosshair.Sharp, 35, 4, 35},
+		{crosshair.Sharp, 140, 4, 100},
+		{crosshair.Soft, 0, 1, 99},
+		{crosshair.Soft, 0, 4, 50},
+		{crosshair.Soft, 0, 8, 25},
+		{crosshair.Soft, 0, 16, 13},
+	} {
+		style := crosshair.Style{Shape: crosshair.Cross, Thickness: c.thickness, Corners: c.corners, Rounding: c.rounding}
+		if got := style.Roundness(); got != c.want {
+			t.Errorf("%q corners rounded %d%% at thickness %d read %d, want %d", c.corners, c.rounding, c.thickness, got, c.want)
+		}
+	}
+}
+
+func TestARoundedStyleTakesItsShareWhateverItsCornersWere(t *testing.T) {
+	for _, c := range []struct {
+		from     crosshair.Corners
+		share    int
+		corners  crosshair.Corners
+		rounding int
+	}{
+		{crosshair.Soft, 35, crosshair.Sharp, 35},
+		{crosshair.Round, 35, crosshair.Sharp, 35},
+		{crosshair.Sharp, 100, crosshair.Round, 0},
+		{crosshair.Sharp, 120, crosshair.Round, 0},
+		{crosshair.Round, 0, crosshair.Sharp, 0},
+		{crosshair.Soft, -1, crosshair.Sharp, 0},
+	} {
+		got := crosshair.Style{Shape: crosshair.Cross, Corners: c.from, Rounding: 70}.Rounded(c.share)
+		if got.Corners != c.corners || got.Rounding != c.rounding {
+			t.Errorf("%q corners rounded %d%% became %q rounded %d%%, want %q rounded %d%%", c.from, c.share, got.Corners, got.Rounding, c.corners, c.rounding)
+		}
+	}
+}

@@ -110,3 +110,55 @@ func TestEveryCornerAndOutlineComesBackFromItsCode(t *testing.T) {
 		t.Errorf("a second version code of a plain crosshair gives %+v, %v; want the default", got, err)
 	}
 }
+
+func TestAShareOfRoundingGoesIntoTheCornersField(t *testing.T) {
+	style := crosshair.Default()
+	style.Rounding = 35
+	code := style.Code()
+	if want := "np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.35.line"; code != want {
+		t.Errorf("got %q, want %q", code, want)
+	}
+
+	got, err := crosshair.ParseCode(code)
+	if err != nil || got != style {
+		t.Errorf("the code %q gives back %+v, %v; want %+v", code, got, err, style)
+	}
+}
+
+// Older copies of the program read the words, so the ends of the way are written as words.
+func TestTheEndsOfTheWayToRoundAreWrittenAsTheirWords(t *testing.T) {
+	for _, c := range []struct {
+		rounding int
+		want     string
+	}{
+		{100, "np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.round.line"},
+		{150, "np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000.round.line"},
+		{0, defaultCode},
+	} {
+		style := crosshair.Default()
+		style.Rounding = c.rounding
+		if got := style.Code(); got != c.want {
+			t.Errorf("rounded %d%%: got %q, want %q", c.rounding, got, c.want)
+		}
+	}
+}
+
+func TestASharePastTheEndsOfTheWayIsReadAsTheEnd(t *testing.T) {
+	round := crosshair.Default()
+	round.Corners = crosshair.Round
+	for field, want := range map[string]crosshair.Style{"0": crosshair.Default(), "000": crosshair.Default(), "100": round, "250": round} {
+		got, err := crosshair.ParseCode("np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000." + field + ".line")
+		if err != nil || got != want {
+			t.Errorf("%q: got %+v, %v; want %+v", field, got, err, want)
+		}
+	}
+}
+
+func TestAShareThatIsNotAWholeNumberIsRefused(t *testing.T) {
+	for _, field := range []string{"-5", "5x", "1234", "", "4,5", "+7"} {
+		code := "np2.cross-dot.00FF66.100.8.2.3.10.2.1.000000." + field + ".line"
+		if _, err := crosshair.ParseCode(code); !errors.Is(err, crosshair.ErrBadCode) {
+			t.Errorf("%q gives %v, want ErrBadCode", code, err)
+		}
+	}
+}

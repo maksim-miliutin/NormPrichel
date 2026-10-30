@@ -117,8 +117,37 @@ var roundedDrawn = []struct {
 	{"np2.dots.00FF66.100.8.4.4.9.4.1.000000.round.line", 18, 18, "712e09dd13051ab9d9dc592af859e30c241e1e5eb9a79dd93a7285d74f15f450"},
 }
 
+// Drawings part of the way to round, looked at before they were pinned.
+var sharedDrawn = []struct {
+	code          string
+	width, height int
+	sha256        string
+}{
+	{"np2.dot.00FF66.100.8.4.4.9.4.1.000000.75.line", 6, 6, "c010cdee4f631168bbc54c0c1fa80fe44177e2e586ec5a4a26d8950cf3497721"},
+	{"np2.cross.00FF66.100.8.4.4.9.4.1.000000.75.line", 26, 26, "66e83718a5c36640dc874a4171baf29c990344d53e05eaca8eabfa29bf2d6730"},
+	{"np2.cross-dot.00FF66.100.8.4.4.9.4.1.000000.75.line", 26, 26, "8f10032d08938e926df3b1b5403bb45f2bb22b2ceefbec64013064242b465ce1"},
+	{"np2.circle-dot.00FF66.100.8.4.4.9.4.1.000000.75.line", 24, 24, "cd04b0bdcd3cfd00815f10389ab7423bc57790a5db327f7540fafda3fc5edc1d"},
+	{"np2.t.00FF66.100.8.4.4.9.4.1.000000.75.line", 26, 26, "cf9657de91e5e9dd7c024ec919643d56d0ac3752ac2197979fab38608b51d581"},
+	{"np2.x.00FF66.100.8.4.4.9.4.1.000000.75.line", 30, 30, "3b9baa4190d5769f409d26c2f3aa8aed96ae9466aab062706d4c90d9da969d42"},
+	{"np2.x-dot.00FF66.100.8.4.4.9.4.1.000000.75.line", 30, 30, "060c5d8a0c6d19da4f8189bef9c3c88503ad057dc8243c8569b8ca48929a2cba"},
+	{"np2.square.00FF66.100.8.4.4.9.4.1.000000.75.line", 24, 24, "3fc05da830c05016855bb09e8aab923f302d04987737529123c70c8d67a52844"},
+	{"np2.square-dot.00FF66.100.8.4.4.9.4.1.000000.75.line", 24, 24, "bd7c3fd76497e706f5c83d17621d1f2b8454bd7d53d834b1e10094a2d6f22047"},
+	{"np2.chevron.00FF66.100.8.4.4.9.4.1.000000.75.line", 22, 22, "e67c812fe1cd0713b38c9dfd3c4e738a869c072f37b4ba8ab286382939fb940c"},
+	{"np2.circle-cross.00FF66.100.8.4.4.9.4.1.000000.75.line", 26, 26, "80fcb26d176031607ad052f973b9201cd277d66d3b28a0e8da9362a9af3bea75"},
+	{"np2.brackets.00FF66.100.8.4.4.9.4.1.000000.75.line", 24, 24, "27e2b69552f71e3c3d368005fb9d6d36f1a2fb1737cfe0fc49aa7ea8ce83ae52"},
+	{"np2.viewfinder.00FF66.100.8.4.4.9.4.1.000000.75.line", 24, 24, "9de689bcbd958d1c631851a49ddc35eb78cdad9b68c81e21e6ee4b7fa596055a"},
+	{"np2.diamond.00FF66.100.8.4.4.9.4.1.000000.75.line", 26, 26, "be9751ccfc6bbf3b75cec16a840945885165f293f10af54247af0e9fd16e8893"},
+	{"np2.triangle.00FF66.100.8.4.4.9.4.1.000000.75.line", 26, 26, "9e4321e75bd68dfe6ef93b542598b1b4ff148f58586239a9f4f665a989c13583"},
+	{"np2.horseshoe.00FF66.100.8.4.4.9.4.1.000000.75.line", 24, 24, "9835506956a4256aa9b92ffbdf39a4f7ee5b8be8885250682e114702c96cb574"},
+	{"np2.dots.00FF66.100.8.4.4.9.4.1.000000.75.line", 18, 18, "7c4478ffee67faa8059aea11fc53e1b7fbdc79f0c6cd3cb15f42e305b29b90c9"},
+	{"np2.cross-dot.00FF66.100.8.4.4.9.4.1.000000.25.line", 26, 26, "42cfc543b7e2181cdb5d90fd3a7ea29b473c8d55df1ce95003ce961b0f2681d9"},
+	{"np2.square.00FF66.100.8.4.4.9.4.1.000000.25.line", 24, 24, "8fd9b88f430b92ed1a22ee932a21dee17c317e1c144cb09c8411f0aa876659f0"},
+	{"np2.brackets.00FF66.100.8.4.4.9.4.1.000000.50.shadow", 26, 26, "9088034e2105bacf20e9b0d4a81767daaabb0931382d0e107085dbc0d4898101"},
+	{"np2.horseshoe.00FF66.100.8.4.4.9.4.1.000000.25.line", 24, 24, "2ea64ad10247229add64f5d585d717817667517eb1f95bfbb78390073c8bc746"},
+}
+
 func TestEveryReferenceIsDrawnToTheBit(t *testing.T) {
-	for _, reference := range slices.Concat(drawn, roundedDrawn) {
+	for _, reference := range slices.Concat(drawn, roundedDrawn, sharedDrawn) {
 		style, err := crosshair.ParseCode(reference.code)
 		if err != nil {
 			t.Fatal(err)

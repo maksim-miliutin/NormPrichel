@@ -1,6 +1,7 @@
 package crosshair
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"slices"
@@ -257,4 +258,118 @@ func (s Style) over(fill, border, whole int) color.RGBA {
 	}
 
 	return color.RGBA{R: mix(s.Color.R, s.Outline.Color.R), G: mix(s.Color.G, s.Outline.Color.G), B: mix(s.Color.B, s.Outline.Color.B), A: mix(255, 255)}
+}
+
+type Arm string
+
+const (
+	Up    Arm = "up"
+	Right Arm = "right"
+	Down  Arm = "down"
+	Left  Arm = "left"
+)
+
+func PartNames() []Part {
+	return []Part{InnerPart, OuterPart, DotPart, RingPart, OutlinePart}
+}
+
+func ArmNames() []Arm {
+	return []Arm{Up, Right, Down, Left}
+}
+
+func PartKnobs(p Part) []Knob {
+	var offered []Knob
+	for _, k := range partKnobs {
+		if k.part == p {
+			offered = append(offered, Knob{Name: k.name, Min: k.limit.min, Max: k.limit.max, Step: 1})
+		}
+	}
+
+	return offered
+}
+
+func (s Style) PartValue(p Part, name string) int {
+	for _, k := range partKnobs {
+		if k.part == p && k.name == name {
+			return *k.value(&s)
+		}
+	}
+
+	return 0
+}
+
+func (s Style) WithPartValue(p Part, name string, v int) (Style, error) {
+	for _, k := range partKnobs {
+		if k.part == p && k.name == name {
+			*k.value(&s) = k.limit.clamp(v)
+			return s, nil
+		}
+	}
+
+	return s, fmt.Errorf("%w: %q of %q", ErrUnknownKnob, name, p)
+}
+
+// The outline has no switch of its own: a width of nothing is how it goes.
+func (s *Style) switchOf(p Part) *bool {
+	switch p {
+	case InnerPart:
+		return &s.Parts.Inner.On
+	case OuterPart:
+		return &s.Parts.Outer.On
+	case DotPart:
+		return &s.Parts.Dot.On
+	case RingPart:
+		return &s.Parts.Ring.On
+	}
+
+	return nil
+}
+
+func (s Style) PartShown(p Part) bool {
+	on := s.switchOf(p)
+
+	return on != nil && *on
+}
+
+func (s Style) WithPartShown(p Part, shown bool) Style {
+	if on := s.switchOf(p); on != nil {
+		*on = shown
+	}
+
+	return s
+}
+
+func (s *Style) hiddenOf(p Part, a Arm) *bool {
+	lines := map[Part]*Lines{InnerPart: &s.Parts.Inner, OuterPart: &s.Parts.Outer}[p]
+	if lines == nil {
+		return nil
+	}
+
+	return map[Arm]*bool{Up: &lines.Hidden.Up, Right: &lines.Hidden.Right, Down: &lines.Hidden.Down, Left: &lines.Hidden.Left}[a]
+}
+
+func (s Style) ArmShown(p Part, a Arm) bool {
+	hidden := s.hiddenOf(p, a)
+
+	return hidden != nil && !*hidden
+}
+
+func (s Style) WithArm(p Part, a Arm, shown bool) Style {
+	if hidden := s.hiddenOf(p, a); hidden != nil {
+		*hidden = !shown
+	}
+
+	return s
+}
+
+func Switched(p Part) bool {
+	var s Style
+
+	return s.switchOf(p) != nil
+}
+
+func Armed(p Part) bool {
+	var s Style
+
+	return s.hiddenOf(p, Up) != nil
 }

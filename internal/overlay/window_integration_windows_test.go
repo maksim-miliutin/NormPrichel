@@ -196,3 +196,13 @@ func TestTheLoopGivesTheDialogWindowTabBetweenItsControls(t *testing.T) {
 		t.Errorf("after Tab the keys are with %#x, want the second button %#x", focus, second)
 	}
 }
+
+func TestTheMainScreenIsAsHighAsItsOwnPixels(t *testing.T) {
+	if err := DeclareDPIAwareness(); err != nil {
+		t.Fatal(err)
+	}
+
+	if height := ScreenHeight(); height < 480 || height > 8640 {
+		t.Errorf("the main screen is %d pixels high", height)
+	}
+}

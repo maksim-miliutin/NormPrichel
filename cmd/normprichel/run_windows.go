@@ -89,6 +89,7 @@ func run() error {
 		SwitchAutostart: tray.SetAutostart,
 		Version:         versionOf(debug.ReadBuildInfo()),
 		WindowsLanguage: windowsLanguage,
+		ScreenHeight:    overlay.ScreenHeight,
 	}, tick, acted)
 	if err != nil {
 		return err

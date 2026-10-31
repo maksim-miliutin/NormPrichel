@@ -76,6 +76,7 @@ func newForm(t *testing.T, s profiles.Settings) (*settings.Form, *live.State, *m
 		SwitchAutostart: m.switchAutostart,
 		Version:         "v0.1.0",
 		WindowsLanguage: "ru",
+		ScreenHeight:    func() int { return 1080 },
 	}, state, m
 }
 
@@ -1104,5 +1105,53 @@ func TestAPictureShowsOverTheBuilderAndABuiltCodeOpensIt(t *testing.T) {
 	}
 	if view := form.Screen().Game; view.Picture || !view.Built {
 		t.Errorf("after a built code the screen shows picture %v and builder %v", view.Picture, view.Built)
+	}
+}
+
+func TestAValorantCodeBuildsTheCrosshairOfTheChosenGame(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := form.UseCode("0;P;c;5;h;0;0l;4;0o;2;0a;1;0f;0;1b;0"); err != nil {
+		t.Fatal(err)
+	}
+	game, _ := state.Current().Game("stalzone.exe")
+	if c := game.Crosshair; !c.Built || c.Color != (crosshair.RGB{G: 255, B: 255}) || c.Parts.Inner.Length != 4 || !form.Screen().Game.Built {
+		t.Errorf("after the code the crosshair is %+v", c)
+	}
+	if other, _ := state.Current().Game("other.exe"); other.Crosshair.Built {
+		t.Error("the other game took the code too")
+	}
+}
+
+func TestACS2CodeIsDrawnAsLargeAsTheGameDrawsItOnThisScreen(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.ScreenHeight = func() int { return 2160 }
+
+	if err := form.UseCode(" CSGO-hLbCn-69VT6-Bok83-9MOqW-SWzwQ\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair.Parts.Inner.Length != 16 {
+		t.Errorf("the lines are %d long, want twice the code's 8 on a screen twice as high", game.Crosshair.Parts.Inner.Length)
+	}
+}
+
+func TestARefusedGameCodeSaysWhyAndChangesNothing(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	before := state.Current()
+
+	for code, word := range map[string]string{
+		"CSGO-Cn37R-YE7vo-pLCAL-aURmZ-z6zkG": "error.csgo-code",
+		"0;P;c":                              "error.broken-code",
+		"hello":                              "error.bad-code",
+	} {
+		if err := form.UseCode(code); err == nil {
+			t.Errorf("%q was taken", code)
+		}
+		if got := form.Screen().Problem; got != form.Word(word) {
+			t.Errorf("%q says %q, want %q", code, got, form.Word(word))
+		}
+	}
+	if !equal(state.Current(), before) {
+		t.Error("a refused code changed the settings")
 	}
 }

@@ -197,6 +197,7 @@ func newActions(t *testing.T, s profiles.Settings) (window.Actions, *changes, *m
 		SwitchAutostart: m.switchAutostart,
 		Version:         "v0.1.0",
 		WindowsLanguage: "ru",
+		ScreenHeight:    func() int { return 1080 },
 	}
 
 	return window.Actions{Form: form, Inputs: p}, state, m, p

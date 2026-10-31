@@ -42,6 +42,13 @@ func (a Actions) Click(id int) error {
 	if swatch, _, ok := rowPart(id, idOutlineSwatch, 1, len(outlinePalette)); ok {
 		return a.Form.SetOutlineColor(outlinePalette[swatch])
 	}
+	if part, _, ok := rowPart(id, idPart, 1, len(crosshair.PartNames())); ok {
+		a.Form.ChoosePart(crosshair.PartNames()[part])
+		return nil
+	}
+	if arm, _, ok := rowPart(id, idArm, 1, len(game.Arms)); ok {
+		return a.Form.SetArm(game.Arms[arm].Arm, !game.Arms[arm].Shown)
+	}
 	if row, ok := hotkeyRow(screen, id, 2); ok {
 		return a.Form.TakeSuggestion(row.Field)
 	}
@@ -94,6 +101,10 @@ func (a Actions) Click(id int) error {
 		return a.Form.ResetCrosshair()
 	case idReady:
 		return a.Form.ShowReady()
+	case idBuilt:
+		return a.Form.ShowBuilt()
+	case idPartShown:
+		return a.Form.SetPartShown(!game.PartShown)
 	case idPicture:
 		a.Form.ShowPicture()
 	case idColor:

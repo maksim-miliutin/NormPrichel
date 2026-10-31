@@ -61,6 +61,24 @@ func on(b bool) *bool {
 	return &b
 }
 
+func builtScreen(part crosshair.Part) settings.Screen {
+	screen := gameScreen(crosshair.CrossDot)
+	view := screen.Game
+	view.Crosshair.Style = view.Crosshair.Build()
+	view.Built, view.Part, view.Switched, view.PartShown = true, part, crosshair.Switched(part), view.Crosshair.PartShown(part)
+	view.Knobs = nil
+	for _, knob := range crosshair.PartKnobs(part) {
+		view.Knobs = append(view.Knobs, settings.KnobView{Knob: knob, Label: words(knob.Name), Value: view.Crosshair.PartValue(part, knob.Name)})
+	}
+	for _, arm := range crosshair.ArmNames() {
+		if crosshair.Armed(part) {
+			view.Arms = append(view.Arms, settings.ArmView{Arm: arm, Shown: arm != crosshair.Down})
+		}
+	}
+
+	return screen
+}
+
 func everyScreen() map[string]settings.Screen {
 	empty := settings.Screen{Hotkeys: freeHotkeys(), Autostart: on(false)}
 	picture := gameScreen(crosshair.Cross)
@@ -72,7 +90,7 @@ func everyScreen() map[string]settings.Screen {
 	keeping.Hotkeys[2].Taken = "Ctrl+Alt+F3"
 
 	screens := map[string]settings.Screen{}
-	for name, screen := range map[string]settings.Screen{"no games": empty, "a ready-made crosshair": gameScreen(crosshair.Dot), "a picture": picture, "saved crosshairs and a problem": keeping} {
+	for name, screen := range map[string]settings.Screen{"no games": empty, "a ready-made crosshair": gameScreen(crosshair.Dot), "a picture": picture, "saved crosshairs and a problem": keeping, "built lines": builtScreen(crosshair.InnerPart), "a built outline": builtScreen(crosshair.OutlinePart)} {
 		screens[name] = screen
 		for _, tab := range tabWords[1:] {
 			screen.Tab = tab
@@ -544,5 +562,44 @@ func TestTheShapeButtonsDrawSharpRoundOrInBetween(t *testing.T) {
 				t.Errorf("%q corners rounded %d%%: the %s button draws %q, want %q", c.corners, c.rounding, button.Shape, button.Corners, c.want)
 			}
 		}
+	}
+}
+
+func TestTheBuilderShowsItsPartsWhereTheShapesStand(t *testing.T) {
+	screen := builtScreen(crosshair.InnerPart)
+	controls := window.Controls(screen, words)
+
+	if withText(t, controls, words("shape.cross")).Shown || !withWord(t, controls, "color").Shown || !withWord(t, controls, "built").On || withWord(t, controls, "readyMade").On {
+		t.Error("the builder shows the shapes, hides the colour or leaves its button up")
+	}
+	for _, part := range crosshair.PartNames() {
+		if c := withWord(t, controls, "part."+string(part)); !c.Shown || c.On != (part == crosshair.InnerPart) {
+			t.Errorf("the %s button shows %v and is down %v", part, c.Shown, c.On)
+		}
+	}
+	if c := withWord(t, controls, "partShown"); !c.Shown || !c.On {
+		t.Errorf("the switch of the lines shows %v and is on %v", c.Shown, c.On)
+	}
+	for _, arm := range crosshair.ArmNames() {
+		if c := withWord(t, controls, "arm."+string(arm)); !c.Shown || c.On != (arm != crosshair.Down) {
+			t.Errorf("the %s arm shows %v and is down %v", arm, c.Shown, c.On)
+		}
+	}
+	var sliders []string
+	for _, c := range shownOnly(ofKind(controls, window.Slider)) {
+		sliders = append(sliders, c.Knob.Name)
+	}
+	if want := []string{"rounding", "opacity", "length", "thickness", "gap"}; !slices.Equal(sliders, want) {
+		t.Errorf("the lines show sliders %v, want %v", sliders, want)
+	}
+
+	outline := builtScreen(crosshair.OutlinePart)
+	outline.Game.Crosshair.Shape = crosshair.Circle
+	controls = window.Controls(outline, words)
+	if withWord(t, controls, "partShown").Shown || withWord(t, controls, "arm.up").Shown {
+		t.Error("the outline shows a switch or arms it does not have")
+	}
+	if !controls[slices.IndexFunc(controls, rounding)].Shown {
+		t.Error("the rounding hides for parts built over a circle, which have corners")
 	}
 }

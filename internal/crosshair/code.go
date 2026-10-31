@@ -15,12 +15,16 @@ var ErrBadCode = errors.New("crosshair: this is not a crosshair code")
 const (
 	codeVersion    = "np1"
 	roundedVersion = "np2"
+	builtVersion   = "np3"
 )
 
 var cornerWords = map[string]Corners{"sharp": Sharp, "soft": Soft, "round": Round}
 
 func (s Style) Code() string {
 	c := s.clamped()
+	if c.Built {
+		return builtCode(c)
+	}
 	code := fmt.Sprintf("%s.%s.%s.%d.%d.%d.%d.%d.%d.%d.%s", codeVersion, c.Shape, hexOf(c.Color),
 		c.Opacity, c.Length, c.Thickness, c.Gap, c.Radius, c.DotSize, c.Outline.Width, hexOf(c.Outline.Color))
 	// Older copies of the program and the gallery read the first version only.
@@ -28,22 +32,33 @@ func (s Style) Code() string {
 		return code
 	}
 
-	corners, outline := "sharp", "line"
-	if c.Corners != Sharp {
-		corners = string(c.Corners)
-	}
-	if c.Rounding > 0 {
-		corners = strconv.Itoa(c.Rounding)
-	}
-	if c.Outline.Shadow {
-		outline = "shadow"
+	return roundedVersion + strings.TrimPrefix(code, codeVersion) + "." + cornersText(c) + "." + outlineText(c)
+}
+
+func cornersText(c Style) string {
+	switch {
+	case c.Rounding > 0:
+		return strconv.Itoa(c.Rounding)
+	case c.Corners != Sharp:
+		return string(c.Corners)
 	}
 
-	return roundedVersion + strings.TrimPrefix(code, codeVersion) + "." + corners + "." + outline
+	return "sharp"
+}
+
+func outlineText(c Style) string {
+	if c.Outline.Shadow {
+		return "shadow"
+	}
+
+	return "line"
 }
 
 func ParseCode(text string) (Style, error) {
 	fields := strings.Split(strings.TrimSpace(text), ".")
+	if len(fields) == len(builtFields)+1 && strings.EqualFold(fields[0], builtVersion) {
+		return parseBuilt(fields[1:], text)
+	}
 	rounded := len(fields) == 13 && strings.EqualFold(fields[0], roundedVersion)
 	plain := len(fields) == 11 && strings.EqualFold(fields[0], codeVersion)
 	if !rounded && !plain || !slices.Contains(Shapes(), Shape(fields[1])) {

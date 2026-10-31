@@ -41,12 +41,13 @@ type Form struct {
 	Version         string
 	WindowsLanguage string
 
-	chosen     string // the exe on show; one off the list shows the first game
-	tab        string // the part of the window on show; empty is its first
-	pictureTab string // the exe whose picture tab is open, even before a picture is added
-	far        bool   // the arrows move the crosshair ten pixels rather than one
-	problem    error  // the last refusal, nil once a change went through
-	copied     bool   // the code on show went to the clipboard and nothing has changed since
+	chosen     string         // the exe on show; one off the list shows the first game
+	tab        string         // the part of the window on show; empty is its first
+	pictureTab string         // the exe whose picture tab is open, even before a picture is added
+	part       crosshair.Part // the part of a built crosshair on show; empty is the first
+	far        bool           // the arrows move the crosshair ten pixels rather than one
+	problem    error          // the last refusal, nil once a change went through
+	copied     bool           // the code on show went to the clipboard and nothing has changed since
 	painted    *painted
 }
 
@@ -85,12 +86,22 @@ type GameView struct {
 	Name            string
 	Enabled         bool
 	Crosshair       profiles.Crosshair
-	Picture         bool       // the picture is on show rather than the ready-made shapes
-	Knobs           []KnobView // the values the shape is drawn from
+	Picture         bool // the picture is on show rather than the ready-made shapes
+	Built           bool // the parts are on show rather than the ready-made shapes
+	Part            crosshair.Part
+	PartShown       bool
+	Switched        bool // the part on show turns on and off
+	Arms            []ArmView
+	Knobs           []KnobView // the values the shape or the part on show is drawn from
 	Scale           KnobView
 	Rounding        KnobView
 	Offset          profiles.Offset
 	HideWhileAiming bool
+}
+
+type ArmView struct {
+	Arm   crosshair.Arm
+	Shown bool
 }
 
 type KnobView struct {
@@ -170,11 +181,38 @@ func (f *Form) gameView(game profiles.Game) *GameView {
 		Offset:          game.Offset,
 		HideWhileAiming: game.HideWhileAiming,
 	}
+	view.Built = !view.Picture && c.Built
+	if view.Built {
+		return f.partsView(view)
+	}
 	for _, knob := range crosshair.Knobs(c.Shape) {
 		view.Knobs = append(view.Knobs, KnobView{Knob: knob, Label: f.Word(knob.Name), Value: c.Value(knob.Name)})
 	}
 
 	return view
+}
+
+func (f *Form) partsView(view *GameView) *GameView {
+	c, part := view.Crosshair, f.chosenPart()
+	view.Part, view.PartShown, view.Switched = part, c.PartShown(part), crosshair.Switched(part)
+	for _, arm := range crosshair.ArmNames() {
+		if crosshair.Armed(part) {
+			view.Arms = append(view.Arms, ArmView{Arm: arm, Shown: c.ArmShown(part, arm)})
+		}
+	}
+	for _, knob := range crosshair.PartKnobs(part) {
+		view.Knobs = append(view.Knobs, KnobView{Knob: knob, Label: f.Word(knob.Name), Value: c.PartValue(part, knob.Name)})
+	}
+
+	return view
+}
+
+func (f *Form) chosenPart() crosshair.Part {
+	if f.part == "" {
+		return crosshair.PartNames()[0]
+	}
+
+	return f.part
 }
 
 func (f *Form) OpenTab(tab string) {
@@ -283,8 +321,29 @@ func (f *Form) SetShape(shape crosshair.Shape) error {
 func (f *Form) SetKnob(name string, value int) error {
 	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
 		style, err := c.WithValue(name, value)
+		if c.Built {
+			style, err = c.WithPartValue(f.chosenPart(), name, value)
+		}
 		c.Style = style
 		return c, err
+	})
+}
+
+func (f *Form) ChoosePart(part crosshair.Part) {
+	f.part = part
+}
+
+func (f *Form) SetPartShown(on bool) error {
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Style = c.WithPartShown(f.chosenPart(), on)
+		return c, nil
+	})
+}
+
+func (f *Form) SetArm(arm crosshair.Arm, shown bool) error {
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Style = c.WithArm(f.chosenPart(), arm, shown)
+		return c, nil
 	})
 }
 
@@ -359,7 +418,16 @@ func (f *Form) ShowReady() error {
 	f.pictureTab = ""
 
 	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
-		c.Image = ""
+		c.Image, c.Built = "", false
+		return c, nil
+	})
+}
+
+func (f *Form) ShowBuilt() error {
+	f.pictureTab = ""
+
+	return f.editCrosshair(func(c profiles.Crosshair) (profiles.Crosshair, error) {
+		c.Image, c.Style = "", c.Build()
 		return c, nil
 	})
 }

@@ -972,3 +972,137 @@ func TestPastingWhatIsNotACodeSaysSoAndChangesNothing(t *testing.T) {
 		t.Errorf("the crosshair turned into %s", got)
 	}
 }
+
+func shownKnobs(form *settings.Form) map[string]int {
+	values := map[string]int{}
+	for _, k := range form.Screen().Game.Knobs {
+		values[k.Name] = k.Value
+	}
+
+	return values
+}
+
+func TestTheBuilderStartsFromTheReadyShapeOnItsFirstPart(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+
+	if err := form.ShowBuilt(); err != nil {
+		t.Fatal(err)
+	}
+	view := form.Screen().Game
+	game, _ := state.Current().Game("stalzone.exe")
+	if !view.Built || view.Picture || view.Part != crosshair.InnerPart || !game.Crosshair.Built || game.Crosshair.Shape != crosshair.Dot {
+		t.Fatalf("the builder shows %+v over %+v", view, game.Crosshair)
+	}
+	if got := knobNames(view.Knobs); !slices.Equal(got, []string{"opacity", "length", "thickness", "gap"}) {
+		t.Errorf("the lines offer %v", got)
+	}
+	if view.PartShown || !view.Switched || len(view.Arms) != 4 {
+		t.Errorf("the lines of a dot show %v, switch %v, arms %+v; want off, with a switch and four arms", view.PartShown, view.Switched, view.Arms)
+	}
+	if view.Knobs[1].Label != form.Word("length") || view.Knobs[1].Value != game.Crosshair.Parts.Inner.Length {
+		t.Errorf("the length reads %+v", view.Knobs[1])
+	}
+	if other, _ := state.Current().Game("other.exe"); other.Crosshair.Built {
+		t.Error("the other game was built too")
+	}
+}
+
+func TestEachPartShowsItsOwnKnobsSwitchAndArms(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+	form.ShowBuilt()
+
+	for _, c := range []struct {
+		part     crosshair.Part
+		knobs    []string
+		switched bool
+		arms     int
+	}{
+		{crosshair.OuterPart, []string{"opacity", "length", "thickness", "gap"}, true, 4},
+		{crosshair.DotPart, []string{"opacity", "dot"}, true, 0},
+		{crosshair.RingPart, []string{"opacity", "radius", "thickness"}, true, 0},
+		{crosshair.OutlinePart, []string{"outline", "outlineOpacity"}, false, 0},
+	} {
+		form.ChoosePart(c.part)
+		view := form.Screen().Game
+		if got := knobNames(view.Knobs); view.Part != c.part || !slices.Equal(got, c.knobs) || view.Switched != c.switched || len(view.Arms) != c.arms {
+			t.Errorf("%s shows %v, switch %v, %d arms", c.part, got, view.Switched, len(view.Arms))
+		}
+	}
+}
+
+func TestAKnobOfABuiltCrosshairSetsTheChosenPartAlone(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.ShowBuilt()
+	form.ChoosePart(crosshair.OuterPart)
+
+	if err := form.SetKnob("length", 9); err != nil {
+		t.Fatal(err)
+	}
+	game, _ := state.Current().Game("stalzone.exe")
+	before := profiles.DefaultCrosshair()
+	if c := game.Crosshair; c.Parts.Outer.Length != 9 || c.Parts.Inner.Length == 9 || c.Length == 9 {
+		t.Errorf("after the outer length the lengths are %d outer, %d inner and %d ready", c.Parts.Outer.Length, c.Parts.Inner.Length, c.Length)
+	}
+	if got := shownKnobs(form)["length"]; got != 9 || before.Length == 9 {
+		t.Errorf("the outer length reads %d, want 9", got)
+	}
+	if err := form.SetKnob("radius", 3); !errors.Is(err, crosshair.ErrUnknownKnob) {
+		t.Errorf("the outer lines' radius gives %v, want ErrUnknownKnob", err)
+	}
+}
+
+func TestAPartTurnsOnAndOneOfItsArmsHides(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.ShowBuilt()
+	form.ChoosePart(crosshair.OuterPart)
+
+	if err := errors.Join(form.SetPartShown(true), form.SetArm(crosshair.Up, false)); err != nil {
+		t.Fatal(err)
+	}
+	game, _ := state.Current().Game("stalzone.exe")
+	if outer := game.Crosshair.Parts.Outer; !outer.On || !outer.Hidden.Up || outer.Hidden.Down || game.Crosshair.Parts.Inner.Hidden.Up {
+		t.Errorf("the outer lines are %+v and the inner %+v", outer, game.Crosshair.Parts.Inner)
+	}
+	view := form.Screen().Game
+	if !view.PartShown || view.Arms[0] != (settings.ArmView{Arm: crosshair.Up, Shown: false}) || !view.Arms[2].Shown {
+		t.Errorf("the outer lines show %v with arms %+v", view.PartShown, view.Arms)
+	}
+}
+
+func TestTheReadyShapesLeaveThePartsForTheWayBack(t *testing.T) {
+	form, state, _ := newForm(t, listed())
+	form.ShowBuilt()
+	form.ChoosePart(crosshair.RingPart)
+	form.SetPartShown(true)
+	built, _ := state.Current().Game("stalzone.exe")
+
+	if err := form.ShowReady(); err != nil {
+		t.Fatal(err)
+	}
+	if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair.Built || form.Screen().Game.Built {
+		t.Error("the ready shapes left the crosshair built")
+	}
+	form.ShowBuilt()
+	if game, _ := state.Current().Game("stalzone.exe"); game.Crosshair != built.Crosshair {
+		t.Errorf("built again the crosshair is %+v, want %+v", game.Crosshair, built.Crosshair)
+	}
+}
+
+func TestAPictureShowsOverTheBuilderAndABuiltCodeOpensIt(t *testing.T) {
+	form, _, _ := newForm(t, listed())
+	form.ShowBuilt()
+
+	if err := form.AddPicture(pngOf(t, 9)); err != nil {
+		t.Fatal(err)
+	}
+	if view := form.Screen().Game; !view.Picture || view.Built {
+		t.Errorf("with a picture the screen shows picture %v and builder %v", view.Picture, view.Built)
+	}
+
+	if err := form.UseCode(crosshair.Default().Build().Code()); err != nil {
+		t.Fatal(err)
+	}
+	if view := form.Screen().Game; view.Picture || !view.Built {
+		t.Errorf("after a built code the screen shows picture %v and builder %v", view.Picture, view.Built)
+	}
+}

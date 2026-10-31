@@ -30,3 +30,18 @@ func TestEveryShapeIsNamedInBothLanguages(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryPartIsNamedInBothLanguages(t *testing.T) {
+	for language, words := range texts {
+		for _, part := range crosshair.PartNames() {
+			if words["part."+string(part)] == "" {
+				t.Errorf("%s: no name for the part %q", language, part)
+			}
+			for _, knob := range crosshair.PartKnobs(part) {
+				if words[knob.Name] == "" {
+					t.Errorf("%s: no label for the %s of the %s", language, knob.Name, part)
+				}
+			}
+		}
+	}
+}

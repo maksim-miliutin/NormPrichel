@@ -146,8 +146,22 @@ var sharedDrawn = []struct {
 	{"np2.horseshoe.00FF66.100.8.4.4.9.4.1.000000.25.line", 24, 24, "2ea64ad10247229add64f5d585d717817667517eb1f95bfbb78390073c8bc746"},
 }
 
+// Crosshairs built from parts, looked at before they were pinned; the first draws as the ready
+// cross with a dot, to the bit.
+var builtDrawn = []struct {
+	code          string
+	width, height int
+	sha256        string
+}{
+	{"np3.00FF66.1.000000.100.sharp.line.1.100.8.2.3.1111.0.100.4.2.15.1111.1.100.2.0.100.10.2", 24, 24, "9461fe3c635e11f6caa3627f21ebfa5647b44f183851c261260a517f2167ddc4"},
+	{"np3.00FF66.1.000000.100.sharp.line.1.0.8.2.3.1111.0.100.4.2.15.1111.0.100.2.0.100.10.2", 24, 24, "7a17e69c4f60ea196c8bc5b9e697555ae38f317b6c84cf7bf4817e5e4608cb42"},
+	{"np3.FF3377.1.000000.80.sharp.line.1.100.6.2.4.0111.1.60.4.2.14.0111.1.100.2.0.100.10.2", 38, 38, "431206099a69ea63e7ffa467c29682f2d590a0f0ff3914cbca8c0f0d949a3ef7"},
+	{"np3.00FFFF.2.000000.100.round.shadow.0.100.8.2.3.1111.0.100.4.2.15.1111.1.100.3.1.70.12.2", 33, 33, "d26a946a88c4c175c12db9dd4d69405773e328863ae4159cef43a13887a6e506"},
+	{"np3.FFFF00.1.000000.60.60.line.1.90.7.3.3.1111.1.50.5.3.14.1111.1.100.3.1.40.20.1", 43, 43, "ddbba740dc591e4f0abdd03e8632a5dd282e56c554b04dbe17c438b16b4f280b"},
+}
+
 func TestEveryReferenceIsDrawnToTheBit(t *testing.T) {
-	for _, reference := range slices.Concat(drawn, roundedDrawn, sharedDrawn) {
+	for _, reference := range slices.Concat(drawn, roundedDrawn, sharedDrawn, builtDrawn) {
 		style, err := crosshair.ParseCode(reference.code)
 		if err != nil {
 			t.Fatal(err)

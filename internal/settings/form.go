@@ -10,6 +10,7 @@ import (
 
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
 	"github.com/maksim-miliutin/NormPrichel/internal/foreground"
+	"github.com/maksim-miliutin/NormPrichel/internal/gamecode"
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
 )
@@ -40,6 +41,7 @@ type Form struct {
 	SwitchAutostart func(on bool) error
 	Version         string
 	WindowsLanguage string
+	ScreenHeight    func() int // pixels; a game's code is drawn as large as the game draws it there
 
 	chosen     string         // the exe on show; one off the list shows the first game
 	tab        string         // the part of the window on show; empty is its first
@@ -399,6 +401,9 @@ func (f *Form) CopyCode(clipboard func(string) error) error {
 func (f *Form) UseCode(text string) error {
 	style, err := crosshair.ParseCode(text)
 	if err != nil {
+		style, err = f.gameCode(text, err)
+	}
+	if err != nil {
 		f.problem = err
 		return err
 	}
@@ -408,6 +413,16 @@ func (f *Form) UseCode(text string) error {
 		c.Style, c.Image = style, ""
 		return c, nil
 	})
+}
+
+// What is no game's code is no code of the program's either, the refusal the player knows.
+func (f *Form) gameCode(text string, own error) (crosshair.Style, error) {
+	style, err := gamecode.Read(text, f.ScreenHeight())
+	if errors.Is(err, gamecode.ErrUnknown) {
+		return style, own
+	}
+
+	return style, err
 }
 
 func (f *Form) ShowPicture() {

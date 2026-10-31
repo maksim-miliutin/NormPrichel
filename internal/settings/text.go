@@ -2,6 +2,7 @@ package settings
 
 import (
 	"github.com/maksim-miliutin/NormPrichel/internal/crosshair"
+	"github.com/maksim-miliutin/NormPrichel/internal/gamecode"
 	"github.com/maksim-miliutin/NormPrichel/internal/hotkeys"
 	"github.com/maksim-miliutin/NormPrichel/internal/live"
 	"github.com/maksim-miliutin/NormPrichel/internal/profiles"
@@ -125,7 +126,9 @@ var texts = map[string]map[string]string{
 		"error.refused":       "Программа не приняла изменение.",
 		"error.failed":        "Не получилось:",
 		"error.autostart":     "Не получилось переключить запуск вместе с Windows.",
-		"error.bad-code":      "В буфере обмена нет кода прицела: скопируйте код целиком, он начинается с np1.",
+		"error.bad-code":      "В буфере обмена нет кода прицела: скопируйте целиком код NormPrichel, Valorant или CS2.",
+		"error.broken-code":   "Код прицела повреждён: скопируйте его заново целиком.",
+		"error.csgo-code":     "Это код старой CS:GO, его не принимает и CS2: возьмите новый код в настройках прицела CS2.",
 		"error.no-code":       "У своей картинки нет кода: код описывает только готовый прицел.",
 	},
 	"en": {
@@ -243,7 +246,9 @@ var texts = map[string]map[string]string{
 		"error.refused":       "The program refused the change.",
 		"error.failed":        "That did not work:",
 		"error.autostart":     "Starting with Windows could not be switched.",
-		"error.bad-code":      "The clipboard holds no crosshair code: copy the whole code, it starts with np1.",
+		"error.bad-code":      "The clipboard holds no crosshair code: copy a whole NormPrichel, Valorant or CS2 code.",
+		"error.broken-code":   "The crosshair code is damaged: copy it again in full.",
+		"error.csgo-code":     "This is an old CS:GO code, which CS2 no longer takes either: copy a new one from the CS2 crosshair settings.",
 		"error.no-code":       "A picture of your own has no code: a code describes a ready-made crosshair only.",
 	},
 }
@@ -287,5 +292,7 @@ var reasons = []struct {
 	{live.ErrRefused, "refused"},
 	{ErrAutostart, "autostart"},
 	{crosshair.ErrBadCode, "bad-code"},
+	{gamecode.ErrBroken, "broken-code"},
+	{gamecode.ErrCSGO, "csgo-code"},
 	{ErrNoCode, "no-code"},
 }

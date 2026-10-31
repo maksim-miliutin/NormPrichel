@@ -40,6 +40,7 @@ var (
 	procSetTimer                      = user32.NewProc("SetTimer")
 	procSetWinEventHook               = user32.NewProc("SetWinEventHook")
 	procUnhookWinEvent                = user32.NewProc("UnhookWinEvent")
+	procGetSystemMetrics              = user32.NewProc("GetSystemMetrics")
 	procCreateCompatibleDC            = gdi32.NewProc("CreateCompatibleDC")
 	procDeleteDC                      = gdi32.NewProc("DeleteDC")
 	procCreateDIBSection              = gdi32.NewProc("CreateDIBSection")
@@ -56,6 +57,8 @@ const (
 	wsExNoActivate  = 0x08000000
 
 	swHide = 0
+
+	smCyScreen = 1
 
 	swpNoSize     = 0x0001
 	swpNoMove     = 0x0002
@@ -178,6 +181,14 @@ func DeclareDPIAwareness() error {
 	}
 
 	return nil
+}
+
+// Windows gives the main screen's height in its real pixels, the ones a game draws in, only to a
+// process that declared itself aware of the scale; any other gets the height scaled down.
+func ScreenHeight() int {
+	height, _, _ := procGetSystemMetrics.Call(smCyScreen)
+
+	return int(height)
 }
 
 // Run makes the window and pumps its messages until Stop. Windows ties a window, its timer and

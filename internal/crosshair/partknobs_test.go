@@ -110,3 +110,48 @@ func TestEachArmOfEitherLinesHidesAlone(t *testing.T) {
 		}
 	}
 }
+
+// A ring's border is counted more exactly built than ready, so the rings go without an outline.
+func TestBuildingAShapePartsCanDrawKeepsItsLook(t *testing.T) {
+	for _, shape := range []crosshair.Shape{crosshair.Dot, crosshair.Cross, crosshair.CrossDot, crosshair.Tee, crosshair.Dots, crosshair.Circle, crosshair.CircleDot, crosshair.CircleCross} {
+		for _, opacity := range []int{100, 70} {
+			for _, rounding := range []int{0, 50} {
+				style := crosshair.Style{Shape: shape, Color: white, Opacity: opacity, Length: 7, Thickness: 3, Gap: 4, Radius: 11, DotSize: 3, Rounding: rounding, Outline: crosshair.Outline{Width: 1, Color: black}}
+				if slices.Contains([]crosshair.Shape{crosshair.Circle, crosshair.CircleDot, crosshair.CircleCross}, shape) {
+					style.Outline.Width = 0
+				}
+				if !same(draw(t, style.Build()), draw(t, style)) {
+					t.Errorf("%s at %d%% rounded %d%% built from parts draws otherwise", shape, opacity, rounding)
+				}
+			}
+		}
+	}
+}
+
+func TestBuildingAShapePartsCannotDrawStartsFromItsSizes(t *testing.T) {
+	style := crosshair.Style{Shape: crosshair.X, Color: white, Opacity: 80, Length: 7, Thickness: 3, Gap: 2, Radius: 11, DotSize: 4}.Build()
+	want := crosshair.Parts{
+		Inner:          crosshair.Lines{On: true, Opacity: 80, Length: 7, Thickness: 3, Gap: 2},
+		Outer:          crosshair.Lines{Opacity: 80, Length: 4, Thickness: 3, Gap: 13},
+		Dot:            crosshair.Spot{On: true, Opacity: 80, Size: 4},
+		Ring:           crosshair.Band{Opacity: 80, Radius: 11, Thickness: 3},
+		OutlineOpacity: 80,
+	}
+
+	if !style.Built || style.Shape != crosshair.X || style.Parts != want {
+		t.Errorf("built %v from %s with parts %+v, want %+v", style.Built, style.Shape, style.Parts, want)
+	}
+}
+
+func TestBuildingAgainFindsThePartsAsTheyWereLeft(t *testing.T) {
+	style := crosshair.Default().Build()
+	style.Parts.Outer.On = true
+	style.Parts.Inner.Hidden.Down = true
+	left := style.Parts
+	style.Built = false
+	style.Length = 30
+
+	if again := style.Build(); again.Parts != left {
+		t.Errorf("built again the parts are %+v, want them as left, %+v", again.Parts, left)
+	}
+}

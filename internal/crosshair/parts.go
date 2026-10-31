@@ -373,3 +373,44 @@ func Armed(p Part) bool {
 
 	return s.hiddenOf(p, Up) != nil
 }
+
+// The first time a crosshair is built its parts start from its shape, drawing it as it was where
+// parts can and keeping its sizes where they cannot; after that they wait as they were left.
+func (s Style) Build() Style {
+	s.Built = true
+	if s.Parts == (Parts{}) {
+		s.Parts = startingParts(s.clamped())
+	}
+
+	return s
+}
+
+func startingParts(s Style) Parts {
+	p := Parts{
+		Inner:          Lines{Opacity: s.Opacity, Length: s.Length, Thickness: s.Thickness, Gap: s.Gap},
+		Outer:          Lines{Opacity: s.Opacity, Length: 4, Thickness: s.Thickness, Gap: reachLimit.clamp(s.Gap + s.Length + 4)},
+		Dot:            Spot{Opacity: s.Opacity, Size: s.DotSize},
+		Ring:           Band{Opacity: s.Opacity, Radius: s.Radius, Thickness: s.Thickness},
+		OutlineOpacity: s.Opacity,
+	}
+	switch s.Shape {
+	case Dot:
+		p.Dot.On = true
+	case Cross:
+		p.Inner.On = true
+	case Tee:
+		p.Inner.On, p.Inner.Hidden.Up = true, true
+	case Circle:
+		p.Ring.On = true
+	case CircleDot:
+		p.Ring.On, p.Dot.On = true, true
+	case CircleCross:
+		p.Ring.On, p.Inner.On = true, true
+	case Dots:
+		p.Inner = Lines{On: true, Opacity: s.Opacity, Length: s.DotSize, Thickness: s.DotSize, Gap: s.Gap}
+	default:
+		p.Inner.On, p.Dot.On = true, true
+	}
+
+	return p
+}

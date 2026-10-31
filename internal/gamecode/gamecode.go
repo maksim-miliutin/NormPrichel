@@ -12,13 +12,20 @@ var (
 	ErrBroken  = errors.New("gamecode: the crosshair code is damaged")
 )
 
-func Read(text string) (crosshair.Style, error) {
+func Read(text string, screenHeight int) (crosshair.Style, error) {
 	text = strings.TrimSpace(text)
 	if strings.HasPrefix(text, "0;") || text == "0" {
 		return valorant(text)
 	}
+	if !strings.HasPrefix(text, "CS") {
+		return crosshair.Style{}, ErrUnknown
+	}
+	c, err := decodeCS2(text)
+	if err != nil {
+		return crosshair.Style{}, err
+	}
 
-	return crosshair.Style{}, ErrUnknown
+	return c.drawn(screenHeight)
 }
 
 // A part is set through the crosshair's own knobs, which hold every value to its range.
@@ -26,6 +33,7 @@ type part struct {
 	name   crosshair.Part
 	shown  bool
 	values map[string]int
+	hidden []crosshair.Arm
 }
 
 func built(colour, edge crosshair.RGB, parts []part) (crosshair.Style, error) {
@@ -40,6 +48,9 @@ func built(colour, edge crosshair.RGB, parts []part) (crosshair.Style, error) {
 				return crosshair.Style{}, err
 			}
 			s = changed
+		}
+		for _, arm := range p.hidden {
+			s = s.WithArm(p.name, arm, false)
 		}
 	}
 

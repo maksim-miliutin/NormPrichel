@@ -10,7 +10,7 @@ import (
 
 func read(t *testing.T, code string) crosshair.Style {
 	t.Helper()
-	s, err := gamecode.Read(code)
+	s, err := gamecode.Read(code, 1080)
 	if err != nil {
 		t.Fatalf("%q: %v", code, err)
 	}
@@ -93,7 +93,7 @@ func TestValorantValuesPastTheRangeHereAreHeldToIt(t *testing.T) {
 
 func TestADamagedValorantCodeIsRefused(t *testing.T) {
 	for _, code := range []string{"0;P;c", "0;P;0l;abc", "0;P;c;9", "0;P;c;8;u;XYZ", "0;P;c;8", "0;P;;1", "0;P;0l;NaN"} {
-		if _, err := gamecode.Read(code); !errors.Is(err, gamecode.ErrBroken) {
+		if _, err := gamecode.Read(code, 1080); !errors.Is(err, gamecode.ErrBroken) {
 			t.Errorf("%q gives %v, want ErrBroken", code, err)
 		}
 	}
@@ -101,7 +101,7 @@ func TestADamagedValorantCodeIsRefused(t *testing.T) {
 
 func TestWhatIsNoGameCodeIsRefused(t *testing.T) {
 	for _, code := range []string{"", "hello", "1;P;c;5", "np1.cross-dot.00FF66.100.8.2.3.10.2.1.000000", "00;P"} {
-		if _, err := gamecode.Read(code); !errors.Is(err, gamecode.ErrUnknown) {
+		if _, err := gamecode.Read(code, 1080); !errors.Is(err, gamecode.ErrUnknown) {
 			t.Errorf("%q gives %v, want ErrUnknown", code, err)
 		}
 	}

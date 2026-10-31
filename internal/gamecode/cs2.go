@@ -3,6 +3,7 @@ package gamecode
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"strings"
@@ -110,4 +111,83 @@ func checked(chars string, size int) ([]byte, bool) {
 	}
 
 	return b, byte(sum) == b[0]
+}
+
+// Sizes in a CS2 code are pixels on the screen it was made on, and the game scales them to the
+// screen it runs on; a screen of no known height keeps the code's own pixels.
+func (c cs2Crosshair) drawn(screenHeight int) (crosshair.Style, error) {
+	if screenHeight <= 0 {
+		screenHeight = c.height
+	}
+	px := func(v int) int {
+		return int(math.Round(float64(v) * float64(screenHeight) / float64(c.height)))
+	}
+	share := func(alpha int) int {
+		return int(math.Round(float64(alpha) * 100 / 255))
+	}
+	thickness, gap, outline := max(px(c.thickness), 1), max(px(c.gap), 0), 0
+	if c.outline > 0 {
+		outline = max(px(1), 1)
+	}
+	if c.style == squareStyle {
+		return c.square(thickness, gap, outline)
+	}
+
+	family := familyOf(c.style)
+	parts := []part{
+		{name: crosshair.InnerPart, shown: family == crossFamily && c.length > 0, values: map[string]int{"opacity": share(c.alpha), "length": px(c.length), "thickness": thickness, "gap": gap}},
+		{name: crosshair.OuterPart},
+		{name: crosshair.DotPart, shown: c.dot || family == dotFamily, values: map[string]int{"opacity": share(c.alpha), "dot": thickness}},
+		{name: crosshair.RingPart, shown: family == circleFamily, values: map[string]int{"opacity": share(c.alpha), "radius": gap + (thickness+1)/2, "thickness": thickness}},
+		{name: crosshair.OutlinePart, values: map[string]int{"outline": outline, "outlineOpacity": share(c.edgeAlpha)}},
+	}
+	if c.tee {
+		parts[0].hidden = []crosshair.Arm{crosshair.Up}
+	}
+
+	return built(c.colour, c.edge, parts)
+}
+
+type family int
+
+const (
+	crossFamily family = iota
+	circleFamily
+	dotFamily
+)
+
+const squareStyle = 8
+
+// The styles by their numbers: 1 and 3 are circles, 6 a dot alone, 8 a square; every other is
+// a cross at rest, whatever its dynamic layers do as the player moves and shoots.
+func familyOf(style int) family {
+	switch style {
+	case 1, 3:
+		return circleFamily
+	case 6:
+		return dotFamily
+	}
+
+	return crossFamily
+}
+
+func (c cs2Crosshair) square(thickness, gap, outline int) (crosshair.Style, error) {
+	s := crosshair.Default()
+	s.Shape, s.Color, s.Outline.Color = crosshair.Square, c.colour, c.edge
+	if c.dot {
+		s.Shape = crosshair.SquareDot
+	}
+	values := map[string]int{
+		"opacity": int(math.Round(float64(c.alpha) * 100 / 255)), "thickness": thickness, "dot": thickness,
+		"radius": gap + (thickness+1)/2, "outline": outline,
+	}
+	for name, value := range values {
+		changed, err := s.WithValue(name, value)
+		if err != nil {
+			return crosshair.Style{}, err
+		}
+		s = changed
+	}
+
+	return s, nil
 }

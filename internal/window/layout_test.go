@@ -162,7 +162,7 @@ func TestThePositionFollowsTheKnobsOnTheCrosshairTab(t *testing.T) {
 			centre = p
 		case p.Word == "readyMade":
 			ready = p
-		case p.Kind == window.Slider && p.Group == "ready":
+		case p.Kind == window.Slider && p.Group == "drawn":
 			knobs = max(knobs, p.Rect.Y+p.Rect.H)
 		}
 	}
@@ -206,7 +206,7 @@ func TestTheOutlineAndRoundingSitUnderTheColourAndTheKnobsFollowWithoutGaps(t *t
 			outline = p.Rect
 		case p.Kind == window.Slider && p.Group == "rounds":
 			corners = p.Rect
-		case p.Kind == window.Slider && p.Group == "ready":
+		case p.Kind == window.Slider && p.Group == "drawn":
 			sliders = append(sliders, p.Rect)
 		}
 	}
@@ -238,7 +238,7 @@ func TestEverySwatchLinesUpWithTheColourOrTheOutlineColour(t *testing.T) {
 		switch {
 		case p.Word == "color" || p.Word == "outlineColor":
 			labels[p.Word] = p.Rect
-		case (p.Kind == window.Swatch || p.Kind == window.Colour) && p.Group == "ready":
+		case (p.Kind == window.Swatch || p.Kind == window.Colour) && p.Group == "drawn":
 			swatches = append(swatches, p.Rect)
 		}
 	}
@@ -291,4 +291,29 @@ func TestAFieldsOwnWindowSitsInsideItsFrameWithRoomForALine(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestThePartsStandWhereTheShapesDo(t *testing.T) {
+	var shapes, parts window.Rect
+	for _, p := range window.Places() {
+		switch {
+		case p.Kind == window.Choice && p.Group == "ready" && p.Word == "":
+			shapes = union(shapes, p.Rect)
+		case p.Group == "built" || p.Group == "switched" || p.Group == "armed":
+			parts = union(parts, p.Rect)
+		}
+	}
+
+	if parts.X < shapes.X || parts.Y < shapes.Y || parts.X+parts.W > shapes.X+shapes.W || parts.Y+parts.H > shapes.Y+shapes.H {
+		t.Errorf("the parts take %+v, want them within the shapes' %+v", parts, shapes)
+	}
+}
+
+func union(a, b window.Rect) window.Rect {
+	if a == (window.Rect{}) {
+		return b
+	}
+	x, y := min(a.X, b.X), min(a.Y, b.Y)
+
+	return window.Rect{X: x, Y: y, W: max(a.X+a.W, b.X+b.W) - x, H: max(a.Y+a.H, b.Y+b.H) - y}
 }

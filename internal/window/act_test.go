@@ -511,3 +511,30 @@ func TestTheOutlineChoicesAndTheRoundingSliderSetTheCrosshair(t *testing.T) {
 		t.Errorf("after 0%% the crosshair has %q corners rounded %d%%", c.Corners, c.Rounding)
 	}
 }
+
+func TestTheBuilderButtonsChooseAPartTurnItOnAndHideAnArm(t *testing.T) {
+	a, state, _, _ := newActions(t, listed())
+
+	for _, word := range []string{"built", "part.outer", "partShown", "arm.up"} {
+		if err := a.Click(control(t, a, worded(word))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := first(t, state.Current()).Crosshair
+	if !c.Built || !c.Parts.Outer.On || !c.Parts.Outer.Hidden.Up || c.Parts.Inner.Hidden.Up {
+		t.Errorf("after the builder the crosshair is %+v", c)
+	}
+	if err := a.Slide(control(t, a, func(c window.Control) bool { return c.Kind == window.Slider && c.Knob.Name == "length" }), 11); err != nil {
+		t.Fatal(err)
+	}
+	if got := first(t, state.Current()).Crosshair.Parts.Outer.Length; got != 11 {
+		t.Errorf("the outer lines are %d long after the slider, want 11", got)
+	}
+
+	if err := a.Click(control(t, a, worded("readyMade"))); err != nil {
+		t.Fatal(err)
+	}
+	if c := first(t, state.Current()).Crosshair; c.Built || !c.Parts.Outer.On {
+		t.Errorf("after the ready shapes the crosshair is built %v with outer lines %v", c.Built, c.Parts.Outer.On)
+	}
+}

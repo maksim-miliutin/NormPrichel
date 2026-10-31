@@ -35,6 +35,10 @@ const (
 	game      = "game"
 	noGame    = "no-game"
 	ready     = "ready"
+	built     = "built"
+	drawn     = "drawn"    // the shapes or the parts, rather than a picture
+	switched  = "switched" // a part on show that turns on and off
+	armed     = "armed"    // lines on show, whose arms hide one by one
 	rounds    = "rounds"
 	picture   = "picture"
 	saved     = "saved"
@@ -95,7 +99,9 @@ const (
 	idRemoveGame
 	idNoGames
 	idReady
+	idBuilt
 	idPicture
+	idPartShown
 	idColorLabel
 	idColor
 	idOutlineLabel
@@ -150,6 +156,8 @@ const (
 	idHotkey        = 400
 	idSwatch        = 500
 	idOutlineSwatch = 520
+	idPart          = 540
+	idArm           = 560
 	idAddMenu       = 1000
 
 	knobSlots    = 6
@@ -221,31 +229,33 @@ func gamesColumn() []Place {
 func crosshairColumn() []Place {
 	places := []Place{
 		{idNoGames, Hint, "noGames", noGame, Rect{leftX, top, rightX + rightW - leftX, 40}, crosshairTab},
-		{idReady, Choice, "readyMade", game, Rect{leftX, top, 150, 30}, crosshairTab},
-		{idPicture, Choice, "picture", game, Rect{leftX + 156, top, 170, 30}, crosshairTab},
+		{idReady, Choice, "readyMade", game, Rect{leftX, top, 134, 30}, crosshairTab},
+		{idBuilt, Choice, "built", game, Rect{leftX + 140, top, 134, 30}, crosshairTab},
+		{idPicture, Choice, "picture", game, Rect{leftX + 280, top, leftW - 280, 30}, crosshairTab},
 	}
 	for i := range shapeCount {
 		places = append(places, Place{idShape + i, Choice, "", ready, Rect{leftX + i%shapesPerRow*47, top + 42 + i/shapesPerRow*48, 44, 44}, crosshairTab})
 	}
+	places = append(places, partRows()...)
 	colour := colourRow()
-	places = append(places, Place{idColorLabel, Label, "color", ready, Rect{leftX, colour + 5, 64, 18}, crosshairTab})
+	places = append(places, Place{idColorLabel, Label, "color", drawn, Rect{leftX, colour + 5, 64, 18}, crosshairTab})
 	for i := range palette {
-		places = append(places, Place{idSwatch + i, Swatch, "", ready, Rect{leftX + 68 + i*32, colour, 28, 28}, crosshairTab})
+		places = append(places, Place{idSwatch + i, Swatch, "", drawn, Rect{leftX + 68 + i*32, colour, 28, 28}, crosshairTab})
 	}
 	places = append(places,
-		Place{idColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour, 28, 28}, crosshairTab},
-		Place{idOutlineLabel, Label, "outlineColor", ready, Rect{leftX, colour + 35, 64, 18}, crosshairTab},
-		Place{idLine, Choice, "outline.line", ready, Rect{leftX + 68, colour + 30, 80, 28}, crosshairTab},
-		Place{idShadow, Choice, "outline.shadow", ready, Rect{leftX + 154, colour + 30, 80, 28}, crosshairTab},
+		Place{idColor, Colour, "", drawn, Rect{leftX + 68 + len(palette)*32, colour, 28, 28}, crosshairTab},
+		Place{idOutlineLabel, Label, "outlineColor", drawn, Rect{leftX, colour + 35, 64, 18}, crosshairTab},
+		Place{idLine, Choice, "outline.line", drawn, Rect{leftX + 68, colour + 30, 80, 28}, crosshairTab},
+		Place{idShadow, Choice, "outline.shadow", drawn, Rect{leftX + 154, colour + 30, 80, 28}, crosshairTab},
 	)
 	for i := range outlinePalette {
 		x := leftX + 68 + (len(palette)-len(outlinePalette)+i)*32
-		places = append(places, Place{idOutlineSwatch + i, Swatch, "", ready, Rect{x, colour + 30, 28, 28}, crosshairTab})
+		places = append(places, Place{idOutlineSwatch + i, Swatch, "", drawn, Rect{x, colour + 30, 28, 28}, crosshairTab})
 	}
-	places = append(places, Place{idOutlineColor, Colour, "", ready, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab})
+	places = append(places, Place{idOutlineColor, Colour, "", drawn, Rect{leftX + 68 + len(palette)*32, colour + 30, 28, 28}, crosshairTab})
 	places = append(places, knobSlot(roundingSlot, colour+62, rounds, "rounding")...)
 	for i := range knobSlots {
-		places = append(places, knobSlot(i, knobsTop()+i*30, ready, "")...)
+		places = append(places, knobSlot(i, knobsTop()+i*30, drawn, "")...)
 	}
 	places = append(places,
 		Place{idUploadHint, Hint, "uploadHint", picture, Rect{leftX, top + 42, leftW, 50}, crosshairTab},
@@ -253,6 +263,20 @@ func crosshairColumn() []Place {
 	)
 
 	return append(places, knobSlot(scaleSlot, top+134, picture, "scale")...)
+}
+
+// The parts stand where the shapes do, a row to choose one and a row to show it and its arms.
+func partRows() []Place {
+	var places []Place
+	for i, part := range crosshair.PartNames() {
+		places = append(places, Place{idPart + i, Choice, "part." + string(part), built, Rect{leftX + i*84, top + 42, 80, 30}, crosshairTab})
+	}
+	places = append(places, Place{idPartShown, Switch, "partShown", switched, Rect{leftX, top + 90, 140, 24}, crosshairTab})
+	for i, arm := range crosshair.ArmNames() {
+		places = append(places, Place{idArm + i, Choice, "arm." + string(arm), armed, Rect{leftX + 150 + i*66, top + 90, 62, 24}, crosshairTab})
+	}
+
+	return places
 }
 
 func colourRow() int {

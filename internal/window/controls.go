@@ -46,8 +46,12 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		always:    true,
 		game:      view != nil,
 		noGame:    view == nil,
-		ready:     view != nil && !view.Picture,
-		rounds:    view != nil && !view.Picture && crosshair.Rounds(view.Crosshair.Shape),
+		ready:     view != nil && !view.Picture && !view.Built,
+		built:     view != nil && view.Built,
+		drawn:     view != nil && !view.Picture,
+		switched:  view != nil && view.Built && view.Switched,
+		armed:     view != nil && view.Built && len(view.Arms) > 0,
+		rounds:    view != nil && !view.Picture && (view.Built || crosshair.Rounds(view.Crosshair.Shape)),
 		picture:   view != nil && view.Picture,
 		saved:     view != nil && len(screen.Saved) > 0,
 		noSaved:   view != nil && len(screen.Saved) == 0,
@@ -71,7 +75,13 @@ func Controls(screen settings.Screen, word func(string) string) []Control {
 		shapeIndex, _, isShape := rowPart(p.ID, idShape, 1, shapeCount)
 		swatch, _, isSwatch := rowPart(p.ID, idSwatch, 1, len(palette))
 		edging, _, isEdging := rowPart(p.ID, idOutlineSwatch, 1, len(outlinePalette))
+		part, _, isPart := rowPart(p.ID, idPart, 1, len(crosshair.PartNames()))
+		arm, _, isArm := rowPart(p.ID, idArm, 1, len(crosshair.ArmNames()))
 		switch {
+		case isPart:
+			c.On = view.Part == crosshair.PartNames()[part]
+		case isArm:
+			c.On = arm < len(view.Arms) && view.Arms[arm].Shown
 		case isSwatch:
 			c = swatchPart(c, palette[swatch], view.Crosshair.Color)
 		case isEdging:
@@ -123,7 +133,11 @@ func filled(c Control, screen settings.Screen, view *settings.GameView, word fun
 	case idEnabled:
 		c.On = view.Enabled
 	case idReady:
-		c.On = !view.Picture
+		c.On = !view.Picture && !view.Built
+	case idBuilt:
+		c.On = view.Built
+	case idPartShown:
+		c.On = view.PartShown
 	case idPicture:
 		c.On = view.Picture
 	case idColor:
